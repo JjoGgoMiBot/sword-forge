@@ -76,3 +76,8 @@ test('expired events can close without payout and expired jobs do not cause perm
   const w=run(F.fresh(),{type:'workStart',kind:'mine'}).state;
   const restarted=run(w,{type:'workStart',kind:'chores'},1e6+20000);assert.equal(restarted.state.work.kind,'chores');assert.equal(restarted.state.gold,3000);
 });
+test('legacy starter weapons retain sale value while genuine free v3 rolls cannot invent investment',()=>{
+  const legacy=F.normalize({lv:1,path:'blade',gold:1234});assert.equal(legacy.gold,1234);assert.equal(F.sellPrice(legacy),40);
+  const migrated=F.normalize({...legacy,version:3,rev:0,invested:0});assert.equal(F.sellPrice(migrated),40);
+  const free=F.fresh();free.buffs.cat=1;const r=run(free,{type:'enhance'});assert.equal(r.state.invested,0);assert.equal(F.sellPrice(F.normalize(r.state)),0);
+});

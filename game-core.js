@@ -29,6 +29,10 @@
     for(const k of Object.keys(s.smith.st)){const n=int(v.smith?.st?.[k],Math.min(25,budget));s.smith.st[k]=n;budget-=n;}
     s.smith.pts=Math.min(budget,int(v.smith?.pts,budget));
     for(const k of Object.keys(s.st))s.st[k]=int(v.st?.[k]);
+    // Pre-v3 saves did not track paid material. Grandfather one root attempt,
+    // including already migrated rev=0 accounts, rather than making their sword worthless.
+    // A real v3 free-roll weapon always has rev>0 and retains its zero-cost sale cap.
+    if(s.lv>0&&!s.invested&&(v.version!==VERSION||s.rev===0))s.invested=Math.max(10,Math.round(80*(1-s.smith.st.trade*.012)/10)*10);
     // Only server-owned version 3 state may carry live challenges/events.
     if(v.version===VERSION){s.work=v.work&&typeof v.work==='object'?structuredClone(v.work):null;s.event=v.event&&typeof v.event==='object'?structuredClone(v.event):null;}
     return s;
