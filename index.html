@@ -178,6 +178,12 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z
 .tbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;font-variant-numeric:tabular-nums}
 .tbl td,.tbl th{padding:4px;text-align:right;border-bottom:1px solid var(--line)} .tbl th{color:var(--muted);font-weight:600}
 .tbl td:first-child,.tbl th:first-child{text-align:left}
+
+.workshop{margin-top:12px;padding:14px;border:1px solid #3c424e;border-radius:14px;background:linear-gradient(135deg,#1d241f,#151922)}
+.workhead{display:flex;flex-direction:column;gap:4px}.workhead b{color:#e5cb8c;font-size:14px}.workhead span,.workshop p{font-size:12px;color:#aaa99f}.workshop p{margin:10px 0 0;line-height:1.5}
+.workactions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.workactions .btn{padding:13px 6px;background:#292d30;border:1px solid #4a5046}.workactions small{display:block;font-size:11px;color:#c8c1aa;margin-top:5px}
+.worktarget{text-align:center;font-size:22px;color:#ffd36b;background:#24291e;border:1px solid #5d6747;border-radius:12px;padding:18px 8px;margin:14px 0}.workgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.workgrid button{min-height:64px;background:#272c36;border:1px solid #606573;border-radius:12px;font-weight:800;font-size:17px}.workgrid button:focus-visible{outline:3px solid #ffd36b}.workgrid button:disabled{opacity:.55}.workprogress{height:6px;border-radius:8px;background:#262c32;overflow:hidden}.workprogress i{display:block;height:100%;background:#9fc287}.workstatus{min-height:22px;text-align:center;color:#bfcbad!important;font-size:13px!important}
+.mode-note{color:#b3c3b7;font-size:12px;margin:8px 0}
 </style>
 </head>
 <body>
@@ -239,12 +245,18 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z
     <button class="btn small" id="bBuy"><img class="ic" data-art="icon-scroll" alt=""><span>방지권 구매<br><small id="buyTxt"></small></span></button>
   </div>
 
-  <div class="log" id="log"></div>
+  <section class="workshop" aria-label="일거리">
+    <div class="workhead"><b>대장간 밖 일거리</b><span id="workHint">자금이 부족하면 직접 벌어 보세요</span></div>
+    <div class="workactions"><button class="btn" id="bMine">⛏ 광산 채굴<small>광석 선별 · 기본 260G</small></button><button class="btn" id="bChores">🪵 마을 잡일<small>물품 전달 · 기본 180G</small></button></div>
+    <p>골드 1,000 미만이면 일당 50% 추가 · 참가비 없음</p>
+  </section>
+  <div class="log" id="log" aria-live="polite"></div>
 </div>
 
 <div class="toast" id="toast"><img id="toastImg" alt=""><span id="toastTxt"></span></div>
 <div class="modal" id="modal"><div class="card" id="mcard"></div></div>
 
+<script src="game-core.js?v=3"></script>
 <script>
 // ═════════ 데이터 ═════════
 const ART = n => `art/${n}.webp`;
@@ -273,15 +285,8 @@ function pickPath(){
   return ["blade","dagger","club"][Math.floor(Math.random()*3)];
 }
 const MAX = 20;
-// [성공, 유지, 실패(−1), 파괴] %
-// 단계가 오를수록 극악: 성공은 초반부터 가파르게 줄고 파괴는 계속 커진다.
-// 시뮬레이션(골드 무한·방지권 사용): +10 약 1천 회, +12 약 3만 회, +14 이상은 수십만 회 중 극소수
-const P = [
- [85,15,0,0],[72,28,0,0],[60,30,10,0],[50,28,18,4],[41,27,24,8],
- [33,27,28,12],[27,27,30,16],[22,28,30,20],[18,29,29,24],[14.5,29.5,28,28],
- [11.5,31.5,26,31],[9,33,24,34],[7,35,22,36],[5.5,36.5,20,38],[4.3,38.7,17,40],
- [3.4,40.6,14,42],[2.7,42.3,11,44],[2.1,43.9,8,46],[1.6,44.4,6,48],[1.2,44.8,4,50],
-];
+// 초반은 완만하게, 후반은 가파르게. 서버와 동일한 확률표.
+const P = Forge.P;
 const RANKS = [ // [필요 레벨, 직급]
  [1,"견습생"],[5,"수습 대장장이"],[10,"대장장이"],[16,"숙련 대장장이"],[23,"장인"],[31,"명장"],[40,"대명장"],[50,"전설의 대장장이"],
 ];
@@ -290,31 +295,23 @@ const STATS = {
   dex:  {name:"손재주", icon:"icon-dex",   desc:v=>`성공 확률 +${v*2}% (상대)`},
   focus:{name:"집중",   icon:"icon-focus", desc:v=>`파괴 확률 −${(v*1.5).toFixed(1)}% (실패로 전환)`},
   str:  {name:"힘",     icon:"icon-str",   desc:v=>`대성공(+2) 확률 ${(5+v*0.4).toFixed(1)}%`},
-  luck: {name:"행운",   icon:"icon-luck",  desc:v=>`이벤트 확률 +${(v*0.6).toFixed(1)}%p, 파편 +${v*5}%`},
-  trade:{name:"상술",   icon:"icon-trade", desc:v=>`판매가 +${v*4}%, 강화비 −${(v*1.5).toFixed(1)}%`},
+  luck: {name:"행운",   icon:"icon-luck",  desc:v=>`이벤트 확률 +${(v*0.25).toFixed(2)}%p, 파괴 파편 +${v*3}%`},
+  trade:{name:"상술",   icon:"icon-trade", desc:v=>`판매가 +${(v*1.5).toFixed(1)}%, 강화비 −${(v*1.2).toFixed(1)}%`},
 };
 const xpNeed = L => Math.round(40*Math.pow(L,1.6));
 const rankOf = L => { let r=0; RANKS.forEach((x,i)=>{ if(L>=x[0]) r=i; }); return r; };
 
 // ═════════ 상태 ═════════
 const KEY="swordforge2";
-const DEF = {lv:0,path:null,gold:3000,shard:0,prot:0,best:0,pity:0,buffs:{},seen:["root"],cleared:{},useProt:true,
-  smith:{lv:1,xp:0,pts:0,st:{dex:0,focus:0,str:0,luck:0,trade:0}},
-  st:{tries:0,ok:0,keep:0,fail:0,boom:0,great:0,earned:0,saved:0}};
+const DEF = Forge.fresh();
 let S;
-try{ const L=JSON.parse(localStorage.getItem(KEY)||"null"); S=structuredClone(DEF); if(L){ Object.assign(S,L); S.smith=Object.assign(structuredClone(DEF.smith),L.smith); S.smith.st=Object.assign(structuredClone(DEF.smith.st),L.smith&&L.smith.st); S.st=Object.assign(structuredClone(DEF.st),L.st); } }
-catch(e){ S=structuredClone(DEF); }
-const save=()=>{ S.t=Date.now(); try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} if(typeof cloudQueue==="function") cloudQueue(); };
+try{S=Forge.normalize(JSON.parse(localStorage.getItem(KEY)||"null"));}catch(e){S=Forge.fresh();}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast("icon-xp","기기 저장 공간을 확인해 주세요");}};
 const ST=()=>S.smith.st;
-if(typeof S.name!=="string"||!S.name.trim()) { S.name="대장장이"+(1000+Math.floor(Math.random()*9000)); }
-
-if(!Array.isArray(S.seen) || typeof S.seen[0]!=="string") S.seen=["root"];
-if(typeof S.cleared!=="object" || !S.cleared) S.cleared={};
-if(S.lv>0 && !PATHS[S.path]) S.path="blade";
-const cost = l => Math.max(10, Math.round(100*Math.pow(1.42,l)*PM().cost*(1-ST().trade*0.015)/10)*10);
-const sellPrice = l => l===0?0:Math.round(150*Math.pow(1.75,l)*PM().sell*(1+ST().trade*0.04)/10)*10;
-const shardsOnBoom = l => Math.round((l*l/2+5)*(1+ST().luck*0.05));
-const PROT_COST = 40;
+if(!S.name||S.name==="대장장이")S.name="대장장이"+(1000+Math.floor(Math.random()*9000));
+const cost = l => Forge.cost(S,l);
+const sellPrice = l => Forge.sellPrice(S,l);
+const PROT_COST = Forge.PROT_COST;
 const tierColor = l => l>=20?"#ffffff":l>=17?"#ffd36b":l>=13?"#ff7a9c":l>=9?"#c48bff":l>=5?"#7fd3ff":"#b9b5aa";
 const TIERS=["하찮음","쓸만함","레어","에픽","전설","신급"];
 const tierOf = l => l>=20?5:l>=17?4:l>=13?3:l>=9?2:l>=5?1:0;
@@ -322,20 +319,7 @@ const img = (l,path=S.path) => l===0||!path ? "img/sword-00.webp" : `img/${path}
 const seenKey = (path,l) => l===0||!path ? "root" : path+":"+l;
 
 // ═════════ 확률 ═════════
-function odds(){
-  if(S.lv>=MAX) return [0,0,0,0];
-  let [s,k,f,d]=P[S.lv]; const B=S.buffs, m=PM();
-  s*=m.s; f*=m.f; d*=m.d;
-  if(B.star){ f+=d; d=0; }
-  if(B.curse){ s*=1.5; d*=2; }
-  const red=d*ST().focus*0.015; d-=red; f+=red;
-  // 보정(집념·손재주·컨디션)은 고강화일수록 약해진다: +0은 그대로, +19는 1/4만 적용
-  const fade=Math.max(.25,1-S.lv/20);
-  s = Math.min(95, s*(1 + (S.pity*0.05 + ST().dex*0.02 + (B.smith?0.3:0))*fade));
-  const rest=100-s, sum=k+f+d;
-  if(sum>0){ k*=rest/sum; f*=rest/sum; d*=rest/sum; } else k=rest;
-  return [s,k,f,d];
-}
+function odds(){return Forge.odds(S);}
 
 // ═════════ UI ═════════
 const $=id=>document.getElementById(id);
@@ -367,12 +351,14 @@ function render(){
   ["S","K","F","D"].forEach((id,i)=>{ $("p"+id).style.width=o[i]+"%"; $("t"+id).textContent=pct(o[i]); });
   $("pityBar").style.width=(S.pity/10*100)+"%"; $("pityTxt").textContent="+"+(S.pity*5)+"%";
   $("costTxt").innerHTML = l>=MAX ? "최대 강화" : free ? `<img class="ic" src="${ART('icon-cat')}" alt="">무료` : `<img class="ic" src="${ART('icon-gold')}" alt="">${fmt(c)}G`;
-  $("bUp").disabled = busy || l>=MAX || (!free && S.gold<c);
+  $("bUp").disabled = unavailable() || l>=MAX || (!free && S.gold<c);
   $("sellTxt").textContent = l===0 ? "가치 없음" : fmt(sellPrice(l))+"G";
-  $("bSell").disabled = busy || l===0;
+  $("bSell").disabled = unavailable() || l===0;
   $("buyTxt").textContent = "파편 "+PROT_COST;
-  $("bBuy").disabled = busy || S.shard<PROT_COST;
+  $("bBuy").disabled = unavailable() || S.shard<PROT_COST;
   $("useProt").checked = S.useProt;
+  $("bMine").disabled=unavailable();$("bChores").disabled=unavailable();$("useProt").disabled=unavailable();
+  $("workHint").textContent=S.gold<c?"강화 자금 부족 · 일거리로 다시 시작하세요":S.gold<1000?"생활 지원 적용: 채굴 390G / 잡일 270G":"원하는 때에 일하고 강화 자금을 모으세요";
   const b=[], chip=(cls,ic,t)=>b.push(`<span class="chip ${cls}"><img src="${ART(ic)}" alt="">${t}</span>`);
   if(S.buffs.smith) chip("good","icon-hammer",`컨디션 최고 ×${S.buffs.smith}`);
   if(S.buffs.star) chip("good","icon-star","별의 가호: 파괴 0%");
@@ -759,17 +745,6 @@ async function tierCutin(l){
 }
 
 // ═════════ 경험치 ═════════
-function gainXP(n){
-  const sm=S.smith; if(sm.lv>=SMITH_MAX) return;
-  sm.xp+=Math.round(n);
-  while(sm.lv<SMITH_MAX && sm.xp>=xpNeed(sm.lv)){
-    sm.xp-=xpNeed(sm.lv); const before=rankOf(sm.lv); sm.lv++; sm.pts++;
-    const after=rankOf(sm.lv);
-    if(after>before){ sm.pts+=2; pendingRank=after; }
-    else { SFX.lvup(); toast("icon-xp",`레벨 업! ${sm.lv}레벨 · 능력치 포인트 +1`); }
-    log(`대장장이 레벨 업 → ${sm.lv}레벨`,"c-xp");
-  }
-}
 let pendingRank=null;
 function showRankUp(r){
   SFX.great(); emit(60,{spr:"fx-spark",speed:9,life:60,size:30,grav:.05});
@@ -780,110 +755,84 @@ function showRankUp(r){
 
 // ═════════ 강화 ═════════
 let busy=false, holding=false;
+function unavailable(){return busy||requestBusy||!accountReady||!tabReady;}
 async function enhance(){
-  if(busy||S.lv>=MAX||$("modal").classList.contains("on")) return false;
-  const free=S.buffs.cat>0, c=cost(S.lv);
-  if(!free && S.gold<c) return false;
-  busy=true;
-  if(free) S.buffs.cat--; else S.gold-=c;
-  const o=odds(), from=S.lv; SND_LV=from; render();
-  // 망치질: 짧고 빠르게, 고강화일수록 한 박자 긴장
-  const stage=$("stage"); stage.classList.add("charging");
-  const hits=1+Math.floor(from/7);
-  for(let i=0;i<hits;i++){ if(i===hits-1&&hits>1){ stage.classList.remove("charging"); await wait(300); stage.classList.add("charging"); } SFX.clang(1+i*.08); emit(8,{spr:"fx-spark",y:.5,speed:6,grav:.25,life:22,size:18}); emit(5,{spr:"fx-ember",y:.5,speed:4,grav:.2,life:30,size:14}); await wait(130); }
-  stage.classList.remove("charging");
-  if(from>=10){ SFX.beat((180+from*12)/1000); OBJ.bright=1.3; await wait(180+from*12); OBJ.bright=1; }
-
-  const r=Math.random()*100;
-  const res = r<o[0]?"ok": r<o[0]+o[1]?"keep": r<o[0]+o[1]+o[2]?"fail":"boom";
-  S.st.tries++;
-  if(S.buffs.smith){ S.buffs.smith--; if(!S.buffs.smith) delete S.buffs.smith; }
-  delete S.buffs.star; delete S.buffs.curse;
-  let xp=4+from*3, stop=false;
-
-  if(res==="ok"){
-    const great = from<=12 && Math.random()*100 < 5+ST().str*0.4+PM().great;
-    let fork=null; if(from===0){ fork=pickPath(); S.path=fork; }
-    S.lv=Math.min(MAX,from+(great?2:1)); S.pity=0; S.st.ok++; xp*=1.5;
-    flash("#ffffff",320,.9); setSword(S.lv);
-    const E=ELEM(fork||S.path,S.lv), ec=()=>colA(E,Math.random()<.5?0:120);
-    if(fork){ const P_=PATHS[fork]; await forkReveal(fork); if(P_.rare) stop=true; }
-    if(great){ S.st.great++; banner("대성공 +2","#ffd36b"); SFX.great(); emit(70,{spr:"fx-spark",tint:ec,speed:11,grav:.08,life:60,size:30}); ring(E.c1); setTimeout(()=>ring("#ffd36b",1.6),120); flash("#ffd36baa"); shake(); log(`대성공! +${from} → +${S.lv} ${nameOf(S.path,S.lv)}`,"c-ok"); }
-    else { banner("성공","#4fd18b"); SFX.ok(); emit(30+S.lv*3,{spr:S.lv>=9?pick("fx2-flare","fx-magic"):"fx-spark",tint:S.lv>=5?ec:undefined,speed:8,grav:.06,life:50,size:24}); ring(E.rainbow?"#ffffff":E.c1); flash((E.rainbow?"#ffffff":E.c1)+"55"); log(`성공 +${from} → +${S.lv} ${nameOf(S.path,S.lv)}`,"c-ok"); }
-    announce(S.lv,S.path,great);
-    if(S.lv>S.best && S.lv>=8) stop=true; // 신기록은 한 번 멈춰서 감상
-    if(tierOf(S.lv)>tierOf(from)){ stop=true; await wait(780); await tierCutin(S.lv); } // 성공 문구가 사라진 뒤 승급 문구 (글자 겹침 방지)
-  } else if(res==="keep"){
-    S.pity=Math.min(10,S.pity+1); S.st.keep++;
-    banner("유지","#8fa3c4"); SFX.keep(); emit(10,{spr:pick("fx2-smoke","smoke-tex"),tint:"#8a8f99",y:.5,jx:.3,angle:-Math.PI/2,spread:.8,speed:1.2,life:60,size:70,grow:.6,alpha:.5}); log(`유지 +${S.lv}`,"c-keep");
-  } else if(res==="fail"){
-    S.pity=Math.min(10,S.pity+1); S.st.fail++; S.lv=Math.max(0,from-1); if(S.lv===0) S.path=null;
-    banner("실패 −1","#f08a4b"); SFX.fail(); shake(); stage.style.boxShadow="inset 0 0 50px #ff2a3caa"; stage.style.borderColor="#ff2a3c"; setTimeout(()=>{stage.style.boxShadow="";render();},450);
-    await tween(220,k=>{ OBJ.sink=k*40; OBJ.fade=1-k; }); setSword(S.lv); OBJ.sink=-14; await tween(200,k=>{ OBJ.sink=-14*(1-k); OBJ.fade=k; }); emit(10,{spr:"fx-ember",speed:3,grav:.15,life:40,size:16}); log(`실패 +${from} → +${S.lv}`+(S.lv===0?" · 다시 나뭇가지로":""),"c-fail");
-  } else {
-    if(S.useProt && S.prot>0){
-      S.prot--; S.pity=Math.min(10,S.pity+1); S.st.saved++;
-      banner("방지!","#7fd3ff"); SFX.keep(); flash("#7fd3ff55"); shake(); emit(30,{spr:"fx-magic",speed:7,life:45,size:26}); ring();
-      log(`파괴될 뻔! 방지권으로 +${from} 유지 (남은 ${S.prot}장)`,"c-keep");
-    } else {
-      const sh=shardsOnBoom(from); S.shard+=sh; S.st.boom++; S.pity=0; xp=6+from*8; stop=true;
-      const BE=ELEM(S.path,from); emit(30,{spr:pick("fx2-shard","fx-shard"),tint:SPR["fx2-shard"]?BE.c1:undefined,speed:13,grav:.45,life:80,size:46,spin:.4,jy:.5,up:4}); emit(40,{spr:"fx-ember",speed:10,grav:.2,life:60,size:22});
-      flash("#ff1e3c",650); shake(true); SFX.boom(); banner("파괴","#ff4d5e");
-      OBJ.bright=3; await wait(110); OBJ.fade=0; OBJ.bright=1;
-      log(`파괴! +${from} ${nameOf(S.path,from)} 산산조각 · 파편 +${sh}`,"c-boom");
-      S.lv=0; S.path=null; await wait(300); { const f=$("flash"); f.style.transition="opacity .25s"; f.style.background="#000"; f.style.opacity=.92; }
-      await wait(1000); setSword(0); OBJ.fade=1; flash("#000",500,.92);
-    }
-  }
-  gainXP(xp);
-  if(S.lv>S.best) S.best=S.lv;
-  { const k=seenKey(S.path,S.lv); if(!S.seen.includes(k)) S.seen.push(k); }
-  save(); busy=false; render();
-  if(pendingRank!=null){ const r=pendingRank; pendingRank=null; await wait(400); showRankUp(r); return false; }
-  if(S.lv>=MAX && !S.cleared[S.path]){ S.cleared[S.path]=true; save(); await wait(700); ending(); return false; }
-  if(Math.random()*100 < 9+ST().luck*0.6){ await wait(350); randomEvent(); return false; }
-  if(!free && S.gold<cost(0) && S.lv===0) charity();
-  return !stop;
+  if(unavailable()||S.lv>=MAX||$("modal").classList.contains("on"))return false;
+  if(!S.buffs.cat&&S.gold<cost(S.lv))return false;
+  busy=true;holding=!!holding;const old=structuredClone(S),from=S.lv;SND_LV=from;render();
+  try{
+    const stage=$("stage");stage.classList.add("charging");SFX.clang();emit(12,{spr:"fx-spark",y:.5,speed:6,grav:.25,life:22,size:18});
+    const r=await dispatch({type:"enhance"});await wait(from>=10?550:160);stage.classList.remove("charging");
+    if(!r)return false;const o=r.out;
+    setSword(S.lv);const E=ELEM(S.path,S.lv);
+    if(o.result==="ok"){
+      if(o.fork)await forkReveal(o.fork);
+      banner(o.great?"대성공 +2":"성공",o.great?"#ffd36b":"#4fd18b");o.great?SFX.great():SFX.ok();flash(E.c1+"77");ring(E.c1);emit(35+S.lv*2,{spr:"fx-spark",speed:8,grav:.06,life:50,size:24});
+      log(`${o.great?"대성공":"성공"} +${from} → +${S.lv} ${nameOf(S.path,S.lv)}`,"c-ok");announce(S.lv,S.path,o.great);
+      if(tierOf(S.lv)>tierOf(from)){await wait(700);await tierCutin(S.lv);}
+    }else if(o.result==="keep"){banner("유지","#8fa3c4");SFX.keep();log(`유지 +${S.lv}`,"c-keep");}
+    else if(o.result==="fail"){banner("실패 −1","#f08a4b");SFX.fail();shake();log(`실패 +${from} → +${S.lv}`,"c-fail");}
+    else if(o.protected){banner("방지!","#7fd3ff");SFX.keep();flash("#7fd3ff55");log(`방지권으로 +${from} 유지 (남은 ${S.prot}장)`,"c-keep");}
+    else{banner("파괴","#ff4d5e");SFX.boom();flash("#ff1e3c",650);shake(true);emit(40,{spr:"fx-shard",speed:12,grav:.4,life:65,size:35});log(`파괴! +${from} ${nameOf(old.path,from)} · 파편 +${o.shards}`,"c-boom");await wait(900);}
+    if(S.smith.lv>old.smith.lv){toast("icon-xp",`대장장이 ${S.smith.lv}레벨 · 스탯 포인트 획득`);log(`대장장이 레벨 업 → ${S.smith.lv}레벨`,"c-xp");}
+    if(o.ending){ending();return false;}
+    if(S.event){randomEvent();return false;}
+    if(Forge.rankOf(S.smith.lv)>Forge.rankOf(old.smith.lv)){showRankUp(Forge.rankOf(S.smith.lv));return false;}
+    if(S.gold<cost(S.lv)&&!S.buffs.cat)log("골드가 부족해요. 광산 채굴이나 마을 잡일로 자금을 모아 보세요.","c-gold");
+    await wait(Math.max(0,S.nextAction-Date.now()));
+    return o.result!=="boom"&&!(o.fork&&PATHS[o.fork].rare)&&tierOf(S.lv)===tierOf(from)&&!(S.lv>old.best&&S.lv>=8);
+  }catch(e){log(e.message,"c-fail");return false;}
+  finally{busy=false;$("stage").classList.remove("charging");render();}
 }
-async function holdLoop(){
-  if(holding) return; holding=true;
-  while(holding){ const go=await enhance(); if(!go){ holding=false; break; } await wait(90); }
+async function holdLoop(){if(holding||unavailable())return;holding=true;while(holding){if(!await enhance()){holding=false;break;}await wait(100);}}
+async function sell(){
+  if(unavailable()||!S.lv||$("modal").classList.contains("on"))return;
+  if(S.lv>=10&&!confirm(`+${S.lv} ${nameOf(S.path,S.lv)}을(를) ${fmt(sellPrice(S.lv))}G에 판매할까요?`))return;
+  const r=await dispatch({type:"sell"});if(!r)return;setSword(0);SFX.coin();log(`+${r.out.from} 판매 → ${fmt(r.out.price)}G`,"c-gold");
 }
+async function buyProt(){if(unavailable()||$("modal").classList.contains("on"))return;const r=await dispatch({type:"buyProt"});if(r){SFX.coin();log(`파괴방지권 구매 (보유 ${S.prot}장)`,"c-ev");}}
 
-function sell(){
-  if(busy||S.lv===0) return;
-  const l=S.lv, p=sellPrice(l);
-  if(l>=10 && !confirm(`+${l} ${nameOf(S.path,l)}을(를) ${fmt(p)}G에 판매할까요?`)) return;
-  S.gold+=p; S.st.earned+=p; S.lv=0; S.path=null; S.pity=0; setSword(0); SFX.coin(); gainXP(l*4);
-  emit(30,{spr:"fx-spark",speed:6,grav:.2,life:45,size:20}); log(`+${l} 판매 → ${fmt(p)}G`,"c-gold"); save(); render();
-  if(pendingRank!=null){ const r=pendingRank; pendingRank=null; showRankUp(r); }
-}
-function buyProt(){ if(S.shard<PROT_COST) return; S.shard-=PROT_COST; S.prot++; SFX.coin(); log(`파괴방지권 구매 (보유 ${S.prot}장)`,"c-ev"); save(); render(); }
-
-// ═════════ 모달 / 이벤트 ═════════
-function modal(html,lock=true){ $("mcard").innerHTML=html; $("mcard").dataset.lock=lock?1:""; $("modal").classList.add("on"); holding=false; }
-function closeModal(){ $("modal").classList.remove("on"); render(); }
-$("modal").addEventListener("click",e=>{ if(e.target.id==="modal" && !$("mcard").dataset.lock) closeModal(); });
-function evModal(scene,title,body,choices){
-  SFX.ev();
-  modal(`<img class="scene" src="${ART(scene)}" alt="" onerror="this.remove()"><h3>${title}</h3><p>${body}</p><div class="choices">${choices.map((c,i)=>`<button class="btn ${i===0?'main':''}" data-i="${i}">${c[0]}</button>`).join("")}</div>`);
-  $("mcard").querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{ const fn=choices[b.dataset.i][1]; closeModal(); fn&&fn(); save(); render(); });
-}
-const EVENTS = [
-  {w:5, ok:()=>true, run:()=>evModal("ev-smith","대장장이 컨디션 최고","오늘따라 손이 잘 풀린다. 망치가 가볍다.<br><b>다음 3회 성공 확률 +30% (상대)</b>",[["좋아",()=>{S.buffs.smith=3;log("컨디션 최고: 다음 3회 성공 확률 상승","c-ev");}]])},
-  {w:3, ok:()=>S.lv>=5, run:()=>evModal("ev-star","별의 가호","밤하늘에서 별똥별이 모루 위로 떨어졌다.<br><b>다음 1회 강화 파괴 확률 0%</b>",[["받는다",()=>{S.buffs.star=1;log("별의 가호: 다음 강화 파괴 0%","c-ev");}]])},
-  {w:3, ok:()=>S.lv>=5, run:()=>evModal("ev-curse","저주받은 망치","검은 로브의 사내가 망치를 내민다.<br>“이걸로 두드리면 <b>성공 확률 ×1.5</b>… 대신 <b>파괴 확률 ×2</b>지.”",[["받는다",()=>{S.buffs.curse=1;log("저주받은 망치를 손에 쥐었다…","c-boom");}],["거절",()=>log("사내는 혀를 차며 사라졌다.")]])},
-  {w:4, ok:()=>true, run:()=>{ const p=2000+cost(S.lv)*4; evModal("ev-merchant","떠돌이 상인",`“좋은 물건 있소. <b>파괴방지권 1장</b>, ${fmt(p)}G에 가져가시오.”`,[[`산다 ${fmt(p)}G`,()=>{ if(S.gold>=p){S.gold-=p;S.prot++;SFX.coin();log(`상인에게 방지권 구매 (${fmt(p)}G)`,"c-ev");} else log("돈이 모자라 상인이 떠났다."); }],["됐어요",null]]); }},
-  {w:3, ok:()=>S.lv>=6, run:()=>{ const p=sellPrice(S.lv)*2; evModal("ev-noble","귀족의 의뢰",`화려한 마차가 멈춰 섰다.<br>“그 <b>+${S.lv} ${nameOf(S.path,S.lv)}</b>, <b>${fmt(p)}G</b>(판매가 2배)에 사겠네.”`,[["판다",()=>{const l=S.lv;S.gold+=p;S.st.earned+=p;S.lv=0;S.path=null;S.pity=0;setSword(0);SFX.coin();gainXP(l*6);log(`귀족에게 +${l} 판매 → ${fmt(p)}G`,"c-gold");}],["더 강화한다",()=>log("귀족이 아쉬워하며 떠났다.")]]); }},
-  {w:4, ok:()=>true, run:()=>evModal("ev-cat","고양이가 풀무를 밟았다","냥… 불이 저절로 활활 타오른다. 연료비가 굳었다.<br><b>다음 2회 강화 무료</b>",[["귀여워",()=>{S.buffs.cat=(S.buffs.cat||0)+2;log("고양이 덕분에 다음 2회 무료 강화","c-ev");}]])},
-  {w:3, ok:()=>true, run:()=>{ const n=Math.round((10+Math.random()*20+S.lv*2)*(1+ST().luck*0.05)); evModal("ev-vein","광맥 발견","대장간 뒷마당을 파다가 반짝이는 걸 찾았다.",[[`파편 +${n}`,()=>{S.shard+=n;log(`광맥에서 파편 +${n}`,"c-ev");}]]); }},
-  {w:2, ok:()=>S.gold>=1000, run:()=>{ const bet=Math.floor(S.gold/2/10)*10; evModal("ev-gambler","도박꾼의 동전",`“앞면이면 두 배, 뒷면이면 꽝. <b>${fmt(bet)}G</b> 걸어보겠나?”`,[["던진다",()=>{ if(Math.random()<.5){S.gold+=bet;SFX.great();log(`앞면! +${fmt(bet)}G`,"c-gold");} else {S.gold-=bet;SFX.fail();log(`뒷면… −${fmt(bet)}G`,"c-fail");} }],["안 한다",null]]); }},
-];
+// ═════════ 모달 / 이벤트 / 일거리 ═════════
+let workTicker=0;
+function modal(html,lock=true){clearInterval(workTicker);$("mcard").innerHTML=html;$("mcard").dataset.lock=lock?1:"";$("modal").classList.add("on");holding=false;}
+function closeModal(){if(requestBusy)return;clearInterval(workTicker);$("modal").classList.remove("on");render();}
+$("modal").addEventListener("click",e=>{if(e.target.id==="modal"&&!$("mcard").dataset.lock)closeModal();});
+const EVENT_TEXT={
+  smith:["ev-smith","대장장이 컨디션 최고","다음 3회 성공 확률 +30% (상대)"],
+  star:["ev-star","별의 가호","다음 1회 강화는 파괴 확률 0%"],
+  curse:["ev-curse","저주받은 망치","다음 강화 성공 ×1.5, 파괴 ×2"],
+  merchant:["ev-merchant","떠돌이 상인","파괴방지권 1장을 팝니다."],
+  noble:["ev-noble","귀족의 의뢰","현재 무기를 판매가의 1.35배에 사겠다는 의뢰입니다."],
+  cat:["ev-cat","고양이가 풀무를 밟았다","다음 2회 강화 무료 (최대 2회 보유)"],
+  vein:["ev-vein","광맥 발견","대장간 뒷마당에서 파편을 발견했습니다."]
+};
 function randomEvent(){
-  const pool=EVENTS.filter(e=>e.ok()), tot=pool.reduce((a,e)=>a+e.w,0); let r=Math.random()*tot;
-  for(const e of pool){ if((r-=e.w)<0){ e.run(); return; } }
+  const ev=S.event;if(!ev)return;const t=EVENT_TEXT[ev.kind];if(!t)return;
+  modal(`<img class="scene" src="${ART(t[0])}" alt=""><h3>${t[1]}</h3><p>${t[2]}${ev.price?`<br><b>${fmt(ev.price)}G</b>`:""}${ev.amount?`<br>파편 +${ev.amount}`:""}</p><div class="choices"><button class="btn main" id="evAccept">${ev.kind==="merchant"?"구매":ev.kind==="noble"?"판매":"받기"}</button><button class="btn" id="evSkip">지나가기</button></div>`);
+  let used=false;
+  const choose=async accept=>{if(used||requestBusy)return;used=true;const r=await dispatch({type:"event",id:ev.id,accept});if(!r){used=false;return;}closeModal();setSword(S.lv);if(r.out.eventExpired){log("이벤트 유효 시간이 지나 보상 없이 종료됐어요.");}else if(accept){SFX.coin();log(`${t[1]} ${ev.price?fmt(ev.price)+"G":"선택 완료"}`,"c-ev");}};
+  $("evAccept").onclick=()=>choose(true);$("evSkip").onclick=()=>choose(false);
 }
-function charity(){ evModal("ev-charity","노대장장이의 동정","빈털터리가 된 당신에게 늙은 대장장이가 주머니를 건넨다.<br>“포기하지 말게. 나도 처음엔 나뭇가지였지.”",[["감사합니다 (+800G)",()=>{S.gold+=800;SFX.coin();log("노대장장이에게 800G를 받았다.","c-gold");}]]); }
+async function startWork(kind){
+  if(unavailable()||$("modal").classList.contains("on"))return;
+  const r=await dispatch({type:"workStart",kind});if(r)showWork();
+}
+function showWork(){
+  const w=S.work;if(!w)return;
+  modal(`<h3>${w.kind==="mine"?"⛏ 광산 채굴":"🪵 마을 잡일"}</h3><p>${w.kind==="mine"?"감독이 표시한 광석만 골라 캐세요.":"주문서에 적힌 물건을 골라 전달하세요."}<br>매번 위치와 주문이 달라집니다. 오답·시간 초과는 보상 없이 종료됩니다.</p><div class="workprogress"><i style="width:${w.step/w.total*100}%"></i></div><div class="worktarget">${w.kind==="mine"?"채굴":"전달"}: <b>${w.target}</b></div><div class="workgrid">${w.cells.map((c,i)=>`<button type="button" data-cell="${i}" disabled aria-label="${i+1}번 ${c}">${c}</button>`).join("")}</div><p class="workstatus" id="workStatus" role="status"></p><p>${w.step+1} / ${w.total} 작업 · 완료 일당 <b>${fmt(w.reward)}G</b></p><div class="choices"><button class="btn" id="workCancel">그만두기</button></div>`);
+  let used=false;
+  const buttons=[...$("mcard").querySelectorAll("[data-cell]")];
+  const tick=()=>{const now=Date.now(),early=now<w.ready,late=now>w.deadline;buttons.forEach(b=>b.disabled=used||requestBusy||early||late);$("workStatus").textContent=late?"시간이 지났어요. 그만두고 다시 시작하세요.":early?"주문을 확인하세요…":`작업할 물건을 선택하세요 · ${Math.max(0,Math.ceil((w.deadline-now)/1000))}초`;};
+  buttons.forEach(b=>b.onclick=async e=>{
+    if(!e.isTrusted||document.hidden||used||requestBusy||Date.now()<w.ready)return;
+    used=true;tick();const r=await dispatch({type:"workStep",id:w.id,roundId:w.roundId,cell:Number(b.dataset.cell)});
+    if(!r){used=false;tick();return;}
+    if(S.work){SFX.clang(.5);showWork();}else{closeModal();if(r.out.wage){SFX.coin();log(`일거리 완료 · 일당 +${fmt(r.out.wage)}G`,"c-gold");toast("icon-gold",`일당 +${fmt(r.out.wage)}G`);}else{log("작업 종료 · 주문과 다른 물건을 골랐어요. 보상 없이 잠시 쉽니다.","c-fail");}}
+  });
+  $("workCancel").onclick=async()=>{if(requestBusy)return;const r=await dispatch({type:"workCancel"});if(r)closeModal();};
+  workTicker=setInterval(tick,100);tick();
+}
+$("bMine").onclick=()=>startWork("mine");$("bChores").onclick=()=>startWork("chores");
 async function forkReveal(k){
   const P_=PATHS[k], f=$("fork");
   f.innerHTML=`${P_.rare?'<span class="rare">희귀!</span>':'<small>갈림길</small>'}<b style="color:${P_.color}">${P_.name}</b><em>${nameOf(k,1)} · ${P_.desc}</em>`;
@@ -909,52 +858,72 @@ function openStats(){
   <p style="margin-top:12px"><b>직급</b></p><div class="ranks">${ranks}</div>
   <div class="choices"><button class="btn" onclick="closeModal()">닫기</button></div>`,false);
   renderAcct();
-  $("mcard").querySelectorAll(".plus").forEach(b=>b.onclick=()=>{ if(sm.pts<1) return; sm.pts--; ST()[b.dataset.k]++; SFX.coin(); save(); render(); openStats(); });
+  $("mcard").querySelectorAll(".plus").forEach(b=>b.onclick=async()=>{if(unavailable())return;const r=await dispatch({type:"stat",key:b.dataset.k});if(r){SFX.coin();openStats();}});
 }
-$("bStat").onclick=openStats;
+$("bStat").onclick=()=>{if(!busy&&!requestBusy)openStats();};
 
 // ═════════ 닉네임 계정: 다른 기기에서 이어하기 (Cloudflare Workers + D1) ═════════
 const API="https://sword-forge-api.aicore-sj-relay.workers.dev";
 const ACC_KEY="swordforge-acc";
 let ACC=(()=>{ try{ const a=JSON.parse(localStorage.getItem(ACC_KEY)); if(a&&a.token) return a; }catch(e){} return null; })();
-let cloudState="", cloudTimer=0, cloudLast=0;
-const setAcc=a=>{ ACC=a; try{ a?localStorage.setItem(ACC_KEY,JSON.stringify(a)):localStorage.removeItem(ACC_KEY); }catch(e){} };
-async function api(path,body,keepalive=false){
-  const r=await fetch(API+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),keepalive});
-  let j={}; try{ j=await r.json(); }catch(e){}
-  if(!r.ok){ const e=new Error(j.msg||"서버 연결이 안 돼요"); e.code=j.error||r.status; throw e; }
-  return j;
+let cloudState="",cloudLast=0,requestBusy=false,accountReady=!ACC,tabReady=true;
+const setAcc=a=>{ACC=a;try{a?localStorage.setItem(ACC_KEY,JSON.stringify(a)):localStorage.removeItem(ACC_KEY);}catch(e){}};
+async function api(path,body){
+  const r=await fetch(API+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:AbortSignal.timeout(15000)});
+  const j=await r.json();if(!r.ok){const e=new Error(j.msg||"서버 연결이 안 돼요");e.code=j.error||r.status;e.state=j.state;throw e;}return j;
 }
-function cloudQueue(){ if(!ACC) return; clearTimeout(cloudTimer); cloudTimer=setTimeout(cloudPush,2500); }
-async function cloudPush(keepalive=false){
-  if(!ACC) return; clearTimeout(cloudTimer);
-  try{ await api("/save",{token:ACC.token,save:JSON.stringify(S)},keepalive); cloudLast=Date.now(); cloudState="ok"; }
-  catch(e){ cloudState="fail"; if(e.code==="auth"){ setAcc(null); toast("icon-xp","다시 로그인해 주세요"); } }
-  if($("acct")) renderAcct();
+function adoptSave(json){
+  const raw=typeof json==="string"?JSON.parse(json):json;
+  if(!raw||raw.version!==Forge.VERSION)throw Error("저장 형식을 확인할 수 없어요. 새로고침해 주세요.");
+  S=Forge.normalize(raw);save();setSword(S.lv);render();
 }
-// 창을 닫거나 다른 앱으로 넘어갈 때 바로 올린다
-document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden"&&ACC&&cloudTimer) cloudPush(true); });
-// 서버 기록으로 갈아끼우고 새로 시작 (지금 기기의 기록은 백업에 남겨 둔다)
-function adoptSave(json){ try{ const cur=localStorage.getItem(KEY); if(cur) localStorage.setItem(KEY+"-backup",cur); localStorage.setItem(KEY,json); }catch(e){} location.reload(); }
-// 시작할 때: 다른 기기에서 더 최근에 했으면 그 기록으로
+async function dispatch(action){
+  if(requestBusy||!accountReady||!tabReady)return null;
+  requestBusy=true;render();
+  try{
+    const execute=async()=>{
+      let r;
+      if(ACC){
+        const body={token:ACC.token,rev:S.rev,requestId:crypto.randomUUID(),action};
+        try{r=await api("/action",body);}catch(e){if(e.code)throw e;r=await api("/action",body);}
+        S=Forge.normalize(r.state);cloudLast=r.saved;cloudState="ok";
+      }else{
+        // The Web Lock and re-read make a local mutation atomic across tabs.
+        const cached=localStorage.getItem(KEY);if(cached)S=Forge.normalize(JSON.parse(cached));
+        r=Forge.transition(S,action,Date.now(),()=>crypto.getRandomValues(new Uint32Array(1))[0]/4294967296);S=r.state;
+      }
+      save();return r;
+    };
+    return navigator.locks?await navigator.locks.request("swordforge-actions",execute):await execute();
+  }catch(e){
+    if(e.state){S=Forge.normalize(e.state);save();setSword(S.lv);if(S.event)setTimeout(randomEvent,0);else if(S.work)setTimeout(showWork,0);}
+    if(ACC&&!e.code){accountReady=false;cloudState="fail";setTimeout(cloudBoot,1200);}
+    if(e.code==="auth"){accountReady=false;cloudState="fail";}
+    toast("icon-xp",e.message);log(e.message,"c-fail");return null;
+  }finally{requestBusy=false;render();if($("acct"))renderAcct();}
+}
 async function cloudBoot(){
-  if(!ACC) return;
-  try{ const r=await api("/load",{token:ACC.token}); cloudState="ok";
-    let srv=null; try{ srv=r.save&&JSON.parse(r.save); }catch(e){}
-    if(srv && (srv.t||0) > (S.t||0)+1000) { toast("icon-xp","다른 기기의 기록을 불러왔어요"); return adoptSave(r.save); }
-    if(!srv || (S.t||0) > (srv.t||0)) cloudPush();
-  }catch(e){ cloudState="fail"; if(e.code==="auth"){ setAcc(null); } }
+  if(!ACC){accountReady=true;return;}
+  accountReady=false;render();
+  try{const r=await api("/load",{token:ACC.token});adoptSave(r.save);accountReady=true;cloudLast=r.saved;cloudState="ok";if(S.event)randomEvent();else if(S.work)showWork();}
+  catch(e){cloudState="fail";log("계정 기록을 확인하지 못했어요. 능력치 화면에서 재연결하거나 로그아웃해 주세요.","c-fail");}
+  finally{render();if($("acct"))renderAcct();}
 }
+// Storage updates never merge balances; the newest complete revision wins.
+addEventListener("storage",e=>{if(e.key===ACC_KEY){holding=false;location.reload();return;}if(e.key!==KEY||!e.newValue||requestBusy||busy)return;try{const n=Forge.normalize(JSON.parse(e.newValue));if(n.rev>S.rev){S=n;setSword(S.lv);render();}}catch(_){} });
+document.addEventListener("visibilitychange",()=>{if(document.hidden)holding=false;});
+addEventListener("blur",()=>holding=false);
 function renderAcct(){
   const box=$("acct"); if(!box) return;
   if(ACC){
     const st=cloudState==="fail"?'<span style="color:var(--boom)">저장 실패 · 연결 확인</span>':cloudLast?`자동 저장됨 ${new Date(cloudLast).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}`:"자동 저장 중";
     box.innerHTML=`<div class="row"><div><span class="who"></span><p style="margin:2px 0 0">☁ ${st}</p></div><button class="btn" id="accOut" style="flex:none;padding:8px 12px;font-size:13px">로그아웃</button></div>`;
     box.querySelector(".who").textContent=ACC.name;
-    $("accOut").onclick=async()=>{ if(cloudTimer) await cloudPush(); setAcc(null); cloudState=""; renderAcct(); toast("icon-xp","로그아웃했어요 · 이 기기 기록은 그대로"); };
+    $("accOut").onclick=()=>{if(requestBusy)return;setAcc(null);accountReady=true;cloudState="";renderAcct();render();toast("icon-xp","로그아웃했어요 · 기기 플레이로 전환");};
+    if(!accountReady){const reconnect=document.createElement("button");reconnect.className="btn";reconnect.textContent="계정 재연결";reconnect.onclick=cloudBoot;box.append(reconnect);}
     return;
   }
-  box.innerHTML=`<p>닉네임과 비밀번호를 정하면 <b style="color:var(--text)">다른 기기에서도 이어서</b> 할 수 있어요</p>
+  box.innerHTML=`<p>로그인하면 서버에서 강화·일당을 검증하고 <b style="color:var(--text)">다른 기기에서도 이어서</b> 할 수 있어요. 새 계정은 3,000G부터 시작하며, 현재 기기 기록은 백업합니다.</p>
     <div class="f"><input id="accName" maxlength="12" placeholder="닉네임 (2~12자)" autocomplete="username" aria-label="닉네임"></div>
     <div class="f"><input id="accPin" type="password" inputmode="numeric" maxlength="8" placeholder="비밀번호 숫자 4~8자리" autocomplete="current-password" aria-label="비밀번호"></div>
     <div class="f"><button class="btn main" id="accNew">새로 만들기</button><button class="btn" id="accIn">불러오기</button></div>
@@ -966,17 +935,16 @@ function renderAcct(){
     if(!/^\d{4,8}$/.test(pin)) return err.textContent="비밀번호는 숫자 4~8자리";
     err.textContent="잠시만요…"; box.querySelectorAll("button").forEach(b=>b.disabled=true);
     try{
-      if(kind==="new"){ S.name=name; save(); const r=await api("/register",{name,pin,save:JSON.stringify(S)});
-        setAcc({token:r.token,name:r.name}); cloudLast=Date.now(); cloudState="ok"; toast("icon-xp",`${r.name} 계정을 만들었어요`); renderAcct(); }
+      if(kind==="new"){ const r=await api("/register",{name,pin});
+        try{localStorage.setItem(KEY+"-backup",JSON.stringify(S));}catch(_){}setAcc({token:r.token,name:r.name});adoptSave(r.save);accountReady=true;cloudLast=r.saved;cloudState="ok";toast("icon-xp",`${r.name} 계정을 만들었어요`);renderAcct();render(); }
       else { const r=await api("/login",{name,pin}); setAcc({token:r.token,name:r.name});
-        if(r.save){ toast("icon-xp",`${r.name} 기록을 불러와요`); return adoptSave(r.save); }
-        S.name=r.name; save(); await cloudPush(); toast("icon-xp","로그인했어요 · 지금 기록을 올렸어요"); renderAcct(); }
+        try{localStorage.setItem(KEY+"-backup",JSON.stringify(S));}catch(_){}adoptSave(r.save);accountReady=true;cloudLast=r.saved;cloudState="ok";renderAcct();render();if(S.event)randomEvent();else if(S.work)showWork(); }
+
     }catch(e){ err.textContent=e.message; box.querySelectorAll("button").forEach(b=>b.disabled=false); }
   };
   $("accNew").onclick=()=>go("new"); $("accIn").onclick=()=>go("login");
   $("accPin").onkeydown=e=>{ if(e.key==="Enter") go("login"); };
 }
-cloudBoot();
 let dexTab="blade";
 function openDex(){
   const keys=Object.keys(PATHS), total=1+keys.length*20, got=S.seen.filter(x=>x==="root"||/:\d+$/.test(x)).length;
@@ -991,7 +959,7 @@ function openDex(){
   <div class="dex">${known?cells:''}</div><div class="choices"><button class="btn" onclick="closeModal()">닫기</button></div>`,false);
   $("mcard").querySelectorAll(".ptabs button").forEach(b=>b.onclick=()=>{ dexTab=b.dataset.t; openDex(); });
 }
-$("bDex").onclick=()=>{ dexTab=S.path||dexTab; openDex(); };
+$("bDex").onclick=()=>{if(unavailable())return; dexTab=S.path||dexTab; openDex(); };
 // 소리 조절 팝업
 { const pop=$("volPop"), btn=$("bVol"), show=on=>{ pop.classList.toggle("on",on); btn.setAttribute("aria-expanded",on); };
   btn.onclick=e=>{ e.stopPropagation(); show(!pop.classList.contains("on")); };
@@ -1001,11 +969,11 @@ $("bDex").onclick=()=>{ dexTab=S.path||dexTab; openDex(); };
   $("volR").onchange=()=>{ try{ SFX.clang(); }catch(e){} };      // 손을 떼면 그 크기로 한 번 들려준다
   $("volM").onchange=e=>{ VOL.m=e.target.checked; setVol(); if(!VOL.m) try{ SFX.clang(); }catch(_){} };
   setVol(); }
-$("bInfo").onclick=()=>{
+$("bInfo").onclick=()=>{if(unavailable())return;
   const rows=P.map((p,i)=>`<tr><td>+${i}→${i+1}</td><td class="c-ok">${p[0]}</td><td class="c-keep">${p[1]}</td><td class="c-fail">${p[2]}</td><td class="c-boom">${p[3]}</td><td>${fmt(cost(i))}</td></tr>`).join("");
   modal(`<h3>규칙</h3>
   <p>당신은 대장장이. 골드를 내고 검을 두드린다. 결과는 <span class="c-ok">성공 +1</span> · <span class="c-keep">유지</span> · <span class="c-fail">실패 −1</span> · <span class="c-boom">파괴(나뭇가지로)</span>.</p>
-  <p><b>대성공</b>: +12 이하 성공 시 일정 확률로 +2 (힘).<br><b>장인의 집념</b>: 유지·실패마다 성공 확률 +5%(상대), 최대 +50%. 성공·파괴 시 초기화. 집념·손재주·컨디션 보너스는 높은 단계일수록 약해진다(+19에선 1/4).<br><b>파괴방지권</b>: 파괴 대신 소모. 파괴된 검 파편 ${PROT_COST}개로 구매.<br><b>대장장이 성장</b>: 두드릴 때마다 경험치. 파괴는 가장 큰 교훈. 레벨업으로 스탯을 찍고 직급이 오른다.<br><b>판매</b>: 욕심과 현금화 사이의 줄타기.</p>
+  <p><b>대성공</b>: +12 이하 성공 시 일정 확률로 +2 (힘).<br><b>장인의 집념</b>: 유지·실패마다 성공 확률 +5%(상대), 최대 +50%. 성공·파괴 시 초기화. 집념·손재주·컨디션 보너스는 높은 단계일수록 약해진다(+19에선 1/4).<br><b>파괴방지권</b>: 파괴 대신 소모. 파괴된 검 파편 ${PROT_COST}개로 구매. 저단계에서 파편을 반복 수급하는 효율을 낮췄다.<br><b>대장장이 성장</b>: 두드릴 때마다 경험치. 파괴는 가장 큰 교훈. 레벨업으로 스탯을 찍고 직급이 오른다.<br><b>판매</b>: 저단계 즉시 판매는 손해. +5~+8 구간부터 현금화를 고민할 수 있다. 판매 경험치는 없다.<br><b>일거리</b>: 광산 5단계 260G / 잡일 4단계 180G. 1,000G 미만이면 일당 +50%. 주문·위치가 매번 바뀌며 단계당 최소 0.9초, 제한 14초. 완료·포기 후 대기, 10분당 최대 30회 접수.<br><b>계정 보호</b>: 로그인 플레이는 서버가 확률·비용·보상을 계산한다. 기기 플레이의 저장파일 직접 조작까지 막을 수는 없다.</p>
   <p><b>갈림길</b>: 나뭇가지(+0)에서 처음 성공하면 무기의 길이 정해진다. 0으로 돌아가면 다시 갈림길.<br>
   ${Object.values(PATHS).map(P_=>`<span style="color:${P_.color}">${P_.rare&&!S.seen.some(x=>x==="path:"+Object.keys(PATHS).find(k=>PATHS[k]===P_))?'??? (희귀)':P_.name}</span> — ${P_.rare?'희귀 각 '+RARE_CH().toFixed(1)+'%. ':''}${P_.desc}`).join("<br>")}</p>
   <table class="tbl"><tr><th>단계</th><th>성공</th><th>유지</th><th>실패</th><th>파괴</th><th>비용</th></tr>${rows}</table>
@@ -1015,19 +983,21 @@ $("bInfo").onclick=()=>{
   <b>CC-BY 4.0</b> (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">라이선스</a>): JC Sounds — <a href="https://opengameart.org/content/jc-sounds-fantasy-sfx-pack-vol-1" target="_blank" rel="noopener">Fantasy SFX Pack Vol 1</a><br>
   <b>CC0</b>: themightyglider (Hammer on Anvil) · VishwaJai (Blacksmith's Hammer) · artisticdude (RPG Sound Pack) · bart (Steam release sounds) · rubberduck (75 CC0 breaking/falling/hit sfx) · Kenney (RPG Audio)
   </details>
-  <div class="choices"><button class="btn" onclick="if(confirm('정말 처음부터 다시 할까요?')){try{localStorage.removeItem('${KEY}')}catch(e){};location.reload()}">초기화</button><button class="btn main" onclick="closeModal()">닫기</button></div>`,false);
+  <div class="choices"><button class="btn" id="bResetLocal" ${ACC?'disabled':''}>기기 기록 초기화</button><button class="btn main" onclick="closeModal()">닫기</button></div>`,false);
+  $("bResetLocal").onclick=()=>{if(ACC||requestBusy)return;if(confirm("기기 기록을 초기화할까요?")){S=Forge.fresh();save();location.reload();}};
 };
 
 // ═════════ 입력 ═════════
 const up=$("bUp");
-up.addEventListener("pointerdown",e=>{ e.preventDefault(); holdLoop(); });
+up.addEventListener("pointerdown",e=>{if(!e.isTrusted||e.button!==0)return;e.preventDefault();holdLoop();});
+up.addEventListener("click",e=>{if(e.isTrusted&&e.detail===0)enhance();});
 ["pointerup","pointerleave","pointercancel"].forEach(t=>up.addEventListener(t,()=>holding=false));
 up.addEventListener("contextmenu",e=>e.preventDefault());
 $("bSell").onclick=sell; $("bBuy").onclick=buyProt;
-$("useProt").onchange=e=>{ S.useProt=e.target.checked; save(); };
-addEventListener("keydown",e=>{ if(e.code==="Space"){ e.preventDefault(); if(!e.repeat && !$("modal").classList.contains("on")) holdLoop(); } });
+$("useProt").onchange=e=>{if(!unavailable())dispatch({type:"useProt",value:e.target.checked});};
+addEventListener("keydown",e=>{if(e.target.closest("input,textarea,select,button")||e.target.isContentEditable)return; if(e.isTrusted&&e.code==="Space"){ e.preventDefault(); if(!e.repeat && !$("modal").classList.contains("on")) holdLoop(); } });
 addEventListener("keyup",e=>{ if(e.code==="Space") holding=false; });
-setSword(S.lv); render();
+setSword(S.lv);render();cloudBoot();if(!ACC){if(S.event)randomEvent();else if(S.work)showWork();}
 if(S.st.tries===0) log("길에서 나뭇가지를 주웠다. 견습 대장장이의 첫 작품이 될 것이다.");
 </script>
 </body>
