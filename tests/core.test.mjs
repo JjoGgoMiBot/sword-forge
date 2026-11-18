@@ -4,8 +4,9 @@ import '../game-core.js';
 const F=globalThis.Forge;
 const run=(s,a,t=1e6,r=()=>.5)=>F.transition(s,a,t,r);
 test('gentle opening, severe endgame, all probability rows total 100',()=>{
-  assert.deepEqual(F.P.slice(0,4).map(x=>x[0]),[95,94,92,90]);assert.equal(F.P[19][0],.5);
-  F.P.forEach((r,i)=>{assert.ok(Math.abs(r.reduce((a,b)=>a+b,0)-100)<1e-9);if(i)assert.ok(r[0]<F.P[i-1][0]);});
+  assert.deepEqual(F.P.slice(0,4).map(x=>x[0]),[95,94,92,90]);assert.ok(F.CRACK_N>=10,'+20 needs many +19 successes');
+  // +19 is rolled once per awakening crack, so only that row may exceed the one before it.
+  F.P.forEach((r,i)=>{assert.ok(Math.abs(r.reduce((a,b)=>a+b,0)-100)<1e-9);if(i&&i<19)assert.ok(r[0]<F.P[i-1][0]);});
 });
 test('every path/stat/buff combination has valid normalized odds',()=>{
   for(const path of Object.keys(F.PATHS))for(let lv=0;lv<20;lv++)for(const max of [0,25]){
@@ -88,7 +89,7 @@ test('focus reduces destruction into keep, never into extra downgrades',()=>{
   }
 });
 test('late-stage dexterity and pity retain their advertised relative bonuses',()=>{
-  const s=F.fresh();s.lv=19;s.path='blade';s.mast=F.MASTERY_N;s.mastAt=1;const base=F.odds(s)[0];assert.ok(base>0);s.smith.st.dex=25;
+  const s=F.fresh();s.lv=19;s.path='blade';const base=F.odds(s)[0];assert.ok(base>0);s.smith.st.dex=25;
   assert.ok(Math.abs(F.odds(s)[0]-base*1.5)<1e-10);s.pity=10;assert.ok(Math.abs(F.odds(s)[0]-base*2)<1e-10);
 });
 test('every path and trade build pays strictly increasing upgrade costs',()=>{
@@ -110,23 +111,35 @@ test('empty event IDs and no-op actions cannot mint revisions or write continuou
   assert.throws(()=>run(changed,{type:'useProt',value:true},1e6+1),/잠시/);assert.equal(s.rev,0);
 });
 
-test('+20 stays locked until both the high-level attempt count and the elapsed floor are met',()=>{
-  const s=F.fresh();s.lv=19;s.path='blade';s.gold=1e9;s.smith.st.dex=25;s.pity=10;s.buffs.smith=3;
-  assert.equal(F.odds(s,1e12)[0],0,'no mastery at all');
-  s.mast=F.MASTERY_N;s.mastAt=1e9;
-  assert.equal(F.odds(s,1e9+F.MASTERY_MS-1)[0],0,'count met but 100h not yet elapsed');
-  s.mast=F.MASTERY_N-1;assert.equal(F.odds(s,1e9+F.MASTERY_MS)[0],0,'time met but one attempt short');
-  s.mast=F.MASTERY_N;assert.ok(F.odds(s,1e9+F.MASTERY_MS)[0]>0,'both met');
-  // A locked final roll can never succeed, even with rng 0.
-  const t=F.fresh();t.lv=19;t.path='blade';t.gold=1e9;
-  for(let i=0;i<50;i++){const r=F.transition(t,{type:'enhance'},2e6+i*2000,()=>0);assert.notEqual(r.state.lv,20);Object.assign(t,F.fresh(),{lv:19,path:'blade',gold:1e9});}
+const seq=(...v)=>{let i=0;return()=>v[Math.min(i++,v.length-1)];};
+test('+19 successes open awakening cracks that survive destruction; the last one makes +20',()=>{
+  let s=F.fresh();s.lv=19;s.path='blade';s.gold=1e12;let now=1e9;
+  for(let i=1;i<F.CRACK_N;i++){
+    const r=F.transition({...s,fat:0},{type:'enhance'},now,seq(0,.99));assert.equal(r.out.result,'ok');assert.equal(r.out.crack,i);assert.equal(r.state.lv,19);
+    s=r.state;now=s.nextAction;
+  }
+  // Destruction keeps the cracks: they belong to the smith, not the weapon.
+  s.useProt=false;let r=F.transition(s,{type:'enhance'},now,seq(.9999,.99,.99));assert.equal(r.out.result,'boom');assert.equal(r.state.crack,F.CRACK_N-1);
+  s=r.state;s.lv=19;s.path='blade';now=s.nextAction;
+  r=F.transition(s,{type:'enhance'},now,seq(0,.99));assert.equal(r.state.lv,20);assert.equal(r.state.crack,0);assert.ok(r.out.ending);
+  assert.equal(F.normalize(JSON.parse(JSON.stringify({...s,crack:999}))).crack,F.CRACK_N-1,'crack count is clamped');
 });
-test('mastery counts only attempts started at +10 or higher, survives destruction, and paces high rolls',()=>{
-  let s=F.fresh();s.lv=9;s.path='blade';s.gold=1e9;
-  s=F.transition(s,{type:'enhance'},1e6,()=>.99).state;assert.equal(s.mast,0,'+9 attempt does not count');
-  s.lv=12;s.nextAction=0;const r=F.transition(s,{type:'enhance'},2e6,()=>.9999);
-  assert.equal(r.out.result,'boom');assert.equal(r.state.lv,0);assert.equal(r.state.mast,1);assert.equal(r.state.mastAt,2e6);
-  assert.equal(r.state.nextAction,2e6+F.HIGH_CD);
-  assert.equal(F.normalize(JSON.parse(JSON.stringify(r.state))).mast,1,'persisted through save/load');
-  assert.throws(()=>F.transition(r.state,{type:'enhance'},2e6+F.HIGH_CD-1),/잠시/);
+test('high-level hammering builds fatigue that slows swings and recovers only with server time',()=>{
+  let s=F.fresh();s.lv=9;s.path='blade';s.gold=1e12;
+  let r=F.transition(s,{type:'enhance'},1e9,seq(.5,.99));assert.equal(r.state.fat,0,'below +10 does not tire');assert.equal(r.state.nextAction,1e9+650);
+  s=F.fresh();s.lv=12;s.path='blade';s.gold=1e12;let now=1e9;
+  r=F.transition(s,{type:'enhance'},now,seq(.5,.99));assert.equal(r.out.result,'keep');assert.ok(r.state.fat>0);assert.equal(r.state.nextAction,now+F.swingDelay(r.state,12,now));
+  s=r.state;s.fat=F.FAT_MAX;s.fatAt=now;
+  assert.ok(F.swingDelay(s,12,now)>=F.HIGH_CD*(1+F.FAT_MAX/F.FAT_SLOW)-1,'exhausted swings are slower');
+  assert.ok(F.fatigueOf(s,now+3600000)<F.FAT_MAX,'rest recovers');assert.equal(F.fatigueOf(s,now-5),F.FAT_MAX,'clock going back never helps');
+  // A client cannot claim recovery: normalize keeps the stored timestamp and transitions use the server clock.
+  const forged=F.normalize({...s,fat:-50});assert.equal(forged.fat,0);
+});
+test('exhausted hammering can injure the wrist, slowing swings and halving recovery',()=>{
+  let s=F.fresh();s.lv=12;s.path='blade';s.gold=1e12;s.fat=F.FAT_MAX;const now=1e9;s.fatAt=now;
+  const r=F.transition(s,{type:'enhance'},now,seq(.5,.99,0));assert.equal(r.out.result,'keep');assert.ok(r.out.injured>now,'injury rolled');
+  const t=r.state;assert.ok(F.swingDelay(t,12,now)>F.swingDelay({...t,hurtUntil:0},12,now));
+  const healthy=F.fatigueOf({...t,hurtUntil:0},now+3600000),hurt=F.fatigueOf(t,now+3600000);assert.ok(hurt>healthy,'injury slows recovery');
+  // No new injury while one is active.
+  const again=F.transition({...t,nextAction:0},{type:'enhance'},now+1,seq(.5,.99,0));assert.equal(again.out.injured,undefined);
 });

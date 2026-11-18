@@ -1,15 +1,20 @@
 /* Shared, deterministic rules. Account randomness and state transitions run on the Worker. */
 (() => {
   const VERSION=3, MAX=20, LIMIT=1e12, PROT_COST=80;
-  // +20 floor: the final roll stays locked until the account has made MASTERY_N
-  // server-paced attempts from +10 or higher AND MASTERY_MS has passed since the first.
-  // Luck can shorten everything else, never this.
-  const MASTERY_N=150000, MASTERY_MS=100*3600000, MASTERY_FROM=10, HIGH_CD=1200;
+  // Long endgame without a hard lock:
+  // - fatigue: every roll from +10 tires the smith's hands; tired hands swing slower and
+  //   recover only with real time, so nonstop play (or a macro) gains little over resting.
+  // - injury: hammering while exhausted can hurt the wrist for hours (slower swings, slower recovery).
+  // - awakening cracks: a success at +19 opens one crack; CRACK_N cracks make +20. Cracks belong
+  //   to the smith and survive destruction, so luck averages over many rolls instead of one.
+  const HIGH_FROM=10, HIGH_CD=1200, FAT_MAX=10000, FAT_SLOW=5000, FAT_REC=300/60000;
+  const HURT_AT=7000, HURT_P=.2, HURT_MIN=3600000, HURT_SPAN=3*3600000, HURT_CD=4, CRACK_N=20;
+  const fatGain=l=>l>=17?60:l>=13?40:25;
   const P=[
     [95,5,0,0],[94,6,0,0],[92,8,0,0],[90,9,1,0],[87,11,2,0],
     [83,13,4,0],[78,15,6.5,.5],[72,18,9,1],[65,22,11.5,1.5],[58,26,13.5,2.5],
     [50,32,15,3],[42,37,17,4],[34,43,18,5],[20,56,18,6],[11.5,63.5,18,7],
-    [6.5,68.5,17,8],[3.5,71.5,16,9],[1.8,73.2,15,10],[1,74,14,11],[.5,75.5,12,12]
+    [6.5,68.5,17,8],[3.5,71.5,16,9],[1.8,73.2,15,10],[1,74,14,11],[20,56,12,12]
   ];
   const PATHS={blade:{s:1,f:1,d:1,sell:1,cost:1,great:3},dagger:{s:1.12,f:1,d:1.12,sell:.8,cost:.7,great:0},club:{s:.95,f:1.15,d:.75,sell:.95,cost:1,great:0},leek:{s:1,f:1,d:1.15,sell:1.8,cost:1,great:0},pan:{s:.92,f:1,d:.6,sell:1.3,cost:1,great:0}};
   const VALUES=[0,40,95,175,300,520,900,1600,2800,4800,8500,14500,25000,45000,80000,150000,300000,650000,1600000,6000000,40000000];
@@ -17,12 +22,12 @@
   const int=(v,hi=LIMIT,lo=0)=>typeof v==='number'&&Number.isFinite(v)?Math.min(hi,Math.max(lo,Math.floor(v))):lo;
   const xpNeed=l=>Math.round(40*l**1.6);
   const rankOf=l=>RANKS.filter(x=>l>=x).length-1;
-  function fresh(){return {version:VERSION,rev:0,lv:0,path:null,gold:3000,shard:0,prot:0,best:0,pity:0,buffs:{},seen:['root'],cleared:{},useProt:true,invested:0,t:0,nextAction:0,work:null,workUntil:0,workWindow:0,workCount:0,event:null,smith:{lv:1,xp:0,pts:0,st:{dex:0,focus:0,str:0,luck:0,trade:0}},mast:0,mastAt:0,st:{tries:0,ok:0,keep:0,fail:0,boom:0,great:0,earned:0,saved:0,jobs:0,wages:0}};}
+  function fresh(){return {version:VERSION,rev:0,lv:0,path:null,gold:3000,shard:0,prot:0,best:0,pity:0,buffs:{},seen:['root'],cleared:{},useProt:true,invested:0,t:0,nextAction:0,work:null,workUntil:0,workWindow:0,workCount:0,event:null,smith:{lv:1,xp:0,pts:0,st:{dex:0,focus:0,str:0,luck:0,trade:0}},fat:0,fatAt:0,hurtUntil:0,crack:0,st:{tries:0,ok:0,keep:0,fail:0,boom:0,great:0,earned:0,saved:0,jobs:0,wages:0}};}
   function normalize(raw){
     const s=fresh(), v=raw&&typeof raw==='object'?raw:{};
-    for(const k of ['rev','gold','shard','prot','invested','t','nextAction','workUntil','workWindow','workCount','mast','mastAt']) s[k]=int(v[k]);
+    for(const k of ['rev','gold','shard','prot','invested','t','nextAction','workUntil','workWindow','workCount','fatAt','hurtUntil']) s[k]=int(v[k]);
     if(v.gold===undefined)s.gold=3000;
-    s.lv=int(v.lv,MAX);s.best=Math.max(s.lv,int(v.best,MAX));s.pity=int(v.pity,10);
+    s.lv=int(v.lv,MAX);s.fat=int(v.fat,FAT_MAX);s.crack=int(v.crack,CRACK_N-1);s.best=Math.max(s.lv,int(v.best,MAX));s.pity=int(v.pity,10);
     s.path=s.lv?(Object.hasOwn(PATHS,v.path)?v.path:'blade'):null;
     s.name=typeof v.name==='string'?v.name.slice(0,12):'대장장이';s.useProt=v.useProt!==false;
     for(const k of ['smith','cat','star','curse'])s.buffs[k]=int(v.buffs?.[k],k==='cat'?2:k==='smith'?3:1);
@@ -49,8 +54,15 @@
     // A +2 great success, rare branch or free roll must not create a root-sale loop.
     return l<=2?Math.min(price,Math.floor(s.invested*.7/10)*10):price;
   };
-  const masteryReady=(s,now=Date.now())=>s.mast>=MASTERY_N&&s.mastAt>0&&now-s.mastAt>=MASTERY_MS;
-  function odds(s,now=Date.now()){
+  const hurt=(s,now)=>s.hurtUntil>now;
+  // Fatigue decays lazily from the server clock; injury halves recovery while it lasts.
+  function rest(s,now){
+    if(s.fatAt&&now>s.fatAt){const dt=now-s.fatAt,h=Math.max(0,Math.min(dt,s.hurtUntil-s.fatAt));s.fat=Math.max(0,Math.round(s.fat-(dt-h/2)*FAT_REC));}
+    s.fatAt=now;return s;
+  }
+  const fatigueOf=(s,now=Date.now())=>rest({fat:s.fat,fatAt:s.fatAt,hurtUntil:s.hurtUntil},now).fat;
+  const swingDelay=(s,from,now)=>from<HIGH_FROM?650:Math.round(HIGH_CD*(1+s.fat/FAT_SLOW)*(hurt(s,now)?HURT_CD:1));
+  function odds(s){
     if(s.lv>=MAX)return [0,0,0,0];
     let [a,k,f,d]=P[s.lv];const m=pm(s),st=s.smith.st,b=s.buffs;
     a*=m.s;f*=m.f;d*=m.d;if(b.star){k+=d;d=0;}if(b.curse){a*=1.5;d*=2;}
@@ -58,7 +70,6 @@
     const red=d*st.focus*.015;d-=red;k+=red;
     // Relative bonuses keep their full effect: high-level progression rewards stat investment.
     a=Math.min(97,a*(1+s.pity*.05+st.dex*.02+(b.smith?.3:0)));
-    if(s.lv===MAX-1&&!masteryReady(s,now))a=0;
     const sum=k+f+d,rem=100-a;return [a,k*rem/sum,f*rem/sum,d*rem/sum];
   }
   function gainXP(s,n){const sm=s.smith;if(sm.lv>=60)return;sm.xp+=Math.round(n);while(sm.lv<60&&sm.xp>=xpNeed(sm.lv)){sm.xp-=xpNeed(sm.lv);const r=rankOf(sm.lv++);sm.pts+=1+(rankOf(sm.lv)>r?2:0);}if(sm.lv===60)sm.xp=0;}
@@ -81,7 +92,7 @@
     w.cells=a;w.target=a[Math.floor(rng()*a.length)];w.roundId=crypto.randomUUID();w.ready=now+900;w.deadline=now+14000;
   }
   function transition(raw,action,now=Date.now(),rng=Math.random){
-    const s=normalize(raw),a=action||{},out={};
+    const s=rest(normalize(raw),now),a=action||{},out={};
     if(typeof a.type!=='string')fail('잘못된 행동입니다.');
     const expiredEvent=s.event&&now>s.event.expires?s.event.id:null;
     if(expiredEvent)s.event=null;
@@ -92,16 +103,17 @@
     if(now<s.nextAction)fail('잠시 후 다시 시도해 주세요.');
     if(a.type==='enhance'){
       if(s.lv>=MAX)fail('이미 최대 강화입니다.');
-      const from=s.lv,c=cost(s),free=s.buffs.cat>0,o=odds(s,now);
+      const from=s.lv,c=cost(s),free=s.buffs.cat>0,o=odds(s);
       if(!free&&s.gold<c)fail('골드가 부족해요. 광산이나 잡일로 벌어 보세요.');
       if(free)s.buffs.cat--;else{s.gold-=c;s.invested+=c;}
       let r=rng()*100;const result=r<o[0]?'ok':r<o[0]+o[1]?'keep':r<o[0]+o[1]+o[2]?'fail':'boom';
-      s.st.tries++;if(from>=MASTERY_FROM){if(!s.mastAt)s.mastAt=now;s.mast++;}s.buffs.smith=Math.max(0,(s.buffs.smith||0)-1);delete s.buffs.star;delete s.buffs.curse;
+      s.st.tries++;s.buffs.smith=Math.max(0,(s.buffs.smith||0)-1);delete s.buffs.star;delete s.buffs.curse;
       let xp=4+from*3;
       if(result==='ok'){
         out.great=from<=12&&rng()*100<5+s.smith.st.str*.4+pm(s).great;
         if(from===0){s.path=pickPath(s,rng);out.fork=s.path;s.seen.push('path:'+s.path);}
-        s.lv=Math.min(MAX,from+(out.great?2:1));s.pity=0;s.st.ok++;if(out.great)s.st.great++;xp*=1.5;
+        if(from===MAX-1&&s.crack+1<CRACK_N){s.crack++;out.crack=s.crack;}
+        else{if(from===MAX-1)s.crack=0;s.lv=Math.min(MAX,from+(out.great?2:1));}s.pity=0;s.st.ok++;if(out.great)s.st.great++;xp*=1.5;
       }else if(result==='keep'){s.pity=Math.min(10,s.pity+1);s.st.keep++;}
       else if(result==='fail'){s.pity=Math.min(10,s.pity+1);s.st.fail++;s.lv=Math.max(0,from-1);if(!s.lv){s.path=null;s.invested=0;}}
       else if(s.useProt&&s.prot>0){s.prot--;s.pity=Math.min(10,s.pity+1);s.st.saved++;out.protected=true;}
@@ -109,7 +121,12 @@
       gainXP(s,xp);s.best=Math.max(s.best,s.lv);s.seen=[...new Set([...s.seen,s.lv?s.path+':'+s.lv:'root'])];
       if(s.lv===MAX&&!s.cleared[s.path]){s.cleared[s.path]=true;out.ending=true;}
       else if(rng()*100<6+s.smith.st.luck*.25)makeEvent(s,rng,now);
-      out.result=result;out.from=from;s.nextAction=now+(from>=MASTERY_FROM?HIGH_CD:650);
+      out.result=result;out.from=from;
+      if(from>=HIGH_FROM){
+        if(s.fat>=HURT_AT&&!hurt(s,now)&&rng()*100<HURT_P){s.hurtUntil=now+HURT_MIN+Math.floor(rng()*HURT_SPAN);out.injured=s.hurtUntil;}
+        s.fat=Math.min(FAT_MAX,s.fat+fatGain(from));
+      }
+      s.nextAction=now+swingDelay(s,from,now);
     }else if(a.type==='sell'){
       if(!s.lv)fail('판매할 무기가 없어요.');out.price=sellPrice(s);out.from=s.lv;addGold(s,out.price);s.st.earned+=out.price;s.lv=0;s.path=null;s.invested=0;s.pity=0;s.nextAction=now+400;
       // Sales grant no XP: repeatedly selling the first successful weapon cannot farm stats.
@@ -153,5 +170,5 @@
     else fail('지원하지 않는 행동입니다.');
     s.rev++;s.t=now;s.nextAction=Math.max(s.nextAction,now+100);return {state:s,out};
   }
-  globalThis.Forge={VERSION,MAX,P,PROT_COST,MASTERY_N,MASTERY_MS,MASTERY_FROM,HIGH_CD,masteryReady,PATHS,fresh,normalize,cost,sellPrice,odds,xpNeed,rankOf,transition};
+  globalThis.Forge={VERSION,MAX,P,PROT_COST,HIGH_FROM,HIGH_CD,FAT_MAX,FAT_SLOW,HURT_AT,CRACK_N,fatigueOf,swingDelay,PATHS,fresh,normalize,cost,sellPrice,odds,xpNeed,rankOf,transition};
 })();
