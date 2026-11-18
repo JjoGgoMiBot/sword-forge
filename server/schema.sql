@@ -15,3 +15,9 @@ CREATE TABLE IF NOT EXISTS tokens (   -- 로그인 토큰(원문은 저장 안 �
   created INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS tokens_key ON tokens(key, created);
+CREATE TABLE IF NOT EXISTS request_limits (
+  key TEXT PRIMARY KEY,
+  window_start INTEGER NOT NULL,
+  hits INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS request_limits_window ON request_limits(window_start);

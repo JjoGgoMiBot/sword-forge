@@ -20,6 +20,12 @@ The Worker authenticates `/action`, draws outcomes using Web Crypto, calculates 
 
 Anonymous play remains local. Web Locks serialize local actions across supported tabs. Offline saves cannot be made tamper-proof. Random jobs and server pacing deter fixed click macros and reward replay; they do not guarantee blocking an adaptive bot that reads prompts. No invasive device tracking or third-party CAPTCHA is used.
 
+Job targets and choice labels are machine-readable in the authenticated response. Consequently a simple API/DOM bot can solve them: randomized layouts are not proof of human input. Quotas and server timing limit payouts; there is currently no server-verified human challenge. The shared GitHub Pages origin also means other scripts hosted under that same origin are within the local-storage token trust boundary. Dedicated platform authentication/domain isolation should precede sensitive cross-service integration.
+
+Security hardening reserves each login guess atomically before password verification (five attempts, five-minute lock), requires 6–8 digits for new accounts while retaining legacy 4–8 digit logins, expires tokens after 30 days and revokes the current token on logout. Hashed-IP endpoint budgets and account-action budgets persist in D1; rejected bursts do not increment counters indefinitely, and an isolate cache avoids repeated D1 calls for already blocked clients. Responses are non-cacheable and request bodies are bounded while streaming. These application limits do not replace edge DDoS protection or database quota monitoring.
+
+Star blessing and Focus both convert avoided destruction into maintenance. Empty event claims, no-op protection settings and cancelling nonexistent jobs are rejected. A session generation guard prevents old asynchronous responses from replacing a new login/logout session. Unauthenticated public notification relaying is disabled; announcements are local-tab only until server attestation is implemented.
+
 ## Validation
 
 `npm test` runs economic and exploit regression tests. `npm run balance` simulates 2,000 fresh-smith excursions per sale target with a seeded RNG; it declines events, uses no protection and stops on target or destruction. It is a diagnostic, not a guarantee of every build's long-term profitability.
@@ -32,8 +38,10 @@ For local server integration tests:
 
 1. Install `server` dev dependencies and initialize disposable D1: `wrangler d1 execute sword-forge --local --file schema.sql`.
 2. Run `wrangler dev --port 8797` from `server/`.
-3. Run `npm run test:api` from the repository root. The test targets only loopback and creates disposable local accounts.
+3. Run `npm run test:api` from the repository root with Node 22+ (`node:sqlite` enabled). The tests target only loopback and create disposable local accounts. Security tests modify only this checkout's local SQLite fixtures to verify legacy PINs and token expiration.
 
 ## Deployment
 
 Back up current progress with `wrangler d1 execute sword-forge --remote --file backup-v2.sql` from `server/` before deploying v3. This creates `player_saves_pre_v3` once, preserving progress without copying password hashes/tokens. Deploy the Worker (`wrangler deploy`) and publish the matching frontend plus `game-core.js` on the GitHub Pages branch. Already-open old pages must refresh; obsolete snapshot saves intentionally fail. Never place Worker credentials or real account tokens in the repository.
+
+Before deploying security hardening to an existing database, run `wrangler d1 execute sword-forge --remote --file security-schema.sql` from `server/`. This adds only the request-budget table/index; existing player records remain intact.

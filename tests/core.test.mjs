@@ -45,7 +45,7 @@ test('event reward has a single use, no concurrent sale and no forged price',()=
   const s=F.fresh();s.lv=7;s.path='blade';s.event={id:'one',kind:'noble',price:2200,lv:7,path:'blade',expires:2e6};
   assert.throws(()=>run(s,{type:'sell'}),/이벤트/);
   const r=run(s,{type:'event',id:'one',accept:true,price:1e12});assert.equal(r.state.gold,5200);assert.equal(r.state.lv,0);
-  assert.throws(()=>run(r.state,{type:'event',id:'one',accept:true}),/이벤트/);
+  assert.throws(()=>run(r.state,{type:'event',id:'one',accept:true},1e6+1000),/이벤트/);
 });
 test('job steps require matching challenge IDs, time and actual answer',()=>{
   const r=run(F.fresh(),{type:'workStart',kind:'mine'}),s=r.state,w=s.work;
@@ -93,4 +93,19 @@ test('late-stage dexterity and pity retain their advertised relative bonuses',()
 });
 test('every path and trade build pays strictly increasing upgrade costs',()=>{
   for(const path of Object.keys(F.PATHS))for(const trade of [0,10,25]){const s=F.fresh();s.path=path;s.smith.st.trade=trade;for(let lv=0;lv<19;lv++)assert.ok(F.cost(s,lv+1)>F.cost(s,lv));}
+});
+test('star blessing prevents destruction without worsening downgrade risk',()=>{
+  for(const path of Object.keys(F.PATHS))for(let lv=6;lv<20;lv++){
+    const s=F.fresh();s.lv=lv;s.path=path;s.prot=1;const before=F.odds(s);s.buffs.star=1;const after=F.odds(s);
+    assert.equal(after[3],0);assert.ok(after[1]>before[1]);assert.ok(Math.abs(after[2]-before[2])<1e-10);assert.equal(after[0],before[0]);
+  }
+});
+test('empty event IDs and no-op actions cannot mint revisions or write continuously',()=>{
+  const s=F.fresh();for(const id of [null,undefined,'',0])assert.throws(()=>run(s,{type:'event',id,accept:true}),/이벤트/);
+  assert.throws(()=>run(s,{type:'dismissEvent',id:null}),/이벤트/);
+  assert.throws(()=>run(s,{type:'workCancel'}),/작업/);
+  assert.throws(()=>run(s,{type:'useProt',value:true}),/변경/);
+  assert.throws(()=>run(s,{type:'useProt',value:'false'}),/변경/);
+  const changed=run(s,{type:'useProt',value:false}).state;
+  assert.throws(()=>run(changed,{type:'useProt',value:true},1e6+1),/잠시/);assert.equal(s.rev,0);
 });

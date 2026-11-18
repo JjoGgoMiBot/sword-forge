@@ -6,7 +6,9 @@ const seeded=seed=>()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return see
 const tier=l=>l>=20?5:l>=17?4:l>=13?3:l>=9?2:l>=5?1:0;
 const statPlan=[['dex',10],['trade',5],['focus',5],['dex',20],['focus',15],['trade',10],['str',5],['luck',5],['dex',25],['focus',25],['trade',25],['str',25],['luck',25]];
 
-export function simulate(seed){
+export function simulate(seed,options={}){
+  const protectionLevel=options.protectionLevel??12,farmTarget=options.farmTarget??12,acceptCurse=options.acceptCurse===true;
+  if(!Number.isInteger(protectionLevel)||protectionLevel<12||protectionLevel>19||!Number.isInteger(farmTarget)||farmTarget<10||farmTarget>15)throw Error('Invalid simulation strategy');
   const rng=seeded(seed);let s=F.fresh(),now=START,mode='farm',target=8;
   const stats={seed,rolls:0,farmRolls:0,pushRolls:0,sales:0,saleIncome:0,wages:0,jobs:0,paidGold:0,protectionBought:0,merchantScrolls:0,scrollsUsed:0,destructions:0,events:0,quotaWaitMs:0,miningMs:0,enhancementMs:0,otherMs:0};
   const checkpoints={};
@@ -31,7 +33,8 @@ export function simulate(seed){
     const otherStart=now;
     if(s.event){
       const e=s.event;let accept=['smith','star','cat','vein'].includes(e.kind);
-      if(e.kind==='merchant')accept=mode==='push'&&s.lv>=12&&s.prot<3&&s.gold>Math.max(50000,e.price*10);
+      if(e.kind==='merchant')accept=mode==='push'&&s.lv>=protectionLevel&&s.prot<3&&s.gold>Math.max(50000,e.price*10);
+      if(e.kind==='curse')accept=acceptCurse&&mode==='push'&&s.lv>=protectionLevel&&s.prot>0;
       if(e.kind==='noble')accept=mode==='farm'&&s.lv>=target-1;
       const r=action({type:'event',id:e.id,accept});stats.events++;
       if(accept&&e.kind==='merchant'){stats.merchantScrolls++;}
@@ -39,9 +42,9 @@ export function simulate(seed){
     }
     spendPoints();
     if(mode==='farm'&&s.gold>=100000)mode='push';
-    if(s.lv===0&&mode==='farm')target=s.gold<5000?8:s.gold<20000?10:12;
+    if(s.lv===0&&mode==='farm')target=s.gold<5000?8:s.gold<20000?10:farmTarget;
     if(mode==='farm'&&s.lv>=target){sell();stats.otherMs+=now-otherStart;continue;}
-    const use=mode==='push'&&s.lv>=12;
+    const use=mode==='push'&&s.lv>=protectionLevel;
     if(s.useProt!==use)action({type:'useProt',value:use});
     if(use&&!s.prot&&s.shard>=F.PROT_COST){action({type:'buyProt'});stats.protectionBought++;}
     stats.otherMs+=now-otherStart;

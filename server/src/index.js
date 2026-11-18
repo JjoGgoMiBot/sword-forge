@@ -6,7 +6,10 @@ import '../../game-core.js';
 // POST /save     rejects obsolete snapshot uploads
 // POST /load     {token}          → {name,save,saved}
 const ORIGINS = ["https://seungjaehh.github.io", "http://localhost:5188"];
-const MAX_SAVE = 64 * 1024, ITER = 20000;
+const MAX_BODY=8192, ITER=20000, TOKEN_TTL=30*86400000;
+const ROUTE_LIMITS={'/register':[20,3600000],'/login':[30,60000],'/action':[600,60000],'/load':[120,60000],'/logout':[60,60000]};
+let lastLimitCleanup=0;
+const blockedRequests=new Map();
 const enc = new TextEncoder();
 const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
 const rand = n => hex(crypto.getRandomValues(new Uint8Array(n)));
@@ -19,16 +22,39 @@ const eq = (a, b) => { if (a.length !== b.length) return false; let r = 0; for (
 const NAME_RE = /^[0-9A-Za-z가-힣_]{2,12}$/;
 const cleanName = n => String(n || "").normalize("NFC").trim();
 const okPin = p => typeof p === "string" && /^\d{4,8}$/.test(p);
+const okNewPin=p=>typeof p==='string'&&/^\d{6,8}$/.test(p);
 
 function cors(req) {
   const o = req.headers.get("Origin");
   return { "Access-Control-Allow-Origin": ORIGINS.includes(o) ? o : ORIGINS[0], "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "86400", "Vary": "Origin" };
 }
-const J = (req, body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...cors(req) } });
+const J = (req, body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json",'Cache-Control':'no-store','X-Content-Type-Options':'nosniff', ...cors(req) } });
 const E = (req, code, msg, status = 400) => J(req, { error: code, msg }, status);
 const secureRandom = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
 const parseSave = p => { try { return JSON.parse(p.save) || {}; } catch { return {}; } };
+async function readBody(req){
+  if(Number(req.headers.get('Content-Length'))>MAX_BODY)throw new RangeError('size');
+  const reader=req.body?.getReader();if(!reader)throw Error('json');
+  let size=0;const chunks=[];
+  for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>MAX_BODY){await reader.cancel();throw new RangeError('size');}chunks.push(value);}
+  const bytes=new Uint8Array(size);let at=0;for(const chunk of chunks){bytes.set(chunk,at);at+=chunk.byteLength;}
+  const body=JSON.parse(new TextDecoder().decode(bytes));if(!body||typeof body!=='object'||Array.isArray(body))throw Error('json');return body;
+}
+async function allowRequest(env,key,max,windowMs,now){
+  const hash=await sha(key),start=Math.floor(now/windowMs)*windowMs;
+  if((blockedRequests.get(hash)||0)>now)return false;
+  blockedRequests.delete(hash);
+  // Most requests change only the unindexed counter, avoiding an index write.
+  const reserved=await env.DB.prepare('UPDATE request_limits SET hits=hits+1 WHERE key=?1 AND window_start=?2 AND hits<?3 RETURNING hits').bind(hash,start,max).first();
+  if(reserved)return true;
+  const r=await env.DB.prepare(`INSERT INTO request_limits(key,window_start,hits) VALUES(?1,?2,1)
+    ON CONFLICT(key) DO UPDATE SET hits=CASE WHEN request_limits.window_start=excluded.window_start THEN request_limits.hits+1 ELSE 1 END,window_start=excluded.window_start
+    WHERE request_limits.window_start<excluded.window_start OR (request_limits.window_start=excluded.window_start AND request_limits.hits<?3) RETURNING hits`).bind(hash,start,max).first();
+  if(r)return true;
+  if(blockedRequests.size>=10000)blockedRequests.delete(blockedRequests.keys().next().value);
+  blockedRequests.set(hash,start+windowMs);return false;
+}
 async function accountState(env,p,now) {
   let raw=parseSave(p);
   if(raw.version!==Forge.VERSION){
@@ -43,7 +69,7 @@ async function accountState(env,p,now) {
 
 async function byToken(env, token) {
   if (typeof token !== "string" || token.length !== 64) return null;
-  return env.DB.prepare("SELECT p.* FROM tokens t JOIN players p ON p.key=t.key WHERE t.hash=?").bind(await sha(token)).first();
+  return env.DB.prepare("SELECT p.* FROM tokens t JOIN players p ON p.key=t.key WHERE t.hash=? AND t.created>=?").bind(await sha(token),Date.now()-TOKEN_TTL).first();
 }
 // 기기 5대까지 동시 로그인: 새 토큰을 넣고 오래된 것부터 지운다
 async function addToken(env, key, token, now) {
@@ -54,20 +80,25 @@ async function addToken(env, key, token, now) {
 }
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const origin=req.headers.get('Origin');
     if(origin&&!ORIGINS.includes(origin))return E(req,'origin','허용되지 않은 출처입니다.',403);
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(req) });
     const url = new URL(req.url);
     if (req.method === "GET" && url.pathname === "/") return J(req, { ok: true });
     if (req.method !== "POST") return E(req, "method", "POST만 됩니다", 405);
-    let b; try { const body=await req.text();if(body.length>MAX_SAVE*2)return E(req,'size','요청이 너무 큽니다.',413);b=JSON.parse(body);if(!b||typeof b!=='object'||Array.isArray(b))throw Error(); } catch { return E(req, "json", "잘못된 요청"); }
+    if(url.pathname==='/save')return E(req,'upgrade','보호 기능이 업데이트됐어요. 새로고침해 주세요.',409);
+    const limit=ROUTE_LIMITS[url.pathname];if(!limit)return E(req,'404','없는 주소',404);
     const now = Date.now();
+    const ip=req.headers.get('CF-Connecting-IP')||'unknown';
+    if(!await allowRequest(env,`ip:${url.pathname}:${ip}`,...limit,now))return E(req,'rate','요청이 너무 많아요. 잠시 후 다시 시도해 주세요.',429);
+    if(now-lastLimitCleanup>3600000){lastLimitCleanup=now;const cleanup=env.DB.prepare('DELETE FROM request_limits WHERE window_start<?').bind(now-86400000).run();if(ctx)ctx.waitUntil(cleanup);else await cleanup;}
+    let b;try{b=await readBody(req);}catch(e){return e instanceof RangeError?E(req,'size','요청이 너무 큽니다.',413):E(req,'json','잘못된 요청');}
 
     if (url.pathname === "/register") {
       const name = cleanName(b.name), key = name.toLowerCase();
       if (!NAME_RE.test(name)) return E(req, "name", "닉네임은 한글·영문·숫자 2~12자");
-      if (!okPin(b.pin)) return E(req, "pin", "비밀번호는 숫자 4~8자리");
+      if (!okNewPin(b.pin)) return E(req, "pin", "새 비밀번호는 숫자 6~8자리");
       const initial=Forge.fresh();initial.name=name;initial.t=now;
       const salt = rand(16), hash = await pbkdf2(b.pin, salt), token = rand(32);
       try {
@@ -81,12 +112,14 @@ export default {
     if (url.pathname === "/login") {
       const name = cleanName(b.name), key = name.toLowerCase();
       if (!NAME_RE.test(name) || !okPin(b.pin)) return E(req, "bad", "닉네임 또는 비밀번호가 맞지 않아요", 401);
-      const p = await env.DB.prepare("SELECT * FROM players WHERE key=?").bind(key).first();
-      if (!p) return E(req, "bad", "닉네임 또는 비밀번호가 맞지 않아요", 401);
-      if (p.lock_until > now) return E(req, "locked", `너무 많이 틀렸어요. ${Math.ceil((p.lock_until - now) / 60000)}분 뒤 다시`, 429);
+      // Reserve a guess atomically BEFORE hashing, so parallel requests cannot
+      // all observe the same failure count and evade the five-attempt lock.
+      const p=await env.DB.prepare(`UPDATE players SET
+        fails=CASE WHEN lock_until>0 AND lock_until<=?1 THEN 1 ELSE fails+1 END,
+        lock_until=CASE WHEN (CASE WHEN lock_until>0 AND lock_until<=?1 THEN 1 ELSE fails+1 END)>=5 THEN ?2 ELSE 0 END
+        WHERE key=?3 AND lock_until<=?1 RETURNING *`).bind(now,now+300000,key).first();
+      if(!p){const exists=await env.DB.prepare('SELECT lock_until FROM players WHERE key=?').bind(key).first();return exists?E(req,'locked','너무 많이 시도했어요. 5분 뒤 다시 시도해 주세요.',429):E(req,'bad','닉네임 또는 비밀번호가 맞지 않아요',401);}
       if (!eq(await pbkdf2(b.pin, p.salt), p.hash)) {
-        const f = p.fails + 1, lock = f >= 5 ? now + Math.min(60, 5 * 2 ** (f - 5)) * 60000 : 0;
-        await env.DB.prepare("UPDATE players SET fails=?, lock_until=? WHERE key=?").bind(f, lock, key).run();
         return E(req, "bad", "닉네임 또는 비밀번호가 맞지 않아요", 401);
       }
       const token = rand(32);
@@ -96,12 +129,14 @@ export default {
       return J(req, { token, name: p.name, save: p.save, saved: p.saved });
     }
 
-    if (url.pathname === "/save") {
-      return E(req,'upgrade','보호 기능이 업데이트됐어요. 새로고침해 주세요.',409);
+    if(url.pathname==='/logout'){
+      if(typeof b.token==='string'&&b.token.length===64)await env.DB.prepare('DELETE FROM tokens WHERE hash=?').bind(await sha(b.token)).run();
+      return J(req,{ok:true});
     }
 
     if (url.pathname === '/action') {
       const p=await byToken(env,b.token);if(!p)return E(req,'auth','다시 로그인해 주세요.',401);
+      if(!await allowRequest(env,`account:action:${p.key}`,240,60000,now))return E(req,'rate','요청이 너무 많아요. 잠시 후 다시 시도해 주세요.',429);
       const raw=await accountState(env,p,now);
       if(typeof b.requestId!=='string'||!/^[-0-9a-f]{36}$/i.test(b.requestId))return E(req,'id','잘못된 요청 번호입니다.');
       if(raw.lastRequest===b.requestId)return J(req,{state:raw,out:raw.lastOut||{},saved:p.saved,replayed:true});

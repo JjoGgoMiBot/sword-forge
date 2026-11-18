@@ -48,7 +48,7 @@
   function odds(s){
     if(s.lv>=MAX)return [0,0,0,0];
     let [a,k,f,d]=P[s.lv];const m=pm(s),st=s.smith.st,b=s.buffs;
-    a*=m.s;f*=m.f;d*=m.d;if(b.star){f+=d;d=0;}if(b.curse){a*=1.5;d*=2;}
+    a*=m.s;f*=m.f;d*=m.d;if(b.star){k+=d;d=0;}if(b.curse){a*=1.5;d*=2;}
     // Focus always helps: protected players must not get extra downgrades for investing in it.
     const red=d*st.focus*.015;d-=red;k+=red;
     // Relative bonuses keep their full effect: high-level progression rewards stat investment.
@@ -79,7 +79,8 @@
     if(typeof a.type!=='string')fail('잘못된 행동입니다.');
     const expiredEvent=s.event&&now>s.event.expires?s.event.id:null;
     if(expiredEvent)s.event=null;
-    if(s.work&&now>s.work.deadline){s.workUntil=Math.max(s.workUntil,s.work.deadline+5000);s.work=null;}
+    const expiredWork=s.work&&now>s.work.deadline?s.work.id:null;
+    if(expiredWork){s.workUntil=Math.max(s.workUntil,s.work.deadline+5000);s.work=null;}
     if(s.work&&!['workStep','workCancel'].includes(a.type))fail('진행 중인 작업을 마치거나 그만두세요.');
     if(s.event&&!['event','dismissEvent'].includes(a.type))fail('먼저 이벤트를 선택해 주세요.');
     if(now<s.nextAction)fail('잠시 후 다시 시도해 주세요.');
@@ -110,10 +111,13 @@
       if(s.shard<PROT_COST)fail('파편이 부족해요.');s.shard-=PROT_COST;s.prot++;s.nextAction=now+300;
     }else if(a.type==='stat'){
       if(!Object.hasOwn(s.smith.st,a.key)||s.smith.pts<1||s.smith.st[a.key]>=25)fail('올릴 수 없는 능력치입니다.');s.smith.pts--;s.smith.st[a.key]++;
-    }else if(a.type==='useProt'){s.useProt=!!a.value;}
+    }else if(a.type==='useProt'){
+      if(typeof a.value!=='boolean'||a.value===s.useProt)fail('설정 변경이 없거나 잘못된 값입니다.');
+      s.useProt=a.value;
+    }
     else if(a.type==='event'||a.type==='dismissEvent'){
       const e=s.event;
-      if(!e&&a.id===expiredEvent){s.rev++;s.t=now;out.eventExpired=true;return {state:s,out};}
+      if(expiredEvent&&!e&&a.id===expiredEvent){s.rev++;s.t=now;s.nextAction=Math.max(s.nextAction,now+100);out.eventExpired=true;return {state:s,out};}
       if(!e||a.id!==e.id)fail('이미 끝났거나 만료된 이벤트입니다.');s.event=null;
       if(a.type==='event'&&a.accept===true){
         if(e.kind==='smith')s.buffs.smith=3;
@@ -136,9 +140,12 @@
       if(w.cells[a.cell]!==w.target){s.work=null;s.workUntil=now+5000;out.workFailed=true;}
       else if(++w.step>=w.total){addGold(s,w.reward);s.st.jobs++;s.st.wages+=w.reward;out.wage=w.reward;s.work=null;s.workUntil=now+6000;}
       else challenge(w,rng,now);
-    }else if(a.type==='workCancel'){s.work=null;s.workUntil=now+5000;}
+    }else if(a.type==='workCancel'){
+      if(!s.work&&!expiredWork)fail('진행 중인 작업이 없습니다.');
+      s.work=null;s.workUntil=now+5000;
+    }
     else fail('지원하지 않는 행동입니다.');
-    s.rev++;s.t=now;return {state:s,out};
+    s.rev++;s.t=now;s.nextAction=Math.max(s.nextAction,now+100);return {state:s,out};
   }
   globalThis.Forge={VERSION,MAX,P,PROT_COST,PATHS,fresh,normalize,cost,sellPrice,odds,xpNeed,rankOf,transition};
 })();
