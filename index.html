@@ -26,6 +26,15 @@ img.ic{width:20px;height:20px;object-fit:contain;vertical-align:-5px;flex:none}
 .xpt{font-size:11px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
 .sq{position:relative;width:42px;height:42px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);display:grid;place-items:center;flex:none}
 .sq img{width:28px;height:28px;object-fit:contain}
+.sq svg{width:24px;height:24px;color:#d9b56a}
+.volpop{position:absolute;right:0;top:calc(100% + 8px);z-index:30;width:230px;padding:12px 14px;border-radius:14px;background:var(--panel);border:1px solid var(--line);box-shadow:0 10px 30px #000a;display:none}
+.volpop.on{display:block;animation:in .18s}
+.volpop .row{display:flex;align-items:center;gap:10px}
+.volpop .row b{min-width:38px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+.volpop input[type=range]{flex:1;accent-color:#d9b56a;height:28px}
+.volpop label{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px;color:var(--muted);cursor:pointer}
+.volpop label input{accent-color:#d9b56a;width:16px;height:16px}
+@media(max-width:420px){.smith{gap:6px;padding:8px} .smith .badge{width:42px;height:42px} .sq{width:36px;height:36px;border-radius:10px} .sq img{width:24px;height:24px} .sq svg{width:20px;height:20px} .smith .rk{font-size:14px} .smith .rk small{display:block;font-size:11px;margin:0}}
 .sq .dot{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--boom);color:#fff;font-size:11px;font-weight:800;display:none;place-items:center}
 .sq .dot.on{display:grid;animation:pulse 1s infinite}
 @keyframes pulse{50%{transform:scale(1.15)}}
@@ -180,6 +189,11 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z
     <button class="sq" id="bStat" title="스탯"><img data-art="icon-xp" alt="스탯"><span class="dot" id="ptDot"></span></button>
     <button class="sq" id="bDex" title="도감"><img data-art="icon-book" alt="도감"></button>
     <button class="sq" id="bInfo" title="규칙"><img data-art="icon-info" alt="규칙"></button>
+    <div style="position:relative"><button class="sq" id="bVol" title="소리" aria-label="소리 조절" aria-expanded="false"><svg id="volIco" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg></button>
+      <div class="volpop" id="volPop" role="dialog" aria-label="소리 조절">
+        <div class="row"><input type="range" id="volR" min="0" max="100" step="1" aria-label="음량"><b id="volT"></b></div>
+        <label><input type="checkbox" id="volM"> 음소거</label>
+      </div></div>
   </div>
   <div class="res">
     <div class="g"><img data-art="icon-gold" alt=""><span>골드<b id="gold">0</b></span></div>
@@ -398,7 +412,15 @@ function announce(lv,path,great){ if(lv<NOTICE_LV) return;
 function toast(icon,t){ $("toastImg").src=ART(icon); $("toastTxt").textContent=t; $("toast").classList.add("on"); clearTimeout(toastT); toastT=setTimeout(()=>$("toast").classList.remove("on"),1800); }
 
 // ═════════ 사운드: 대장간 소리를 직접 합성 (모루 타격·쇠 울림·담금질·파편) ═════════
-let AC, BUS, REV;
+let AC, BUS, REV, MASTER;
+// ── 음량 설정 (세이브와 별도로 기기에 저장) ──
+const VOL=(()=>{ try{ const v=JSON.parse(localStorage.getItem("swordforge-vol")); if(v&&typeof v.v==="number") return {v:Math.max(0,Math.min(100,v.v)),m:!!v.m}; }catch(e){} return {v:70,m:false}; })();
+const volGain=()=>VOL.m?0:Math.pow(VOL.v/100,2)*1.43; // 사람 귀에 맞게 제곱 곡선, 70% ≈ 기존 음량
+function setVol(){ try{ localStorage.setItem("swordforge-vol",JSON.stringify(VOL)); }catch(e){}
+  if(MASTER&&AC) MASTER.gain.setTargetAtTime(volGain(),AC.currentTime,.03);
+  const off=VOL.m||VOL.v===0, lv=off?0:VOL.v<40?1:2;
+  $("volIco").innerHTML='<path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/>'+(off?'<path d="m16 9 6 6M22 9l-6 6"/>':(lv>=1?'<path d="M15.5 8.5a5 5 0 0 1 0 7"/>':'')+(lv>=2?'<path d="M18.5 5.5a9 9 0 0 1 0 13"/>':''));
+  $("volR").value=VOL.v; $("volT").textContent=off?"끔":VOL.v+"%"; $("volM").checked=VOL.m; }
 function ac(){
   if(AC) return AC;
   AC=new (window.AudioContext||window.webkitAudioContext)();
@@ -407,7 +429,8 @@ function ac(){
   // 공격 시간이 너무 짧으면 저음(쿠구궁) 파형 한 주기 안에서 음량이 출렁여 깨진다 → 느슨하게
   const lim=AC.createDynamicsCompressor(); lim.threshold.value=-2; lim.knee.value=0; lim.ratio.value=20; lim.attack.value=.006; lim.release.value=.25;
   const trim=AC.createGain(); trim.gain.value=.8; // 압축기 자동 보정 게인 상쇄 → 리미터가 거의 안 걸리게
-  comp.connect(trim).connect(lim).connect(AC.destination);
+  MASTER=AC.createGain(); MASTER.gain.value=volGain();
+  comp.connect(trim).connect(lim).connect(MASTER).connect(AC.destination);
   BUS=AC.createGain(); BUS.gain.value=.9; BUS.connect(comp);
   const len=AC.sampleRate*1.6, ir=AC.createBuffer(2,len,AC.sampleRate);
   for(let c=0;c<2;c++){ const d=ir.getChannelData(c); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3.2); }
@@ -901,6 +924,15 @@ function openDex(){
   $("mcard").querySelectorAll(".ptabs button").forEach(b=>b.onclick=()=>{ dexTab=b.dataset.t; openDex(); });
 }
 $("bDex").onclick=()=>{ dexTab=S.path||dexTab; openDex(); };
+// 소리 조절 팝업
+{ const pop=$("volPop"), btn=$("bVol"), show=on=>{ pop.classList.toggle("on",on); btn.setAttribute("aria-expanded",on); };
+  btn.onclick=e=>{ e.stopPropagation(); show(!pop.classList.contains("on")); };
+  pop.onclick=e=>e.stopPropagation();
+  document.addEventListener("click",()=>show(false)); document.addEventListener("keydown",e=>{ if(e.key==="Escape") show(false); });
+  $("volR").oninput=e=>{ VOL.v=+e.target.value; if(VOL.v>0) VOL.m=false; setVol(); };
+  $("volR").onchange=()=>{ try{ SFX.clang(); }catch(e){} };      // 손을 떼면 그 크기로 한 번 들려준다
+  $("volM").onchange=e=>{ VOL.m=e.target.checked; setVol(); if(!VOL.m) try{ SFX.clang(); }catch(_){} };
+  setVol(); }
 $("bInfo").onclick=()=>{
   const rows=P.map((p,i)=>`<tr><td>+${i}→${i+1}</td><td class="c-ok">${p[0]}</td><td class="c-keep">${p[1]}</td><td class="c-fail">${p[2]}</td><td class="c-boom">${p[3]}</td><td>${fmt(cost(i))}</td></tr>`).join("");
   modal(`<h3>규칙</h3>
