@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96"><defs>
+<linearGradient id="steel" x1="0" y1="0" x2=".8" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#d1e0e5"/><stop offset=".42" stop-color="#8497a3"/><stop offset="1" stop-color="#3f5265"/></linearGradient>
+<linearGradient id="darksteel" x1="0" y1="0" x2=".75" y2="1"><stop stop-color="#80939f"/><stop offset=".5" stop-color="#4a5a6b"/><stop offset="1" stop-color="#263442"/></linearGradient>
+<linearGradient id="silver" x1="0" y1="0" x2=".85" y2="1"><stop stop-color="#f7ffff"/><stop offset=".48" stop-color="#c3e3f1"/><stop offset="1" stop-color="#7099c0"/></linearGradient>
+<linearGradient id="gold" x1="0" y1="0" x2=".6" y2="1"><stop stop-color="#fff6a6"/><stop offset=".43" stop-color="#f5be41"/><stop offset="1" stop-color="#b56e1d"/></linearGradient>
+<linearGradient id="copper" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#ffd19a"/><stop offset=".45" stop-color="#d98a50"/><stop offset="1" stop-color="#8d4434"/></linearGradient>
+<linearGradient id="wood" x1="0" y1="0" x2=".6" y2="1"><stop stop-color="#d4a16b"/><stop offset=".5" stop-color="#9e633e"/><stop offset="1" stop-color="#603c2c"/></linearGradient>
+<linearGradient id="coal" x1="0" y1="0" x2=".6" y2="1"><stop stop-color="#667c96"/><stop offset=".45" stop-color="#344357"/><stop offset="1" stop-color="#151e2c"/></linearGradient>
+<linearGradient id="stone" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#bcc2b9"/><stop offset=".5" stop-color="#858d87"/><stop offset="1" stop-color="#535f61"/></linearGradient>
+<linearGradient id="water" x1="0" y1="0" x2=".3" y2="1"><stop stop-color="#a1f4ff"/><stop offset="1" stop-color="#369dcc"/></linearGradient>
+</defs><g stroke="#24252b" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><path d="m10 56 13-26 50-9 14 25-11 25-52 9Z" fill="url(#darksteel)"/><path d="m23 30 50-9 14 25-51 12Z" fill="url(#steel)"/><path d="m10 56 26 2 51-12M36 58 24 80" fill="none" stroke="#b8ced5" stroke-width="2"/><path d="m30 33 38-7 7 13-39 9Z" fill="#9cacb4" stroke="#728590" stroke-width="2"/><path d="m41 36 7-1m8-2 5-1" stroke="#e4e9df" stroke-width="2"/><path d="m47 66 20-4" stroke="#283b4c" stroke-width="2"/></g></svg>

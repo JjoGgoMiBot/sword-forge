@@ -3,12 +3,12 @@
   const VERSION=3, MAX=20, LIMIT=1e12, PROT_COST=80;
   const P=[
     [95,5,0,0],[94,6,0,0],[92,8,0,0],[90,9,1,0],[87,11,2,0],
-    [83,13,4,0],[78,15,6.5,.5],[72,17,9.5,1.5],[65,19,13,3],[56,22,17,5],
-    [46,25,21,8],[35,29,24,12],[25,32,26,17],[16,35,26,23],[9,38,24,29],
-    [4.5,40.5,20,35],[2,42,16,40],[.9,43.1,12,44],[.35,44.65,8,47],[.1,45.9,4,50]
+    [83,13,4,0],[78,15,6.5,.5],[72,18,9,1],[65,22,11.5,1.5],[58,26,13.5,2.5],
+    [50,32,15,3],[42,37,17,4],[34,43,18,5],[27,49,18,6],[21,54,18,7],
+    [16,59,17,8],[12,63,16,9],[9,66,15,10],[6,69,14,11],[3.5,72.5,12,12]
   ];
   const PATHS={blade:{s:1,f:1,d:1,sell:1,cost:1,great:3},dagger:{s:1.12,f:1,d:1.12,sell:.8,cost:.7,great:0},club:{s:.95,f:1.15,d:.75,sell:.95,cost:1,great:0},leek:{s:1,f:1,d:1.15,sell:1.8,cost:1,great:0},pan:{s:.92,f:1,d:.6,sell:1.3,cost:1,great:0}};
-  const VALUES=[0,40,95,175,300,520,900,1600,3000,5700,11500,25000,60000,150000,450000,1500000,6000000,30000000,180000000,1200000000,10000000000];
+  const VALUES=[0,40,95,175,300,520,900,1600,2800,4800,8500,14500,25000,45000,80000,150000,300000,650000,1600000,6000000,40000000];
   const RANKS=[1,5,10,16,23,31,40,50];
   const int=(v,hi=LIMIT,lo=0)=>typeof v==='number'&&Number.isFinite(v)?Math.min(hi,Math.max(lo,Math.floor(v))):lo;
   const xpNeed=l=>Math.round(40*l**1.6);
@@ -49,8 +49,10 @@
     if(s.lv>=MAX)return [0,0,0,0];
     let [a,k,f,d]=P[s.lv];const m=pm(s),st=s.smith.st,b=s.buffs;
     a*=m.s;f*=m.f;d*=m.d;if(b.star){f+=d;d=0;}if(b.curse){a*=1.5;d*=2;}
-    const red=d*st.focus*.015;d-=red;f+=red;
-    a=Math.min(97,a*(1+(s.pity*.05+st.dex*.02+(b.smith?.3:0))*Math.max(.25,1-s.lv/20)));
+    // Focus always helps: protected players must not get extra downgrades for investing in it.
+    const red=d*st.focus*.015;d-=red;k+=red;
+    // Relative bonuses keep their full effect: high-level progression rewards stat investment.
+    a=Math.min(97,a*(1+s.pity*.05+st.dex*.02+(b.smith?.3:0)));
     const sum=k+f+d,rem=100-a;return [a,k*rem/sum,f*rem/sum,d*rem/sum];
   }
   function gainXP(s,n){const sm=s.smith;if(sm.lv>=60)return;sm.xp+=Math.round(n);while(sm.lv<60&&sm.xp>=xpNeed(sm.lv)){sm.xp-=xpNeed(sm.lv);const r=rankOf(sm.lv++);sm.pts+=1+(rankOf(sm.lv)>r?2:0);}if(sm.lv===60)sm.xp=0;}

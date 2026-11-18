@@ -4,7 +4,7 @@ import '../game-core.js';
 const F=globalThis.Forge;
 const run=(s,a,t=1e6,r=()=>.5)=>F.transition(s,a,t,r);
 test('gentle opening, severe endgame, all probability rows total 100',()=>{
-  assert.deepEqual(F.P.slice(0,4).map(x=>x[0]),[95,94,92,90]);assert.equal(F.P[19][0],.1);
+  assert.deepEqual(F.P.slice(0,4).map(x=>x[0]),[95,94,92,90]);assert.equal(F.P[19][0],3.5);
   F.P.forEach((r,i)=>{assert.ok(Math.abs(r.reduce((a,b)=>a+b,0)-100)<1e-9);if(i)assert.ok(r[0]<F.P[i-1][0]);});
 });
 test('every path/stat/buff combination has valid normalized odds',()=>{
@@ -80,4 +80,17 @@ test('legacy starter weapons retain sale value while genuine free v3 rolls canno
   const legacy=F.normalize({lv:1,path:'blade',gold:1234});assert.equal(legacy.gold,1234);assert.equal(F.sellPrice(legacy),40);
   const migrated=F.normalize({...legacy,version:3,rev:0,invested:0});assert.equal(F.sellPrice(migrated),40);
   const free=F.fresh();free.buffs.cat=1;const r=run(free,{type:'enhance'});assert.equal(r.state.invested,0);assert.equal(F.sellPrice(F.normalize(r.state)),0);
+});
+test('focus reduces destruction into keep, never into extra downgrades',()=>{
+  for(const path of Object.keys(F.PATHS))for(let lv=6;lv<20;lv++){
+    const s=F.fresh();s.lv=lv;s.path=path;const before=F.odds(s);s.smith.st.focus=25;const after=F.odds(s);
+    assert.ok(after[3]<before[3]);assert.ok(after[1]>before[1]);assert.ok(Math.abs(after[2]-before[2])<1e-10);assert.equal(after[0],before[0]);
+  }
+});
+test('late-stage dexterity and pity retain their advertised relative bonuses',()=>{
+  const s=F.fresh();s.lv=19;s.path='blade';const base=F.odds(s)[0];s.smith.st.dex=25;
+  assert.ok(Math.abs(F.odds(s)[0]-base*1.5)<1e-10);s.pity=10;assert.ok(Math.abs(F.odds(s)[0]-base*2)<1e-10);
+});
+test('every path and trade build pays strictly increasing upgrade costs',()=>{
+  for(const path of Object.keys(F.PATHS))for(const trade of [0,10,25]){const s=F.fresh();s.path=path;s.smith.st.trade=trade;for(let lv=0;lv<19;lv++)assert.ok(F.cost(s,lv+1)>F.cost(s,lv));}
 });

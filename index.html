@@ -184,6 +184,11 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z
 .workactions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.workactions .btn{padding:13px 6px;background:#292d30;border:1px solid #4a5046}.workactions small{display:block;font-size:11px;color:#c8c1aa;margin-top:5px}
 .worktarget{text-align:center;font-size:22px;color:#ffd36b;background:#24291e;border:1px solid #5d6747;border-radius:12px;padding:18px 8px;margin:14px 0}.workgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.workgrid button{min-height:64px;background:#272c36;border:1px solid #606573;border-radius:12px;font-weight:800;font-size:17px}.workgrid button:focus-visible{outline:3px solid #ffd36b}.workgrid button:disabled{opacity:.55}.workprogress{height:6px;border-radius:8px;background:#262c32;overflow:hidden}.workprogress i{display:block;height:100%;background:#9fc287}.workstatus{min-height:22px;text-align:center;color:#bfcbad!important;font-size:13px!important}
 .mode-note{color:#b3c3b7;font-size:12px;margin:8px 0}
+.work-icon{display:block;width:42px;height:42px;flex:none;object-fit:contain;filter:drop-shadow(0 2px 3px #0007);pointer-events:none}
+.worktitle{display:inline-flex;align-items:center;justify-content:center;gap:7px}.worktitle .work-icon{width:34px;height:34px}.workactions small{margin-top:3px}
+.card h3 .work-icon{width:32px;height:32px}.worktarget{display:flex;align-items:center;justify-content:center;gap:10px;min-height:86px;padding:12px 8px}.worktarget .work-icon{width:58px;height:58px}.worktarget .workverb{font-size:14px;font-weight:500;color:#bac1a9}.worktarget .workitem{display:inline-flex;align-items:center;gap:8px}
+.workgrid button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:78px;padding:10px 4px;transition:background .15s,border-color .15s}.workgrid button:not(:disabled):hover{background:#333c42;border-color:#b8a476}.workgrid .workname{white-space:nowrap;line-height:1.2}
+@media(max-width:380px){.workgrid{gap:7px}.workgrid button{gap:4px;font-size:15px;min-height:70px}.workgrid .work-icon{width:32px;height:32px}.worktitle{gap:4px}.worktitle .work-icon{width:28px;height:28px}}
 </style>
 </head>
 <body>
@@ -247,7 +252,7 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z
 
   <section class="workshop" aria-label="일거리">
     <div class="workhead"><b>대장간 밖 일거리</b><span id="workHint">자금이 부족하면 직접 벌어 보세요</span></div>
-    <div class="workactions"><button class="btn" id="bMine">⛏ 광산 채굴<small>광석 선별 · 기본 260G</small></button><button class="btn" id="bChores">🪵 마을 잡일<small>물품 전달 · 기본 180G</small></button></div>
+    <div class="workactions"><button class="btn" id="bMine"><span class="worktitle"><img class="work-icon" src="art/work/pickaxe.svg" width="34" height="34" alt="">광산 채굴</span><small>광석 선별 · 기본 260G</small></button><button class="btn" id="bChores"><span class="worktitle"><img class="work-icon" src="art/work/crate.svg" width="34" height="34" alt="">마을 잡일</span><small>물품 전달 · 기본 180G</small></button></div>
     <p>골드 1,000 미만이면 일당 50% 추가 · 참가비 없음</p>
   </section>
   <div class="log" id="log" aria-live="polite"></div>
@@ -256,7 +261,7 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z
 <div class="toast" id="toast"><img id="toastImg" alt=""><span id="toastTxt"></span></div>
 <div class="modal" id="modal"><div class="card" id="mcard"></div></div>
 
-<script src="game-core.js?v=3.1"></script>
+<script src="game-core.js?v=3.2"></script>
 <script>
 // ═════════ 데이터 ═════════
 const ART = n => `art/${n}.webp`;
@@ -293,7 +298,7 @@ const RANKS = [ // [필요 레벨, 직급]
 const SMITH_MAX = 60, STAT_MAX = 25;
 const STATS = {
   dex:  {name:"손재주", icon:"icon-dex",   desc:v=>`성공 확률 +${v*2}% (상대)`},
-  focus:{name:"집중",   icon:"icon-focus", desc:v=>`파괴 확률 −${(v*1.5).toFixed(1)}% (실패로 전환)`},
+  focus:{name:"집중",   icon:"icon-focus", desc:v=>`파괴 확률 −${(v*1.5).toFixed(1)}% (유지로 전환)`},
   str:  {name:"힘",     icon:"icon-str",   desc:v=>`대성공(+2) 확률 ${(5+v*0.4).toFixed(1)}%`},
   luck: {name:"행운",   icon:"icon-luck",  desc:v=>`이벤트 확률 +${(v*0.25).toFixed(2)}%p, 파괴 파편 +${v*3}%`},
   trade:{name:"상술",   icon:"icon-trade", desc:v=>`판매가 +${(v*1.5).toFixed(1)}%, 강화비 −${(v*1.2).toFixed(1)}%`},
@@ -817,9 +822,12 @@ async function startWork(kind){
   if(unavailable()||$("modal").classList.contains("on"))return;
   const r=await dispatch({type:"workStart",kind});if(r)showWork();
 }
+const WORK_ART=Object.freeze({철:"iron",구리:"copper",은:"silver",석탄:"coal",돌:"stone",금:"gold",장작:"firewood",물통:"bucket",망치:"hammer",상자:"crate",모루:"anvil",숯:"charcoal"});
+const workName=name=>Object.hasOwn(WORK_ART,name)?name:"알 수 없는 재료";
+const workItem=name=>`${Object.hasOwn(WORK_ART,name)?`<img class="work-icon" src="art/work/${WORK_ART[name]}.svg" width="42" height="42" alt="">`:""}<span class="workname">${workName(name)}</span>`;
 function showWork(){
   const w=S.work;if(!w)return;
-  modal(`<h3>${w.kind==="mine"?"⛏ 광산 채굴":"🪵 마을 잡일"}</h3><p>${w.kind==="mine"?"감독이 표시한 광석만 골라 캐세요.":"주문서에 적힌 물건을 골라 전달하세요."}<br>매번 위치와 주문이 달라집니다. 오답·시간 초과는 보상 없이 종료됩니다.</p><div class="workprogress"><i style="width:${w.step/w.total*100}%"></i></div><div class="worktarget">${w.kind==="mine"?"채굴":"전달"}: <b>${w.target}</b></div><div class="workgrid">${w.cells.map((c,i)=>`<button type="button" data-cell="${i}" disabled aria-label="${i+1}번 ${c}">${c}</button>`).join("")}</div><p class="workstatus" id="workStatus" role="status"></p><p>${w.step+1} / ${w.total} 작업 · 완료 일당 <b>${fmt(w.reward)}G</b></p><div class="choices"><button class="btn" id="workCancel">그만두기</button></div>`);
+  modal(`<h3><img class="work-icon" src="art/work/${w.kind==="mine"?"pickaxe":"crate"}.svg" width="32" height="32" alt="">${w.kind==="mine"?"광산 채굴":"마을 잡일"}</h3><p>${w.kind==="mine"?"감독이 표시한 광석만 골라 캐세요.":"주문서에 적힌 물건을 골라 전달하세요."}<br>매번 위치와 주문이 달라집니다. 오답·시간 초과는 보상 없이 종료됩니다.</p><div class="workprogress"><i style="width:${w.step/w.total*100}%"></i></div><div class="worktarget"><span class="workverb">${w.kind==="mine"?"채굴":"전달"}</span><b class="workitem">${workItem(w.target)}</b></div><div class="workgrid">${w.cells.map((c,i)=>`<button type="button" data-cell="${i}" disabled aria-label="${i+1}번 ${workName(c)}">${workItem(c)}</button>`).join("")}</div><p class="workstatus" id="workStatus" role="status"></p><p>${w.step+1} / ${w.total} 작업 · 완료 일당 <b>${fmt(w.reward)}G</b></p><div class="choices"><button class="btn" id="workCancel">그만두기</button></div>`);
   let used=false;
   const buttons=[...$("mcard").querySelectorAll("[data-cell]")];
   const tick=()=>{const now=Date.now(),early=now<w.ready,late=now>w.deadline;buttons.forEach(b=>b.disabled=used||requestBusy||early||late);$("workStatus").textContent=late?"시간이 지났어요. 그만두고 다시 시작하세요.":early?"주문을 확인하세요…":`작업할 물건을 선택하세요 · ${Math.max(0,Math.ceil((w.deadline-now)/1000))}초`;};
@@ -973,10 +981,10 @@ $("bInfo").onclick=()=>{if(unavailable())return;
   const rows=P.map((p,i)=>`<tr><td>+${i}→${i+1}</td><td class="c-ok">${p[0]}</td><td class="c-keep">${p[1]}</td><td class="c-fail">${p[2]}</td><td class="c-boom">${p[3]}</td><td>${fmt(cost(i))}</td></tr>`).join("");
   modal(`<h3>규칙</h3>
   <p>당신은 대장장이. 골드를 내고 검을 두드린다. 결과는 <span class="c-ok">성공 +1</span> · <span class="c-keep">유지</span> · <span class="c-fail">실패 −1</span> · <span class="c-boom">파괴(나뭇가지로)</span>.</p>
-  <p><b>대성공</b>: +12 이하 성공 시 일정 확률로 +2 (힘).<br><b>장인의 집념</b>: 유지·실패마다 성공 확률 +5%(상대), 최대 +50%. 성공·파괴 시 초기화. 집념·손재주·컨디션 보너스는 높은 단계일수록 약해진다(+19에선 1/4).<br><b>파괴방지권</b>: 파괴 대신 소모. 파괴된 검 파편 ${PROT_COST}개로 구매. 저단계에서 파편을 반복 수급하는 효율을 낮췄다.<br><b>대장장이 성장</b>: 두드릴 때마다 경험치. 파괴는 가장 큰 교훈. 레벨업으로 스탯을 찍고 직급이 오른다.<br><b>판매</b>: 저단계 즉시 판매는 손해. +5~+8 구간부터 현금화를 고민할 수 있다. 판매 경험치는 없다.<br><b>일거리</b>: 광산 5단계 260G / 잡일 4단계 180G. 1,000G 미만이면 일당 +50%. 주문·위치가 매번 바뀌며 단계당 최소 0.9초, 제한 14초. 완료·포기 후 대기, 10분당 최대 30회 접수.<br><b>계정 보호</b>: 로그인 플레이는 서버가 확률·비용·보상을 계산한다. 기기 플레이의 저장파일 직접 조작까지 막을 수는 없다.</p>
+  <p><b>대성공</b>: +12 이하 성공 시 일정 확률로 +2 (힘).<br><b>장인의 집념</b>: 유지·실패마다 성공 확률 +5%(상대), 최대 +50%. 성공·파괴 시 초기화. 집념·손재주·컨디션의 상대 보너스는 고강화에서도 그대로 적용된다. 집중은 파괴 위험을 유지로 전환해 방지권과 함께 사용해도 유리하다.<br><b>파괴방지권</b>: 파괴 대신 소모. 파괴된 검 파편 ${PROT_COST}개로 구매. 저단계에서 파편을 반복 수급하는 효율을 낮췄다.<br><b>대장장이 성장</b>: 두드릴 때마다 경험치. 파괴는 가장 큰 교훈. 레벨업으로 스탯을 찍고 직급이 오른다.<br><b>판매</b>: 저단계 즉시 판매는 손해. +7~+10 구간부터 현금화를 고민할 수 있다. 고강화 판매가도 완화된 확률에 맞춰 조정했다. 판매 경험치는 없다.<br><b>일거리</b>: 광산 5단계 260G / 잡일 4단계 180G. 1,000G 미만이면 일당 +50%. 주문·위치가 매번 바뀌며 단계당 최소 0.9초, 제한 14초. 완료·포기 후 대기, 10분당 최대 30회 접수.<br><b>계정 보호</b>: 로그인 플레이는 서버가 확률·비용·보상을 계산한다. 기기 플레이의 저장파일 직접 조작까지 막을 수는 없다.</p>
   <p><b>갈림길</b>: 나뭇가지(+0)에서 처음 성공하면 무기의 길이 정해진다. 0으로 돌아가면 다시 갈림길.<br>
   ${Object.values(PATHS).map(P_=>`<span style="color:${P_.color}">${P_.rare&&!S.seen.some(x=>x==="path:"+Object.keys(PATHS).find(k=>PATHS[k]===P_))?'??? (희귀)':P_.name}</span> — ${P_.rare?'희귀 각 '+RARE_CH().toFixed(1)+'%. ':''}${P_.desc}`).join("<br>")}</p>
-  <table class="tbl"><tr><th>단계</th><th>성공</th><th>유지</th><th>실패</th><th>파괴</th><th>비용</th></tr>${rows}</table>
+  <p style="font-size:12px;color:var(--muted)">아래는 길·스탯·집념 보정 전 기본 확률입니다. 비용은 현재 길과 상술을 반영합니다.</p><table class="tbl"><tr><th>단계</th><th>성공</th><th>유지</th><th>실패</th><th>파괴</th><th>비용</th></tr>${rows}</table>
   <details class="credits"><summary>효과음 출처 · 라이선스</summary>
   효과음은 모두 OpenGameArt·Kenney의 실제 녹음이며, 겹치기·속도·구간·음량만 조절했다.<br>
   <b>CC-BY 3.0</b> (<a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">라이선스</a>): Varkalandar — <a href="https://opengameart.org/content/smithing-sound" target="_blank" rel="noopener">Smithing Sound</a> · ItsEddie — <a href="https://opengameart.org/content/black-smith-sounds" target="_blank" rel="noopener">Black Smith Sounds</a><br>
