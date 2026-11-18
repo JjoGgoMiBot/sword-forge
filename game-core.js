@@ -1,6 +1,6 @@
 /* Shared, deterministic rules. Account randomness and state transitions run on the Worker. */
 (() => {
-  const VERSION=3, MAX=20, LIMIT=1e12, PROT_COST=80;
+  const VERSION=3, RULES=4, MAX=20, LIMIT=1e12, PROT_COST=80;
   // Long endgame without a hard lock:
   // - fatigue: every roll from +10 tires the smith's hands; tired hands swing slower and
   //   recover only with real time, so nonstop play (or a macro) gains little over resting.
@@ -170,5 +170,5 @@
     else fail('지원하지 않는 행동입니다.');
     s.rev++;s.t=now;s.nextAction=Math.max(s.nextAction,now+100);return {state:s,out};
   }
-  globalThis.Forge={VERSION,MAX,P,PROT_COST,HIGH_FROM,HIGH_CD,FAT_MAX,FAT_SLOW,HURT_AT,CRACK_N,fatigueOf,swingDelay,PATHS,fresh,normalize,cost,sellPrice,odds,xpNeed,rankOf,transition};
+  globalThis.Forge={VERSION,RULES,MAX,P,PROT_COST,HIGH_FROM,HIGH_CD,FAT_MAX,FAT_SLOW,HURT_AT,CRACK_N,fatigueOf,swingDelay,PATHS,fresh,normalize,cost,sellPrice,odds,xpNeed,rankOf,transition};
 })();

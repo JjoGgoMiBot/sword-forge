@@ -148,6 +148,7 @@ export default {
     }
 
     if (url.pathname === '/action') {
+      if(b.cv!==Forge.RULES)return E(req,'upgrade','새 버전이 나왔어요! 새로고침(F5) 해 주세요.',426);
       const p=await byToken(env,b.token);if(!p)return E(req,'auth','다시 로그인해 주세요.',401);
       if(!await allowRequest(env,`account:action:${p.key}`,240,60000,now))return E(req,'rate','요청이 너무 많아요. 잠시 후 다시 시도해 주세요.',429);
       const raw=await accountState(env,p,now);

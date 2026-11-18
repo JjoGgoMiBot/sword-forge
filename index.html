@@ -909,7 +909,7 @@ async function dispatch(action){
       if(epoch!==accountEpoch||ACC?.token!==token)throw Object.assign(new Error("계정이 변경됐어요."),{code:"session"});
       let r;
       if(ACC){
-        const body={token,rev:S.rev,requestId:crypto.randomUUID(),action};
+        const body={token,cv:Forge.RULES,rev:S.rev,requestId:crypto.randomUUID(),action};
         try{r=await api("/action",body);}catch(e){if(e.code)throw e;r=await api("/action",body);}
         if(epoch!==accountEpoch||ACC?.token!==token)throw Object.assign(new Error("계정이 변경됐어요."),{code:"session"});
         S=Forge.normalize(r.state);cloudLast=r.saved;cloudState="ok";
@@ -923,6 +923,7 @@ async function dispatch(action){
     return navigator.locks?await navigator.locks.request("swordforge-actions",execute):await execute();
   }catch(e){
     if(epoch!==accountEpoch)return null;
+    if(e.code==="upgrade"){let t=0;try{t=+sessionStorage.getItem("sf-upgrade")||0;sessionStorage.setItem("sf-upgrade",Date.now());}catch(_){}if(Date.now()-t>60000){holding=false;location.reload();return null;}}
     if(e.state){S=Forge.normalize(e.state);save();setSword(S.lv);if(S.event)setTimeout(randomEvent,0);else if(S.work)setTimeout(showWork,0);}
     if(ACC&&!e.code){accountReady=false;cloudState="fail";setTimeout(cloudBoot,1200);}
     if(e.code==="auth"){accountReady=false;cloudState="fail";}
