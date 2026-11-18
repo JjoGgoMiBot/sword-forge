@@ -103,7 +103,11 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z
 .notice .msg b{font-weight:900} .notice .msg .who{color:#ffd36b}
 .notice.god{background:linear-gradient(90deg,#ff5a5a33,#ffd36b33,#5affb033,#5ab4ff33,#c45aff33);border-color:#fff8}
 @keyframes nin{from{transform:translateY(100%);opacity:0}}
-.nick{display:flex;gap:6px;margin-top:8px} .nick input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:8px 10px;font:inherit}
+.acct{margin:10px 0 4px;padding:10px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
+.acct p{margin:0 0 8px;font-size:12px;color:var(--muted)} .acct .who{font-weight:800;color:#ffd36b}
+.acct .f{display:flex;gap:6px;margin-bottom:6px} .acct input{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:9px 10px;font:inherit}
+.acct .f .btn{flex:1;padding:9px 6px;font-size:13px} .acct .err{color:var(--boom);font-size:12px;min-height:1em;margin:2px 0 0}
+.acct .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .toast{position:fixed;left:50%;top:14px;transform:translate(-50%,-150%);background:#1d2030f2;border:1px solid #5a4a20;color:var(--xp);font-weight:800;padding:8px 14px 8px 8px;border-radius:12px;display:flex;align-items:center;gap:8px;z-index:20;transition:transform .35s cubic-bezier(.2,1.3,.4,1);box-shadow:0 8px 30px #000a}
 .toast.on{transform:translate(-50%,0)}
 .toast img{width:30px;height:30px;object-fit:contain}
@@ -300,7 +304,7 @@ const DEF = {lv:0,path:null,gold:3000,shard:0,prot:0,best:0,pity:0,buffs:{},seen
 let S;
 try{ const L=JSON.parse(localStorage.getItem(KEY)||"null"); S=structuredClone(DEF); if(L){ Object.assign(S,L); S.smith=Object.assign(structuredClone(DEF.smith),L.smith); S.smith.st=Object.assign(structuredClone(DEF.smith.st),L.smith&&L.smith.st); S.st=Object.assign(structuredClone(DEF.st),L.st); } }
 catch(e){ S=structuredClone(DEF); }
-const save=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} };
+const save=()=>{ S.t=Date.now(); try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} if(typeof cloudQueue==="function") cloudQueue(); };
 const ST=()=>S.smith.st;
 if(typeof S.name!=="string"||!S.name.trim()) { S.name="대장장이"+(1000+Math.floor(Math.random()*9000)); }
 
@@ -900,15 +904,79 @@ function openStats(){
   const rows=Object.entries(STATS).map(([k,s])=>`<div class="stat"><img src="${ART(s.icon)}" alt=""><div class="d"><b>${s.name}<span>${ST()[k]}/${STAT_MAX}</span></b><p>${s.desc(ST()[k])}</p></div><button class="plus" data-k="${k}" ${sm.pts<1||ST()[k]>=STAT_MAX?"disabled":""}>+</button></div>`).join("");
   const ranks=RANKS.map((x,i)=>`<div class="${sm.lv>=x[0]?'':'lock'}"><img src="${ART('rank-'+(i+1))}" alt="">${x[1]}<br>${x[0]}레벨</div>`).join("");
   modal(`<h3><img class="ic" style="width:28px;height:28px" src="${ART('rank-'+(r+1))}" alt="">${RANKS[r][1]} · ${sm.lv}레벨</h3>
-  <div class="nick"><input id="nickIn" maxlength="12" placeholder="이름" aria-label="대장장이 이름"><button class="btn" id="nickOk">이름 저장</button></div>
+  <div class="acct" id="acct"></div>
   <p>남은 스탯 포인트 <b style="color:var(--xp)">${sm.pts}</b> · 레벨업마다 +1, 직급 승급 시 +2</p>${rows}
   <p style="margin-top:12px"><b>직급</b></p><div class="ranks">${ranks}</div>
   <div class="choices"><button class="btn" onclick="closeModal()">닫기</button></div>`,false);
-  $("nickIn").value=S.name;
-  $("nickOk").onclick=()=>{ const v=$("nickIn").value.replace(/[<>\s]+/g," ").trim().slice(0,12); if(v){ S.name=v; save(); toast("icon-xp",`이름: ${v}`); } };
+  renderAcct();
   $("mcard").querySelectorAll(".plus").forEach(b=>b.onclick=()=>{ if(sm.pts<1) return; sm.pts--; ST()[b.dataset.k]++; SFX.coin(); save(); render(); openStats(); });
 }
 $("bStat").onclick=openStats;
+
+// ═════════ 닉네임 계정: 다른 기기에서 이어하기 (Cloudflare Workers + D1) ═════════
+const API="https://sword-forge-api.aicore-sj-relay.workers.dev";
+const ACC_KEY="swordforge-acc";
+let ACC=(()=>{ try{ const a=JSON.parse(localStorage.getItem(ACC_KEY)); if(a&&a.token) return a; }catch(e){} return null; })();
+let cloudState="", cloudTimer=0, cloudLast=0;
+const setAcc=a=>{ ACC=a; try{ a?localStorage.setItem(ACC_KEY,JSON.stringify(a)):localStorage.removeItem(ACC_KEY); }catch(e){} };
+async function api(path,body,keepalive=false){
+  const r=await fetch(API+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),keepalive});
+  let j={}; try{ j=await r.json(); }catch(e){}
+  if(!r.ok){ const e=new Error(j.msg||"서버 연결이 안 돼요"); e.code=j.error||r.status; throw e; }
+  return j;
+}
+function cloudQueue(){ if(!ACC) return; clearTimeout(cloudTimer); cloudTimer=setTimeout(cloudPush,2500); }
+async function cloudPush(keepalive=false){
+  if(!ACC) return; clearTimeout(cloudTimer);
+  try{ await api("/save",{token:ACC.token,save:JSON.stringify(S)},keepalive); cloudLast=Date.now(); cloudState="ok"; }
+  catch(e){ cloudState="fail"; if(e.code==="auth"){ setAcc(null); toast("icon-xp","다시 로그인해 주세요"); } }
+  if($("acct")) renderAcct();
+}
+// 창을 닫거나 다른 앱으로 넘어갈 때 바로 올린다
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden"&&ACC&&cloudTimer) cloudPush(true); });
+// 서버 기록으로 갈아끼우고 새로 시작 (지금 기기의 기록은 백업에 남겨 둔다)
+function adoptSave(json){ try{ const cur=localStorage.getItem(KEY); if(cur) localStorage.setItem(KEY+"-backup",cur); localStorage.setItem(KEY,json); }catch(e){} location.reload(); }
+// 시작할 때: 다른 기기에서 더 최근에 했으면 그 기록으로
+async function cloudBoot(){
+  if(!ACC) return;
+  try{ const r=await api("/load",{token:ACC.token}); cloudState="ok";
+    let srv=null; try{ srv=r.save&&JSON.parse(r.save); }catch(e){}
+    if(srv && (srv.t||0) > (S.t||0)+1000) { toast("icon-xp","다른 기기의 기록을 불러왔어요"); return adoptSave(r.save); }
+    if(!srv || (S.t||0) > (srv.t||0)) cloudPush();
+  }catch(e){ cloudState="fail"; if(e.code==="auth"){ setAcc(null); } }
+}
+function renderAcct(){
+  const box=$("acct"); if(!box) return;
+  if(ACC){
+    const st=cloudState==="fail"?'<span style="color:var(--boom)">저장 실패 · 연결 확인</span>':cloudLast?`자동 저장됨 ${new Date(cloudLast).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}`:"자동 저장 중";
+    box.innerHTML=`<div class="row"><div><span class="who"></span><p style="margin:2px 0 0">☁ ${st}</p></div><button class="btn" id="accOut" style="flex:none;padding:8px 12px;font-size:13px">로그아웃</button></div>`;
+    box.querySelector(".who").textContent=ACC.name;
+    $("accOut").onclick=async()=>{ if(cloudTimer) await cloudPush(); setAcc(null); cloudState=""; renderAcct(); toast("icon-xp","로그아웃했어요 · 이 기기 기록은 그대로"); };
+    return;
+  }
+  box.innerHTML=`<p>닉네임과 비밀번호를 정하면 <b style="color:var(--text)">다른 기기에서도 이어서</b> 할 수 있어요</p>
+    <div class="f"><input id="accName" maxlength="12" placeholder="닉네임 (2~12자)" autocomplete="username" aria-label="닉네임"></div>
+    <div class="f"><input id="accPin" type="password" inputmode="numeric" maxlength="8" placeholder="비밀번호 숫자 4~8자리" autocomplete="current-password" aria-label="비밀번호"></div>
+    <div class="f"><button class="btn main" id="accNew">새로 만들기</button><button class="btn" id="accIn">불러오기</button></div>
+    <p class="err" id="accErr"></p>`;
+  $("accName").value=/^대장장이\d{4}$/.test(S.name)?"":S.name;
+  const go=async(kind)=>{
+    const name=$("accName").value.trim(), pin=$("accPin").value.trim(), err=$("accErr");
+    if(!/^[0-9A-Za-z가-힣_]{2,12}$/.test(name)) return err.textContent="닉네임은 한글·영문·숫자 2~12자 (띄어쓰기 없이)";
+    if(!/^\d{4,8}$/.test(pin)) return err.textContent="비밀번호는 숫자 4~8자리";
+    err.textContent="잠시만요…"; box.querySelectorAll("button").forEach(b=>b.disabled=true);
+    try{
+      if(kind==="new"){ S.name=name; save(); const r=await api("/register",{name,pin,save:JSON.stringify(S)});
+        setAcc({token:r.token,name:r.name}); cloudLast=Date.now(); cloudState="ok"; toast("icon-xp",`${r.name} 계정을 만들었어요`); renderAcct(); }
+      else { const r=await api("/login",{name,pin}); setAcc({token:r.token,name:r.name});
+        if(r.save){ toast("icon-xp",`${r.name} 기록을 불러와요`); return adoptSave(r.save); }
+        S.name=r.name; save(); await cloudPush(); toast("icon-xp","로그인했어요 · 지금 기록을 올렸어요"); renderAcct(); }
+    }catch(e){ err.textContent=e.message; box.querySelectorAll("button").forEach(b=>b.disabled=false); }
+  };
+  $("accNew").onclick=()=>go("new"); $("accIn").onclick=()=>go("login");
+  $("accPin").onkeydown=e=>{ if(e.key==="Enter") go("login"); };
+}
+cloudBoot();
 let dexTab="blade";
 function openDex(){
   const keys=Object.keys(PATHS), total=1+keys.length*20, got=S.seen.filter(x=>x==="root"||/:\d+$/.test(x)).length;
