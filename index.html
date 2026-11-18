@@ -119,6 +119,13 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z
 .legend b{display:block;font-size:15px;font-variant-numeric:tabular-nums}
 .pity{margin-top:8px;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px}
 .pity .track{flex:1;height:6px;background:var(--panel2);border-radius:99px;overflow:hidden}
+.mastery .track i{background:linear-gradient(90deg,#7aa2ff,#c38bff)!important}
+.rank-list{list-style:none;margin:8px 0;padding:0;max-height:52vh;overflow:auto;text-align:left}
+.rank-list li{display:flex;gap:10px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--panel2)}
+.rank-list li.me{background:rgba(255,211,107,.15);border-radius:8px}
+.rank-list .n{width:28px;font-weight:800;color:var(--muted)}
+.rank-list .nm{flex:1}
+.rank-list .lv{font-weight:800}
 .pity .track i{display:block;height:100%;background:linear-gradient(90deg,#f08a4b,#ffd36b);transition:width .3s}
 /* 버튼 */
 .actions{display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:10px}
@@ -202,6 +209,7 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z
       <div class="xpt" id="xpTxt"></div>
     </div>
     <button class="sq" id="bStat" title="스탯"><img data-art="icon-xp" alt="스탯"><span class="dot" id="ptDot"></span></button>
+    <button class="sq" id="bRank" title="랭킹" aria-label="최고 강화 랭킹" style="font-size:20px">🏆</button>
     <button class="sq" id="bDex" title="도감"><img data-art="icon-book" alt="도감"></button>
     <button class="sq" id="bInfo" title="규칙"><img data-art="icon-info" alt="규칙"></button>
     <div style="position:relative"><button class="sq" id="bVol" title="소리" aria-label="소리 조절" aria-expanded="false"><svg id="volIco" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg></button>
@@ -238,6 +246,7 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z
       <span class="c-ok">성공<b id="tS"></b></span><span class="c-keep">유지<b id="tK"></b></span><span class="c-fail">실패 −1<b id="tF"></b></span><span class="c-boom">파괴<b id="tD"></b></span>
     </div>
     <div class="pity"><img class="ic" data-art="icon-fire" alt="">장인의 집념 <div class="track"><i id="pityBar"></i></div><span id="pityTxt">+0%</span></div>
+    <div class="pity mastery" id="mastRow" hidden title="+20 도전은 +10 이상 강화 시도가 충분히 쌓이고, 첫 시도부터 100시간이 지나야 열립니다">🔒 +20 봉인 · 정련 <div class="track"><i id="mastBar"></i></div><span id="mastTxt"></span></div>
   </div>
 
   <div class="actions">
@@ -261,7 +270,7 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z
 <div class="toast" id="toast"><img id="toastImg" alt=""><span id="toastTxt"></span></div>
 <div class="modal" id="modal"><div class="card" id="mcard"></div></div>
 
-<script src="game-core.js?v=3.4"></script>
+<script src="game-core.js?v=3.5"></script>
 <script>
 // ═════════ 데이터 ═════════
 const ART = n => `art/${n}.webp`;
@@ -355,6 +364,10 @@ function render(){
   $("best").textContent="최고 +"+S.best;
   ["S","K","F","D"].forEach((id,i)=>{ $("p"+id).style.width=o[i]+"%"; $("t"+id).textContent=pct(o[i]); });
   $("pityBar").style.width=(S.pity/10*100)+"%"; $("pityTxt").textContent="+"+(S.pity*5)+"%";
+  const mOpen=Forge.masteryReady(S),mH=S.mastAt?Math.min(100,(Date.now()-S.mastAt)/3600000):0;
+  $("mastRow").hidden=mOpen||(!S.mast&&S.best<10);
+  $("mastBar").style.width=Math.min(100,Math.min(S.mast/Forge.MASTERY_N,mH/100)*100)+"%";
+  $("mastTxt").textContent=`${fmt(Math.min(S.mast,Forge.MASTERY_N))}/${fmt(Forge.MASTERY_N)}회 · ${Math.floor(mH)}/100시간`;
   $("costTxt").innerHTML = l>=MAX ? "최대 강화" : free ? `<img class="ic" src="${ART('icon-cat')}" alt="">무료` : `<img class="ic" src="${ART('icon-gold')}" alt="">${fmt(c)}G`;
   $("bUp").disabled = unavailable() || l>=MAX || (!free && S.gold<c);
   $("sellTxt").textContent = l===0 ? "가치 없음" : fmt(sellPrice(l))+"G";
@@ -969,6 +982,24 @@ function openDex(){
   <div class="dex">${known?cells:''}</div><div class="choices"><button class="btn" onclick="closeModal()">닫기</button></div>`,false);
   $("mcard").querySelectorAll(".ptabs button").forEach(b=>b.onclick=()=>{ dexTab=b.dataset.t; openDex(); });
 }
+async function openRanking(){
+  modal(`<h3>🏆 최고 강화 랭킹</h3><p style="font-size:12px;color:var(--muted)">로그인 계정의 서버 판정 기록만 올라가요. 같은 강화는 먼저 달성한 사람이 위.</p><ol class="rank-list" id="rankList"><li>불러오는 중…</li></ol><p id="rankMe" style="font-size:13px"></p><div class="choices"><button class="btn main" onclick="closeModal()">닫기</button></div>`,false);
+  try{
+    const r=await fetch(API+"/ranking",{signal:AbortSignal.timeout(15000)}),j=await r.json();if(!r.ok)throw Error(j.msg||"랭킹을 불러오지 못했어요");
+    const ul=$("rankList");if(!ul)return;ul.innerHTML="";
+    if(!j.top.length){const li=document.createElement("li");li.textContent="아직 기록이 없어요. 첫 번째 이름을 올려 보세요!";ul.append(li);}
+    for(const x of j.top){const li=document.createElement("li");if(ACC&&x.name===ACC.name)li.className="me";
+      const n=document.createElement("span");n.className="n";n.textContent=x.rank<=3?["🥇","🥈","🥉"][x.rank-1]:x.rank;
+      const nm=document.createElement("span");nm.className="nm";nm.textContent=x.name;
+      const lv=document.createElement("span");lv.className="lv";lv.textContent="+"+x.best;lv.style.color=tierColor(x.best);
+      li.append(n,nm,lv);ul.append(li);}
+    const me=$("rankMe");if(!me)return;
+    if(!ACC){me.textContent="로그인하면 내 기록도 랭킹에 올라가요.";return;}
+    const m=await api("/myrank",{token:ACC.token});if(!$("rankMe"))return;
+    $("rankMe").textContent=m.rank?`내 순위: ${fmt(m.rank)}위 · 최고 +${m.best}`:"내 순위: 아직 기록 없음 (강화에 성공하면 올라가요)";
+  }catch(e){const ul=$("rankList");if(ul)ul.innerHTML=`<li>${e.message==="Failed to fetch"?"서버 연결이 안 돼요":"랭킹을 불러오지 못했어요"}</li>`;}
+}
+$("bRank").onclick=()=>{if(!busy&&!requestBusy)openRanking();};
 $("bDex").onclick=()=>{if(unavailable())return; dexTab=S.path||dexTab; openDex(); };
 // 소리 조절 팝업
 { const pop=$("volPop"), btn=$("bVol"), show=on=>{ pop.classList.toggle("on",on); btn.setAttribute("aria-expanded",on); };
@@ -984,6 +1015,7 @@ $("bInfo").onclick=()=>{if(unavailable())return;
   modal(`<h3>규칙</h3>
   <p>당신은 대장장이. 골드를 내고 검을 두드린다. 결과는 <span class="c-ok">성공 +1</span> · <span class="c-keep">유지</span> · <span class="c-fail">실패 −1</span> · <span class="c-boom">파괴(나뭇가지로)</span>.</p>
   <p><b>대성공</b>: +12 이하 성공 시 일정 확률로 +2 (힘).<br><b>장인의 집념</b>: 유지·실패마다 성공 확률 +5%(상대), 최대 +50%. 성공·파괴 시 초기화. 집념·손재주·컨디션의 상대 보너스는 고강화에서도 그대로 적용된다. 집중은 파괴 위험을 유지로 전환해 방지권과 함께 사용해도 유리하다.<br><b>파괴방지권</b>: 파괴 대신 소모. 파괴된 검 파편 ${PROT_COST}개로 구매. 저단계에서 파편을 반복 수급하는 효율을 낮췄다.<br><b>대장장이 성장</b>: 두드릴 때마다 경험치. 파괴는 가장 큰 교훈. 레벨업으로 스탯을 찍고 직급이 오른다.<br><b>판매</b>: 저단계 즉시 판매는 손해. +7~+10 구간부터 현금화를 고민할 수 있다. 고강화 판매가도 완화된 확률에 맞춰 조정했다. 판매 경험치는 없다.<br><b>일거리</b>: 광산 5단계 260G / 잡일 4단계 180G. 1,000G 미만이면 일당 +50%. 주문·위치가 매번 바뀌며 단계당 최소 0.9초, 제한 14초. 완료·포기 후 대기, 10분당 최대 30회 접수.<br><b>계정 보호</b>: 로그인 플레이는 서버가 확률·비용·보상을 계산한다. 기기 플레이의 저장파일 직접 조작까지 막을 수는 없다.</p>
+  <p><b>🔒 +20 봉인</b>: +19→+20 성공 확률은 <b>+10 이상에서 강화 시도 ${fmt(Forge.MASTERY_N)}회</b>를 채우고 <b>그 첫 시도부터 100시간</b>이 지나야 열린다(파괴돼도 누적 유지). +10 이상 강화는 한 번에 ${Forge.HIGH_CD/1000}초 간격. 운으로 줄일 수 없는 최소 투자 시간이다.<br><b>🏆 랭킹</b>: 로그인 계정이 서버 판정으로 달성한 최고 강화 순. 같은 강화는 먼저 달성한 사람이 위.</p>
   <p><b>갈림길</b>: 나뭇가지(+0)에서 처음 성공하면 무기의 길이 정해진다. 0으로 돌아가면 다시 갈림길.<br>
   ${Object.values(PATHS).map(P_=>`<span style="color:${P_.color}">${P_.rare&&!S.seen.some(x=>x==="path:"+Object.keys(PATHS).find(k=>PATHS[k]===P_))?'??? (희귀)':P_.name}</span> — ${P_.rare?'희귀 각 '+RARE_CH().toFixed(1)+'%. ':''}${P_.desc}`).join("<br>")}</p>
   <p style="font-size:12px;color:var(--muted)">아래는 길·스탯·집념 보정 전 기본 확률입니다. 비용은 현재 길과 상술을 반영합니다.</p><table class="tbl"><tr><th>단계</th><th>성공</th><th>유지</th><th>실패</th><th>파괴</th><th>비용</th></tr>${rows}</table>

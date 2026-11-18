@@ -88,7 +88,7 @@ test('focus reduces destruction into keep, never into extra downgrades',()=>{
   }
 });
 test('late-stage dexterity and pity retain their advertised relative bonuses',()=>{
-  const s=F.fresh();s.lv=19;s.path='blade';const base=F.odds(s)[0];s.smith.st.dex=25;
+  const s=F.fresh();s.lv=19;s.path='blade';s.mast=F.MASTERY_N;s.mastAt=1;const base=F.odds(s)[0];assert.ok(base>0);s.smith.st.dex=25;
   assert.ok(Math.abs(F.odds(s)[0]-base*1.5)<1e-10);s.pity=10;assert.ok(Math.abs(F.odds(s)[0]-base*2)<1e-10);
 });
 test('every path and trade build pays strictly increasing upgrade costs',()=>{
@@ -108,4 +108,25 @@ test('empty event IDs and no-op actions cannot mint revisions or write continuou
   assert.throws(()=>run(s,{type:'useProt',value:'false'}),/변경/);
   const changed=run(s,{type:'useProt',value:false}).state;
   assert.throws(()=>run(changed,{type:'useProt',value:true},1e6+1),/잠시/);assert.equal(s.rev,0);
+});
+
+test('+20 stays locked until both the high-level attempt count and the elapsed floor are met',()=>{
+  const s=F.fresh();s.lv=19;s.path='blade';s.gold=1e9;s.smith.st.dex=25;s.pity=10;s.buffs.smith=3;
+  assert.equal(F.odds(s,1e12)[0],0,'no mastery at all');
+  s.mast=F.MASTERY_N;s.mastAt=1e9;
+  assert.equal(F.odds(s,1e9+F.MASTERY_MS-1)[0],0,'count met but 100h not yet elapsed');
+  s.mast=F.MASTERY_N-1;assert.equal(F.odds(s,1e9+F.MASTERY_MS)[0],0,'time met but one attempt short');
+  s.mast=F.MASTERY_N;assert.ok(F.odds(s,1e9+F.MASTERY_MS)[0]>0,'both met');
+  // A locked final roll can never succeed, even with rng 0.
+  const t=F.fresh();t.lv=19;t.path='blade';t.gold=1e9;
+  for(let i=0;i<50;i++){const r=F.transition(t,{type:'enhance'},2e6+i*2000,()=>0);assert.notEqual(r.state.lv,20);Object.assign(t,F.fresh(),{lv:19,path:'blade',gold:1e9});}
+});
+test('mastery counts only attempts started at +10 or higher, survives destruction, and paces high rolls',()=>{
+  let s=F.fresh();s.lv=9;s.path='blade';s.gold=1e9;
+  s=F.transition(s,{type:'enhance'},1e6,()=>.99).state;assert.equal(s.mast,0,'+9 attempt does not count');
+  s.lv=12;s.nextAction=0;const r=F.transition(s,{type:'enhance'},2e6,()=>.9999);
+  assert.equal(r.out.result,'boom');assert.equal(r.state.lv,0);assert.equal(r.state.mast,1);assert.equal(r.state.mastAt,2e6);
+  assert.equal(r.state.nextAction,2e6+F.HIGH_CD);
+  assert.equal(F.normalize(JSON.parse(JSON.stringify(r.state))).mast,1,'persisted through save/load');
+  assert.throws(()=>F.transition(r.state,{type:'enhance'},2e6+F.HIGH_CD-1),/잠시/);
 });

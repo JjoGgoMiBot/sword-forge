@@ -1,6 +1,10 @@
 /* Shared, deterministic rules. Account randomness and state transitions run on the Worker. */
 (() => {
   const VERSION=3, MAX=20, LIMIT=1e12, PROT_COST=80;
+  // +20 floor: the final roll stays locked until the account has made MASTERY_N
+  // server-paced attempts from +10 or higher AND MASTERY_MS has passed since the first.
+  // Luck can shorten everything else, never this.
+  const MASTERY_N=150000, MASTERY_MS=100*3600000, MASTERY_FROM=10, HIGH_CD=1200;
   const P=[
     [95,5,0,0],[94,6,0,0],[92,8,0,0],[90,9,1,0],[87,11,2,0],
     [83,13,4,0],[78,15,6.5,.5],[72,18,9,1],[65,22,11.5,1.5],[58,26,13.5,2.5],
@@ -13,10 +17,10 @@
   const int=(v,hi=LIMIT,lo=0)=>typeof v==='number'&&Number.isFinite(v)?Math.min(hi,Math.max(lo,Math.floor(v))):lo;
   const xpNeed=l=>Math.round(40*l**1.6);
   const rankOf=l=>RANKS.filter(x=>l>=x).length-1;
-  function fresh(){return {version:VERSION,rev:0,lv:0,path:null,gold:3000,shard:0,prot:0,best:0,pity:0,buffs:{},seen:['root'],cleared:{},useProt:true,invested:0,t:0,nextAction:0,work:null,workUntil:0,workWindow:0,workCount:0,event:null,smith:{lv:1,xp:0,pts:0,st:{dex:0,focus:0,str:0,luck:0,trade:0}},st:{tries:0,ok:0,keep:0,fail:0,boom:0,great:0,earned:0,saved:0,jobs:0,wages:0}};}
+  function fresh(){return {version:VERSION,rev:0,lv:0,path:null,gold:3000,shard:0,prot:0,best:0,pity:0,buffs:{},seen:['root'],cleared:{},useProt:true,invested:0,t:0,nextAction:0,work:null,workUntil:0,workWindow:0,workCount:0,event:null,smith:{lv:1,xp:0,pts:0,st:{dex:0,focus:0,str:0,luck:0,trade:0}},mast:0,mastAt:0,st:{tries:0,ok:0,keep:0,fail:0,boom:0,great:0,earned:0,saved:0,jobs:0,wages:0}};}
   function normalize(raw){
     const s=fresh(), v=raw&&typeof raw==='object'?raw:{};
-    for(const k of ['rev','gold','shard','prot','invested','t','nextAction','workUntil','workWindow','workCount']) s[k]=int(v[k]);
+    for(const k of ['rev','gold','shard','prot','invested','t','nextAction','workUntil','workWindow','workCount','mast','mastAt']) s[k]=int(v[k]);
     if(v.gold===undefined)s.gold=3000;
     s.lv=int(v.lv,MAX);s.best=Math.max(s.lv,int(v.best,MAX));s.pity=int(v.pity,10);
     s.path=s.lv?(Object.hasOwn(PATHS,v.path)?v.path:'blade'):null;
@@ -45,7 +49,8 @@
     // A +2 great success, rare branch or free roll must not create a root-sale loop.
     return l<=2?Math.min(price,Math.floor(s.invested*.7/10)*10):price;
   };
-  function odds(s){
+  const masteryReady=(s,now=Date.now())=>s.mast>=MASTERY_N&&s.mastAt>0&&now-s.mastAt>=MASTERY_MS;
+  function odds(s,now=Date.now()){
     if(s.lv>=MAX)return [0,0,0,0];
     let [a,k,f,d]=P[s.lv];const m=pm(s),st=s.smith.st,b=s.buffs;
     a*=m.s;f*=m.f;d*=m.d;if(b.star){k+=d;d=0;}if(b.curse){a*=1.5;d*=2;}
@@ -53,6 +58,7 @@
     const red=d*st.focus*.015;d-=red;k+=red;
     // Relative bonuses keep their full effect: high-level progression rewards stat investment.
     a=Math.min(97,a*(1+s.pity*.05+st.dex*.02+(b.smith?.3:0)));
+    if(s.lv===MAX-1&&!masteryReady(s,now))a=0;
     const sum=k+f+d,rem=100-a;return [a,k*rem/sum,f*rem/sum,d*rem/sum];
   }
   function gainXP(s,n){const sm=s.smith;if(sm.lv>=60)return;sm.xp+=Math.round(n);while(sm.lv<60&&sm.xp>=xpNeed(sm.lv)){sm.xp-=xpNeed(sm.lv);const r=rankOf(sm.lv++);sm.pts+=1+(rankOf(sm.lv)>r?2:0);}if(sm.lv===60)sm.xp=0;}
@@ -86,11 +92,11 @@
     if(now<s.nextAction)fail('잠시 후 다시 시도해 주세요.');
     if(a.type==='enhance'){
       if(s.lv>=MAX)fail('이미 최대 강화입니다.');
-      const from=s.lv,c=cost(s),free=s.buffs.cat>0,o=odds(s);
+      const from=s.lv,c=cost(s),free=s.buffs.cat>0,o=odds(s,now);
       if(!free&&s.gold<c)fail('골드가 부족해요. 광산이나 잡일로 벌어 보세요.');
       if(free)s.buffs.cat--;else{s.gold-=c;s.invested+=c;}
       let r=rng()*100;const result=r<o[0]?'ok':r<o[0]+o[1]?'keep':r<o[0]+o[1]+o[2]?'fail':'boom';
-      s.st.tries++;s.buffs.smith=Math.max(0,(s.buffs.smith||0)-1);delete s.buffs.star;delete s.buffs.curse;
+      s.st.tries++;if(from>=MASTERY_FROM){if(!s.mastAt)s.mastAt=now;s.mast++;}s.buffs.smith=Math.max(0,(s.buffs.smith||0)-1);delete s.buffs.star;delete s.buffs.curse;
       let xp=4+from*3;
       if(result==='ok'){
         out.great=from<=12&&rng()*100<5+s.smith.st.str*.4+pm(s).great;
@@ -103,7 +109,7 @@
       gainXP(s,xp);s.best=Math.max(s.best,s.lv);s.seen=[...new Set([...s.seen,s.lv?s.path+':'+s.lv:'root'])];
       if(s.lv===MAX&&!s.cleared[s.path]){s.cleared[s.path]=true;out.ending=true;}
       else if(rng()*100<6+s.smith.st.luck*.25)makeEvent(s,rng,now);
-      out.result=result;out.from=from;s.nextAction=now+650;
+      out.result=result;out.from=from;s.nextAction=now+(from>=MASTERY_FROM?HIGH_CD:650);
     }else if(a.type==='sell'){
       if(!s.lv)fail('판매할 무기가 없어요.');out.price=sellPrice(s);out.from=s.lv;addGold(s,out.price);s.st.earned+=out.price;s.lv=0;s.path=null;s.invested=0;s.pity=0;s.nextAction=now+400;
       // Sales grant no XP: repeatedly selling the first successful weapon cannot farm stats.
@@ -147,5 +153,5 @@
     else fail('지원하지 않는 행동입니다.');
     s.rev++;s.t=now;s.nextAction=Math.max(s.nextAction,now+100);return {state:s,out};
   }
-  globalThis.Forge={VERSION,MAX,P,PROT_COST,PATHS,fresh,normalize,cost,sellPrice,odds,xpNeed,rankOf,transition};
+  globalThis.Forge={VERSION,MAX,P,PROT_COST,MASTERY_N,MASTERY_MS,MASTERY_FROM,HIGH_CD,masteryReady,PATHS,fresh,normalize,cost,sellPrice,odds,xpNeed,rankOf,transition};
 })();

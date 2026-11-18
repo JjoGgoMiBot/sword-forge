@@ -29,3 +29,17 @@ test('server rejects save forgery, duplicate requests, stale revisions and job r
   const login=await post('/login',{name,pin});assert.equal(login.status,200);assert.equal(JSON.parse(login.save).gold,3100);
   assert.equal((await post('/action',{token:'a'.repeat(64),rev:0,requestId:crypto.randomUUID(),action:{type:'sell'}})).status,401);
 });
+test('ranking lists only server-rolled peaks and reports my rank',async()=>{
+  const name='RK'+Date.now().toString(36).slice(-8),pin='12345678';
+  const acc=await post('/register',{name,pin});assert.equal(acc.status,200);
+  assert.deepEqual(await post('/myrank',{token:acc.token}),{status:200,rank:null,best:0});
+  let s=JSON.parse(acc.save);
+  const r=await post('/action',{token:acc.token,rev:s.rev,requestId:crypto.randomUUID(),action:{type:'enhance'}});assert.equal(r.status,200);
+  const lv=r.state.lv;
+  const me=await post('/myrank',{token:acc.token});assert.equal(me.best,lv);
+  if(lv>0){assert.ok(me.rank>=1);}
+  await sleep(21000);
+  const g=await fetch(API+'/ranking');assert.equal(g.status,200);const top=(await g.json()).top;
+  assert.ok(top.every((x,i)=>x.rank===i+1&&x.best>0&&typeof x.name==='string'&&Object.keys(x).length===3));
+  if(lv>0)assert.ok(top.some(x=>x.name===name&&x.best===lv));
+});

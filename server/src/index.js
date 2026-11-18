@@ -5,9 +5,13 @@ import '../../game-core.js';
 // POST /action   {token,rev,requestId,action} → {state,out,saved}
 // POST /save     rejects obsolete snapshot uploads
 // POST /load     {token}          → {name,save,saved}
+// GET  /ranking                   → {top:[{rank,name,best}],at}  server-verified peak level
+// POST /myrank   {token}          → {rank,best}
 const ORIGINS = ["https://seungjaehh.github.io", "http://localhost:5188"];
 const MAX_BODY=8192, ITER=20000, TOKEN_TTL=30*86400000;
-const ROUTE_LIMITS={'/register':[20,3600000],'/login':[30,60000],'/action':[600,60000],'/load':[120,60000],'/logout':[60,60000]};
+const ROUTE_LIMITS={'/register':[20,3600000],'/login':[30,60000],'/action':[600,60000],'/load':[120,60000],'/logout':[60,60000],'/myrank':[30,60000]};
+const RANK_TTL=20000,RANK_SIZE=50;
+let rankCache=null;
 let lastLimitCleanup=0;
 const blockedRequests=new Map();
 const enc = new TextEncoder();
@@ -26,7 +30,7 @@ const okNewPin=p=>typeof p==='string'&&/^\d{6,8}$/.test(p);
 
 function cors(req) {
   const o = req.headers.get("Origin");
-  return { "Access-Control-Allow-Origin": ORIGINS.includes(o) ? o : ORIGINS[0], "Access-Control-Allow-Methods": "POST, OPTIONS",
+  return { "Access-Control-Allow-Origin": ORIGINS.includes(o) ? o : ORIGINS[0], "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "86400", "Vary": "Origin" };
 }
 const J = (req, body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json",'Cache-Control':'no-store','X-Content-Type-Options':'nosniff', ...cors(req) } });
@@ -86,6 +90,15 @@ export default {
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(req) });
     const url = new URL(req.url);
     if (req.method === "GET" && url.pathname === "/") return J(req, { ok: true });
+    if(req.method==='GET'&&url.pathname==='/ranking'){
+      const now=Date.now(),ip=req.headers.get('CF-Connecting-IP')||'unknown';
+      if(!await allowRequest(env,`ip:/ranking:${ip}`,30,60000,now))return E(req,'rate','요청이 너무 많아요. 잠시 후 다시 시도해 주세요.',429);
+      if(!rankCache||now-rankCache.at>RANK_TTL){
+        const {results}=await env.DB.prepare('SELECT name,best FROM players WHERE best>0 ORDER BY best DESC,best_at ASC,key ASC LIMIT ?').bind(RANK_SIZE).all();
+        rankCache={at:now,top:results.map((r,i)=>({rank:i+1,name:r.name,best:r.best}))};
+      }
+      return J(req,rankCache);
+    }
     if (req.method !== "POST") return E(req, "method", "POST만 됩니다", 405);
     if(url.pathname==='/save')return E(req,'upgrade','보호 기능이 업데이트됐어요. 새로고침해 주세요.',409);
     const limit=ROUTE_LIMITS[url.pathname];if(!limit)return E(req,'404','없는 주소',404);
@@ -144,9 +157,18 @@ export default {
       let result;try{result=Forge.transition(raw,b.action,now,secureRandom);}catch(e){return E(req,'action',e.message);}
       result.state.name=p.name;result.state.lastRequest=b.requestId;result.state.lastOut=result.out;
       const next=JSON.stringify(result.state);
-      const r=await env.DB.prepare('UPDATE players SET save=?,saved=? WHERE key=? AND save IS ?').bind(next,now,p.key,p.save).run();
+      // Peak level is recorded in the same conditional write as the roll, so it can only come from a server roll.
+      const lv=result.state.lv|0;
+      const r=await env.DB.prepare('UPDATE players SET save=?,saved=?,best_at=CASE WHEN ?>best THEN ? ELSE best_at END,best=MAX(best,?) WHERE key=? AND save IS ?').bind(next,now,lv,now,lv,p.key,p.save).run();
       if(!r.meta.changes){const latest=await env.DB.prepare('SELECT save FROM players WHERE key=?').bind(p.key).first();return J(req,{error:'conflict',msg:'다른 요청이 먼저 처리됐어요.',state:parseSave(latest)},409);}
       return J(req,{...result,saved:now});
+    }
+
+    if(url.pathname==='/myrank'){
+      const p=await byToken(env,b.token);if(!p)return E(req,'auth','다시 로그인해 주세요.',401);
+      if(!p.best)return J(req,{rank:null,best:0});
+      const r=await env.DB.prepare('SELECT COUNT(*) n FROM players WHERE best>?1 OR (best=?1 AND (best_at<?2 OR (best_at=?2 AND key<?3)))').bind(p.best,p.best_at,p.key).first();
+      return J(req,{rank:r.n+1,best:p.best});
     }
 
     if (url.pathname === "/load") {

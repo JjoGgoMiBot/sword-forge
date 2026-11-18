@@ -4,7 +4,9 @@ const F=globalThis.Forge;
 // Absorbing Markov model over (weapon level, pity), with three independent
 // right-hand sides: success probability, rolls and paid gold per excursion.
 // Stats are fixed, random events are declined, and protection is either absent
-// or always stocked. Scroll acquisition, income farming and animations are excluded.
+// or always stocked. The +20 mastery gate is treated as already open: it is a
+// separate time/attempt floor (tests/core.test.mjs), not part of this luck model.
+// Scroll acquisition, income farming and animations are excluded.
 function solve(A,B){
   const n=A.length,m=B[0].length;
   for(let i=0;i<n;i++){
@@ -20,9 +22,9 @@ function solve(A,B){
 function excursion(target,path,stats,protect){
   const N=target*11,A=Array.from({length:N},()=>new Float64Array(N)),B=Array.from({length:N},()=>new Float64Array(4));
   for(let lv=0;lv<target;lv++)for(let pity=0;pity<=10;pity++){
-    const i=lv*11+pity,s=F.fresh();s.lv=lv;s.path=lv?path:null;s.pity=pity;s.smith.lv=60;s.smith.st={...s.smith.st,...stats};
+    const i=lv*11+pity,s=F.fresh();s.lv=lv;s.path=lv?path:null;s.pity=pity;s.smith.lv=60;s.smith.st={...s.smith.st,...stats};s.mast=F.MASTERY_N;s.mastAt=1;
     A[i][i]=1;B[i][1]=1;B[i][2]=F.cost(s);
-    const o=F.odds(s).map(p=>p/100),great=lv<=12?(5+(stats.str||0)*.4+(lv?F.PATHS[path].great:0))/100:0;
+    const o=F.odds(s,1+F.MASTERY_MS).map(p=>p/100),great=lv<=12?(5+(stats.str||0)*.4+(lv?F.PATHS[path].great:0))/100:0;
     function edge(prob,to,pt){if(to>=target)B[i][0]+=prob;else A[i][to*11+pt]-=prob;}
     edge(o[0]*(1-great),lv+1,0);edge(o[0]*great,Math.min(20,lv+2),0);
     edge(o[1],lv,Math.min(10,pity+1));edge(o[2],Math.max(0,lv-1),Math.min(10,pity+1));
