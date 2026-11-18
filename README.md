@@ -4,7 +4,7 @@ GitHub Pages frontend + Cloudflare Worker/D1 account game.
 
 ## Rules v3
 
-- Opening success probabilities: 95 → 94 → 92 → 90 → 87%. Final +19 → +20 base chance: 3.5%, destruction 12%. Late chances: 21 → 16 → 12 → 9 → 6 → 3.5%.
+- Opening success probabilities: 95 → 94 → 92 → 90 → 87%. Levels +0 through +12 retain the previous curve. From +13: 20 → 11.5 → 6.5 → 3.5 → 1.8 → 1 → 0.5%. Final destruction stays 12%; long-term difficulty comes from lower success rates, downgrades, rebuilding and earned resources rather than longer animations.
 - Dexterity, smith-condition and pity bonuses retain their full relative effect in the endgame. Focus converts prevented destruction into maintenance, so investing in it also helps protection-scroll users.
 - `game-core.js` is the single rules implementation, shared by the browser and Worker.
 - Low-level +1/+2 sales return at most 70% of the actual gold spent on that weapon. Free rolls and great successes cannot bypass this cap. Sales grant no smith XP.
@@ -25,6 +25,8 @@ Anonymous play remains local. Web Locks serialize local actions across supported
 `npm test` runs economic and exploit regression tests. `npm run balance` simulates 2,000 fresh-smith excursions per sale target with a seeded RNG; it declines events, uses no protection and stops on target or destruction. It is a diagnostic, not a guarantee of every build's long-term profitability.
 
 `npm run balance:progression` computes expected attempts and upgrade fees over `(weapon level, pity)` states. It models fixed untrained / legal smith-level-40 builds, the randomized weapon branches, downgrades, great successes and destruction. It compares absent versus always-stocked protection. Events, scroll acquisition, income farming and animation time are excluded; these results must not be presented as measured total play time. Late-stage sales were reduced alongside the improved odds to prevent the previous billion-gold rewards overwhelming the economy.
+
+`npm run balance:lifetime -- --runs 10 --out result.json` runs the actual shared reducer from a fresh 3,000G / smith-level-1 game to the first +20, with seeded random draws and a virtual clock. It allocates earned stat points, farms and sells +8/+10/+12 weapons for funds, mines if necessary, buys protection from earned shards, optionally buys affordable merchant scrolls and resolves events. It respects work quotas and cooldowns. The model adds 150ms network latency, a 1s manual response/restart and actual animation durations; it assumes correct work answers and no breaks. It is one reproducible play strategy, not optimal play or measured user play time. Random outcomes have a broad tail: a long-term goal is not a guaranteed minimum number of hours for every player.
 
 For local server integration tests:
 

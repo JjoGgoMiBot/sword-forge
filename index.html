@@ -261,7 +261,7 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z
 <div class="toast" id="toast"><img id="toastImg" alt=""><span id="toastTxt"></span></div>
 <div class="modal" id="modal"><div class="card" id="mcard"></div></div>
 
-<script src="game-core.js?v=3.2"></script>
+<script src="game-core.js?v=3.3"></script>
 <script>
 // ═════════ 데이터 ═════════
 const ART = n => `art/${n}.webp`;
@@ -329,7 +329,7 @@ function odds(){return Forge.odds(S);}
 // ═════════ UI ═════════
 const $=id=>document.getElementById(id);
 const fmt=n=>Math.round(n).toLocaleString("ko-KR");
-const pct=v=>v===0?"0%":v<10?v.toFixed(1)+"%":Math.round(v)+"%";
+const pct=v=>Number(v.toFixed(2))+"%";
 function setSword(l,path=S.path){ const el=$("sword"), src=img(l,path), tries=[src.replace(".webp",".png")];
   if(S.path==="blade") tries.push(`img/sword-${String(l).padStart(2,'0')}.webp`);
   el.onerror=()=>{ if(tries.length) el.src=tries.shift(); else el.onerror=null; }; el.src=src;

@@ -6,6 +6,7 @@
     "test": "node --test tests/core.test.mjs tests/progression.test.mjs",
     "test:api": "node --test tests/api.test.mjs",
     "balance": "node tests/balance.mjs",
-    "balance:progression": "node tests/progression.mjs"
+    "balance:progression": "node tests/progression.mjs",
+    "balance:lifetime": "node tests/lifetime.mjs"
   }
 }

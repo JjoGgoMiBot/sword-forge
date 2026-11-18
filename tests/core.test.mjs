@@ -4,7 +4,7 @@ import '../game-core.js';
 const F=globalThis.Forge;
 const run=(s,a,t=1e6,r=()=>.5)=>F.transition(s,a,t,r);
 test('gentle opening, severe endgame, all probability rows total 100',()=>{
-  assert.deepEqual(F.P.slice(0,4).map(x=>x[0]),[95,94,92,90]);assert.equal(F.P[19][0],3.5);
+  assert.deepEqual(F.P.slice(0,4).map(x=>x[0]),[95,94,92,90]);assert.equal(F.P[19][0],.5);
   F.P.forEach((r,i)=>{assert.ok(Math.abs(r.reduce((a,b)=>a+b,0)-100)<1e-9);if(i)assert.ok(r[0]<F.P[i-1][0]);});
 });
 test('every path/stat/buff combination has valid normalized odds',()=>{
