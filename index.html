@@ -272,7 +272,7 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z
 <div class="toast" id="toast"><img id="toastImg" alt=""><span id="toastTxt"></span></div>
 <div class="modal" id="modal"><div class="card" id="mcard"></div></div>
 
-<script src="game-core.js?v=5.0"></script>
+<script src="game-core.js?v=5.1"></script>
 <script>
 // ═════════ 데이터 ═════════
 const ART = n => `art/${n}.webp`;
@@ -816,7 +816,7 @@ async function buyProt(){if(unavailable()||$("modal").classList.contains("on"))r
 
 // ═════════ 모달 / 이벤트 / 일거리 ═════════
 let workTicker=0;
-function modal(html,lock=true){clearInterval(workTicker);$("mcard").innerHTML=html;$("mcard").dataset.lock=lock?1:"";$("modal").classList.add("on");holding=false;}
+function modal(html,lock=true){clearInterval(workTicker);delete $("mcard").dataset.gate;$("mcard").innerHTML=html;$("mcard").dataset.lock=lock?1:"";$("modal").classList.add("on");holding=false;}
 function closeModal(){if(requestBusy)return;clearInterval(workTicker);$("modal").classList.remove("on");render();}
 $("modal").addEventListener("click",e=>{if(e.target.id==="modal"&&!$("mcard").dataset.lock)closeModal();});
 const EVENT_TEXT={
@@ -891,7 +891,7 @@ $("bStat").onclick=()=>{if(!busy&&!requestBusy)openStats();};
 const API="https://sword-forge-api.aicore-sj-relay.workers.dev";
 const ACC_KEY="swordforge-acc";
 let ACC=(()=>{ try{ const a=JSON.parse(localStorage.getItem(ACC_KEY)); if(a&&a.token) return a; }catch(e){} return null; })();
-let cloudState="",cloudLast=0,requestBusy=false,accountReady=!ACC,tabReady=true,accountEpoch=0,accountBusy=false;
+let cloudState="",cloudLast=0,requestBusy=false,accountReady=false,tabReady=true,accountEpoch=0,accountBusy=false;
 const setAcc=a=>{accountEpoch++;ACC=a;try{a?localStorage.setItem(ACC_KEY,JSON.stringify(a)):localStorage.removeItem(ACC_KEY);}catch(e){}};
 async function api(path,body){
   const r=await fetch(API+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:AbortSignal.timeout(15000)});
@@ -916,9 +916,8 @@ async function dispatch(action){
         if(epoch!==accountEpoch||ACC?.token!==token)throw Object.assign(new Error("계정이 변경됐어요."),{code:"session"});
         S=Forge.normalize(r.state);cloudLast=r.saved;cloudState="ok";
       }else{
-        // The Web Lock and re-read make a local mutation atomic across tabs.
-        const cached=localStorage.getItem(KEY);if(cached)S=Forge.normalize(JSON.parse(cached));
-        r=Forge.transition(S,action,Date.now(),()=>crypto.getRandomValues(new Uint32Array(1))[0]/4294967296);S=r.state;
+        // Accounts are mandatory: every roll is decided by the server.
+        setTimeout(showLogin,0);throw Object.assign(new Error("로그인이 필요해요."),{code:"login"});
       }
       save();return r;
     };
@@ -933,7 +932,7 @@ async function dispatch(action){
   }finally{requestBusy=false;render();if($("acct"))renderAcct();}
 }
 async function cloudBoot(){
-  if(!ACC){accountReady=true;return;}
+  if(!ACC){accountReady=false;showLogin();return;}
   const epoch=accountEpoch,token=ACC.token;
   accountReady=false;render();
   try{const r=await api("/load",{token});if(epoch!==accountEpoch||ACC?.token!==token)return;adoptSave(r.save);accountReady=true;cloudLast=r.saved;cloudState="ok";if(S.event)randomEvent();else if(S.work)showWork();}
@@ -944,17 +943,23 @@ async function cloudBoot(){
 addEventListener("storage",e=>{if(e.key===ACC_KEY){holding=false;location.reload();return;}if(e.key!==KEY||!e.newValue||requestBusy||busy)return;try{const n=Forge.normalize(JSON.parse(e.newValue));if(n.rev>S.rev){S=n;setSword(S.lv);render();}}catch(_){} });
 document.addEventListener("visibilitychange",()=>{if(document.hidden)holding=false;});
 addEventListener("blur",()=>holding=false);
+function showLogin(){
+  if(ACC)return;
+  modal(`<h3>🔨 로그인하고 시작하세요</h3><p style="font-size:13px;color:var(--muted)">검 강화는 계정이 있어야 할 수 있어요. 기록은 서버에 안전하게 저장되고 랭킹에도 올라가요.</p><div class="acct" id="acct"></div>`,true);
+  $("mcard").dataset.gate=1;renderAcct();
+}
+function closeGate(){delete $("mcard").dataset.gate;closeModal();}
 function renderAcct(){
   const box=$("acct"); if(!box) return;
   if(ACC){
     const st=cloudState==="fail"?'<span style="color:var(--boom)">저장 실패 · 연결 확인</span>':cloudLast?`자동 저장됨 ${new Date(cloudLast).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}`:"자동 저장 중";
     box.innerHTML=`<div class="row"><div><span class="who"></span><p style="margin:2px 0 0">☁ ${st}</p></div><button class="btn" id="accOut" style="flex:none;padding:8px 12px;font-size:13px">로그아웃</button></div>`;
     box.querySelector(".who").textContent=ACC.name;
-    $("accOut").onclick=async()=>{if(requestBusy)return;const token=ACC.token;setAcc(null);accountReady=true;cloudState="";renderAcct();render();try{await api("/logout",{token});if(!ACC)toast("icon-xp","로그아웃했어요 · 서버 세션도 종료됐어요");}catch(e){if(!ACC)toast("icon-xp","기기에서 로그아웃했지만 서버 세션 종료는 확인하지 못했어요");}};
+    $("accOut").onclick=async()=>{if(requestBusy)return;const token=ACC.token;setAcc(null);accountReady=false;cloudState="";S=Forge.fresh();setSword(0);render();showLogin();try{await api("/logout",{token});if(!ACC)toast("icon-xp","로그아웃했어요 · 서버 세션도 종료됐어요");}catch(e){if(!ACC)toast("icon-xp","기기에서 로그아웃했지만 서버 세션 종료는 확인하지 못했어요");}};
     if(!accountReady){const reconnect=document.createElement("button");reconnect.className="btn";reconnect.textContent="계정 재연결";reconnect.onclick=cloudBoot;box.append(reconnect);}
     return;
   }
-  box.innerHTML=`<p>로그인하면 서버에서 강화·일당을 검증하고 <b style="color:var(--text)">다른 기기에서도 이어서</b> 할 수 있어요. 새 계정은 3,000G부터 시작하며, 현재 기기 기록은 백업합니다.</p>
+  box.innerHTML=`<p>모든 강화는 서버에서 판정해요. 계정을 만들면 <b style="color:var(--text)">어느 기기에서든 이어서</b> 할 수 있어요. 새 계정은 3,000G부터 시작해요.</p>
     <div class="f"><input id="accName" maxlength="12" placeholder="닉네임 (2~12자)" autocomplete="username" aria-label="닉네임"></div>
     <div class="f"><input id="accPin" type="password" inputmode="numeric" maxlength="8" placeholder="숫자 비밀번호 (가입 6~8자리)" autocomplete="current-password" aria-label="비밀번호"></div>
     <div class="f"><button class="btn main" id="accNew">새로 만들기</button><button class="btn" id="accIn">불러오기</button></div>
@@ -969,9 +974,9 @@ function renderAcct(){
     err.textContent="잠시만요…"; box.querySelectorAll("button").forEach(b=>b.disabled=true);
     try{
       if(kind==="new"){ const r=await api("/register",{name,pin});if(epoch!==accountEpoch){await api("/logout",{token:r.token});return;}
-        try{localStorage.setItem(KEY+"-backup",JSON.stringify(S));}catch(_){}setAcc({token:r.token,name:r.name});adoptSave(r.save);accountReady=true;cloudLast=r.saved;cloudState="ok";toast("icon-xp",`${r.name} 계정을 만들었어요`);renderAcct();render(); }
+        try{localStorage.setItem(KEY+"-backup",JSON.stringify(S));}catch(_){}setAcc({token:r.token,name:r.name});adoptSave(r.save);accountReady=true;cloudLast=r.saved;cloudState="ok";toast("icon-xp",`${r.name} 계정을 만들었어요`);if($("mcard").dataset.gate)closeGate();else{renderAcct();render();} }
       else { const r=await api("/login",{name,pin});if(epoch!==accountEpoch){await api("/logout",{token:r.token});return;} setAcc({token:r.token,name:r.name});
-        try{localStorage.setItem(KEY+"-backup",JSON.stringify(S));}catch(_){}adoptSave(r.save);accountReady=true;cloudLast=r.saved;cloudState="ok";renderAcct();render();if(S.event)randomEvent();else if(S.work)showWork(); }
+        try{localStorage.setItem(KEY+"-backup",JSON.stringify(S));}catch(_){}adoptSave(r.save);accountReady=true;cloudLast=r.saved;cloudState="ok";if($("mcard").dataset.gate)closeGate();else{renderAcct();render();}if(S.event)randomEvent();else if(S.work)showWork(); }
 
     }catch(e){err.textContent=e.message;box.querySelectorAll("button").forEach(b=>b.disabled=false);}finally{accountBusy=false;}
   };
@@ -1049,7 +1054,8 @@ $("bSell").onclick=sell; $("bBuy").onclick=buyProt;
 $("useProt").onchange=e=>{if(!unavailable())dispatch({type:"useProt",value:e.target.checked});};
 addEventListener("keydown",e=>{if(e.target.closest("input,textarea,select,button")||e.target.isContentEditable)return; if(e.isTrusted&&e.code==="Space"){ e.preventDefault(); if(!e.repeat && !$("modal").classList.contains("on")) holdLoop(); } });
 addEventListener("keyup",e=>{ if(e.code==="Space") holding=false; });
-setSword(S.lv);render();cloudBoot();if(!ACC){if(S.event)randomEvent();else if(S.work)showWork();}
+if(!ACC)S=Forge.fresh();
+setSword(S.lv);render();cloudBoot();
 if(S.st.tries===0) log("길에서 나뭇가지를 주웠다. 견습 대장장이의 첫 작품이 될 것이다.");
 </script>
 </body>
