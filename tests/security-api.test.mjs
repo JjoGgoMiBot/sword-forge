@@ -9,7 +9,7 @@ import {randomBytes,pbkdf2Sync,createHash} from 'node:crypto';
 const API='http://127.0.0.1:8797';
 const newIp=()=>`2001:db8:${randomBytes(12).toString('hex').match(/.{4}/g).join(':')}`;
 async function post(route,body,ip=newIp()){
-  const r=await fetch(API+route,{method:'POST',headers:{'Content-Type':'application/json','CF-Connecting-IP':ip},body:JSON.stringify(route==='/action'&&!('cv' in body)?{cv:4,...body}:body)});
+  const r=await fetch(API+route,{method:'POST',headers:{'Content-Type':'application/json','CF-Connecting-IP':ip},body:JSON.stringify(route==='/action'&&!('cv' in body)?{cv:5,...body}:body)});
   return {status:r.status,headers:r.headers,...await r.json()};
 }
 async function account(){
@@ -66,7 +66,7 @@ test('request budgets persist in D1 and oversized chunked bodies are rejected',a
 });
 test('missing events and forged client time cannot advance state or work',async()=>{
   const acc=await account(),auth={token:acc.token};
-  const stale=await post('/action',{...auth,cv:3,rev:0,requestId:crypto.randomUUID(),action:{type:'sell'}});assert.equal(stale.status,426);assert.equal(stale.error,'upgrade');
+  const stale=await post('/action',{...auth,cv:4,rev:0,requestId:crypto.randomUUID(),action:{type:'sell'}});assert.equal(stale.status,426);assert.equal(stale.error,'upgrade');
   const invalid=await post('/action',{...auth,rev:0,requestId:crypto.randomUUID(),action:{type:'event',id:null,accept:true}});
   assert.equal(invalid.status,400);
   let state=JSON.parse((await post('/load',auth)).save);assert.equal(state.rev,0);

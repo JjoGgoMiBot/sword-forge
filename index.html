@@ -248,7 +248,7 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z
     </div>
     <div class="pity"><img class="ic" data-art="icon-fire" alt="">장인의 집념 <div class="track"><i id="pityBar"></i></div><span id="pityTxt">+0%</span></div>
     <div class="pity fatigue" id="fatRow" hidden title="+10 이상에서 두드릴수록 손이 지쳐 느려집니다. 쉬면(실제 시간) 회복됩니다. 많이 지친 채 계속하면 손목을 다칠 수 있어요.">✋ 손 피로 <div class="track"><i id="fatBar"></i></div><span id="fatTxt"></span></div>
-    <div class="pity crack" id="crackRow" hidden title="+19에서 성공하면 각성 균열이 하나 열립니다. 모두 열면 +20. 균열은 대장장이의 깨달음이라 검이 파괴돼도 남습니다.">✨ 각성 균열 <div class="track"><i id="crackBar"></i></div><span id="crackTxt"></span></div>
+    <div class="pity crack" id="crackRow" hidden title="+19에서 성공하면 각성 균열이 하나 열립니다. 모두 열면 +20. 균열은 대장장이의 깨달음이라 검이 파괴돼도 남습니다. +19에선 보너스와 보호권이 통하지 않아요.">✨ 각성 균열 <div class="track"><i id="crackBar"></i></div><span id="crackTxt"></span></div>
   </div>
 
   <div class="actions">
@@ -272,7 +272,7 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z
 <div class="toast" id="toast"><img id="toastImg" alt=""><span id="toastTxt"></span></div>
 <div class="modal" id="modal"><div class="card" id="mcard"></div></div>
 
-<script src="game-core.js?v=4.0"></script>
+<script src="game-core.js?v=5.0"></script>
 <script>
 // ═════════ 데이터 ═════════
 const ART = n => `art/${n}.webp`;
@@ -322,6 +322,8 @@ const KEY="swordforge2";
 const DEF = Forge.fresh();
 let S;
 try{S=Forge.normalize(JSON.parse(localStorage.getItem(KEY)||"null"));}catch(e){S=Forge.fresh();}
+// New rules reset device (guest) saves too: only gold and best record carry over.
+try{if(+localStorage.getItem("swordforge-rules")!==Forge.RULES){const k=Forge.fresh();k.gold=S.gold;k.best=S.best;S=k;localStorage.setItem(KEY,JSON.stringify(S));localStorage.setItem("swordforge-rules",String(Forge.RULES));}}catch(_){}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast("icon-xp","기기 저장 공간을 확인해 주세요");}};
 const ST=()=>S.smith.st;
 if(!S.name||S.name==="대장장이")S.name="대장장이"+(1000+Math.floor(Math.random()*9000));
@@ -1023,7 +1025,7 @@ $("bInfo").onclick=()=>{if(unavailable())return;
   modal(`<h3>규칙</h3>
   <p>당신은 대장장이. 골드를 내고 검을 두드린다. 결과는 <span class="c-ok">성공 +1</span> · <span class="c-keep">유지</span> · <span class="c-fail">실패 −1</span> · <span class="c-boom">파괴(나뭇가지로)</span>.</p>
   <p><b>대성공</b>: +12 이하 성공 시 일정 확률로 +2 (힘).<br><b>장인의 집념</b>: 유지·실패마다 성공 확률 +5%(상대), 최대 +50%. 성공·파괴 시 초기화. 집념·손재주·컨디션의 상대 보너스는 고강화에서도 그대로 적용된다. 집중은 파괴 위험을 유지로 전환해 방지권과 함께 사용해도 유리하다.<br><b>파괴방지권</b>: 파괴 대신 소모. 파괴된 검 파편 ${PROT_COST}개로 구매. 저단계에서 파편을 반복 수급하는 효율을 낮췄다.<br><b>대장장이 성장</b>: 두드릴 때마다 경험치. 파괴는 가장 큰 교훈. 레벨업으로 스탯을 찍고 직급이 오른다.<br><b>판매</b>: 저단계 즉시 판매는 손해. +7~+10 구간부터 현금화를 고민할 수 있다. 고강화 판매가도 완화된 확률에 맞춰 조정했다. 판매 경험치는 없다.<br><b>일거리</b>: 광산 5단계 260G / 잡일 4단계 180G. 1,000G 미만이면 일당 +50%. 주문·위치가 매번 바뀌며 단계당 최소 0.9초, 제한 14초. 완료·포기 후 대기, 10분당 최대 30회 접수.<br><b>계정 보호</b>: 로그인 플레이는 서버가 확률·비용·보상을 계산한다. 기기 플레이의 저장파일 직접 조작까지 막을 수는 없다.</p>
-  <p><b>✋ 손 피로</b>: +10 이상에서 두드릴 때마다 손이 지친다. 지칠수록 다음 망치질까지 오래 걸리고(기본 ${Forge.HIGH_CD/1000}초), 실제 시간이 지나야 풀린다. <b>🩹 손목 부상</b>: 많이 지친 채 계속 두드리면 가끔 손목을 다쳐 몇 시간 동안 훨씬 느려지고 회복도 더디다. 쉬어 가며 하자.<br><b>✨ 각성 균열</b>: +19에서 성공하면 바로 +20이 아니라 균열이 하나 열린다. ${Forge.CRACK_N}개를 모두 열면 +20. 균열은 대장장이에게 남아 검이 파괴돼도 유지된다.<br><b>🏆 랭킹</b>: 로그인 계정이 서버 판정으로 달성한 최고 강화 순. 같은 강화는 먼저 달성한 사람이 위.</p>
+  <p><b>✋ 손 피로</b>: +10 이상에서 두드릴 때마다 손이 지친다. 지칠수록 다음 망치질까지 오래 걸리고(기본 ${Forge.HIGH_CD/1000}초), 실제 시간이 지나야 풀린다. <b>🩹 손목 부상</b>: 많이 지친 채 계속 두드리면 가끔 손목을 다쳐 몇 시간 동안 훨씬 느려지고 회복도 더디다. 쉬어 가며 하자.<br><b>✨ 각성 균열</b>: +19에서 성공하면 바로 +20이 아니라 균열이 하나 열린다. ${Forge.CRACK_N}개를 모두 열면 +20. 균열은 대장장이에게 남아 검이 파괴돼도 유지된다. +19는 순수한 운이다: 손재주·연속 실패 보너스·버프가 통하지 않고, 보호권도 쓸 수 없다.<br><b>🏆 랭킹</b>: 로그인 계정이 서버 판정으로 달성한 최고 강화 순. 같은 강화는 먼저 달성한 사람이 위.</p>
   <p><b>갈림길</b>: 나뭇가지(+0)에서 처음 성공하면 무기의 길이 정해진다. 0으로 돌아가면 다시 갈림길.<br>
   ${Object.values(PATHS).map(P_=>`<span style="color:${P_.color}">${P_.rare&&!S.seen.some(x=>x==="path:"+Object.keys(PATHS).find(k=>PATHS[k]===P_))?'??? (희귀)':P_.name}</span> — ${P_.rare?'희귀 각 '+RARE_CH().toFixed(1)+'%. ':''}${P_.desc}`).join("<br>")}</p>
   <p style="font-size:12px;color:var(--muted)">아래는 길·스탯·집념 보정 전 기본 확률입니다. 비용은 현재 길과 상술을 반영합니다.</p><table class="tbl"><tr><th>단계</th><th>성공</th><th>유지</th><th>실패</th><th>파괴</th><th>비용</th></tr>${rows}</table>

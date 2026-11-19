@@ -36,7 +36,13 @@ test('sale consumes weapon once and grants no farming XP',()=>{
   assert.throws(()=>run(a.state,{type:'sell'},1e6+1000),/무기/);
 });
 test('protection consumes exactly one scroll and grants no shards',()=>{
-  const s=F.fresh();s.lv=19;s.path='blade';s.gold=1e6;s.prot=2;const r=run(s,{type:'enhance'},1e6,()=>.9999);assert.equal(r.state.lv,19);assert.equal(r.state.prot,1);assert.equal(r.state.shard,0);assert.equal(r.out.protected,true);
+  const s=F.fresh();s.lv=18;s.path='blade';s.gold=1e6;s.prot=2;const r=run(s,{type:'enhance'},1e6,()=>.9999);assert.equal(r.state.lv,18);assert.equal(r.state.prot,1);assert.equal(r.state.shard,0);assert.equal(r.out.protected,true);
+});
+test('+19 awakening ignores protection scrolls and every odds modifier',()=>{
+  const s=F.fresh();s.lv=19;s.path='blade';s.gold=1e6;s.prot=5;s.crack=7;const r=run(s,{type:'enhance'},1e6,()=>.9999);
+  assert.equal(r.state.lv,0);assert.equal(r.state.prot,5);assert.equal(r.state.crack,7);assert.equal(r.out.protected,undefined);
+  const base=F.odds(s);s.smith.st.dex=30;s.smith.st.focus=25;s.pity=10;s.buffs={star:1,smith:3};
+  for(const path of Object.keys(F.PATHS)){s.path=path;assert.deepEqual(F.odds(s),base);}
 });
 test('stats reject forged keys and the cap, migration clamps invalid data',()=>{
   const s=F.fresh();s.smith.lv=60;s.smith.pts=30;s.smith.st.trade=25;assert.throws(()=>run(s,{type:'stat',key:'trade'}));assert.throws(()=>run(s,{type:'stat',key:'__proto__'}));
@@ -83,20 +89,20 @@ test('legacy starter weapons retain sale value while genuine free v3 rolls canno
   const free=F.fresh();free.buffs.cat=1;const r=run(free,{type:'enhance'});assert.equal(r.state.invested,0);assert.equal(F.sellPrice(F.normalize(r.state)),0);
 });
 test('focus reduces destruction into keep, never into extra downgrades',()=>{
-  for(const path of Object.keys(F.PATHS))for(let lv=6;lv<20;lv++){
+  for(const path of Object.keys(F.PATHS))for(let lv=6;lv<19;lv++){
     const s=F.fresh();s.lv=lv;s.path=path;const before=F.odds(s);s.smith.st.focus=25;const after=F.odds(s);
     assert.ok(after[3]<before[3]);assert.ok(after[1]>before[1]);assert.ok(Math.abs(after[2]-before[2])<1e-10);assert.equal(after[0],before[0]);
   }
 });
 test('late-stage dexterity and pity retain their advertised relative bonuses',()=>{
-  const s=F.fresh();s.lv=19;s.path='blade';const base=F.odds(s)[0];assert.ok(base>0);s.smith.st.dex=25;
+  const s=F.fresh();s.lv=18;s.path='blade';const base=F.odds(s)[0];assert.ok(base>0);s.smith.st.dex=25;
   assert.ok(Math.abs(F.odds(s)[0]-base*1.5)<1e-10);s.pity=10;assert.ok(Math.abs(F.odds(s)[0]-base*2)<1e-10);
 });
 test('every path and trade build pays strictly increasing upgrade costs',()=>{
   for(const path of Object.keys(F.PATHS))for(const trade of [0,10,25]){const s=F.fresh();s.path=path;s.smith.st.trade=trade;for(let lv=0;lv<19;lv++)assert.ok(F.cost(s,lv+1)>F.cost(s,lv));}
 });
 test('star blessing prevents destruction without worsening downgrade risk',()=>{
-  for(const path of Object.keys(F.PATHS))for(let lv=6;lv<20;lv++){
+  for(const path of Object.keys(F.PATHS))for(let lv=6;lv<19;lv++){
     const s=F.fresh();s.lv=lv;s.path=path;s.prot=1;const before=F.odds(s);s.buffs.star=1;const after=F.odds(s);
     assert.equal(after[3],0);assert.ok(after[1]>before[1]);assert.ok(Math.abs(after[2]-before[2])<1e-10);assert.equal(after[0],before[0]);
   }

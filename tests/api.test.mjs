@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 const API='http://127.0.0.1:8797';
-async function post(path,b){const r=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(path==='/action'?{cv:4,...b}:b)});return {status:r.status,...await r.json()};}
+async function post(path,b){const r=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(path==='/action'?{cv:5,...b}:b)});return {status:r.status,...await r.json()};}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 test('server rejects save forgery, duplicate requests, stale revisions and job replay',async()=>{
   const name='QA'+Date.now().toString(36).slice(-8),pin='12345678';

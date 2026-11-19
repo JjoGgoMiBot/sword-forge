@@ -1,6 +1,6 @@
 /* Shared, deterministic rules. Account randomness and state transitions run on the Worker. */
 (() => {
-  const VERSION=3, RULES=4, MAX=20, LIMIT=1e12, PROT_COST=80;
+  const VERSION=3, RULES=5, MAX=20, LIMIT=1e12, PROT_COST=80;
   // Long endgame without a hard lock:
   // - fatigue: every roll from +10 tires the smith's hands; tired hands swing slower and
   //   recover only with real time, so nonstop play (or a macro) gains little over resting.
@@ -8,13 +8,13 @@
   // - awakening cracks: a success at +19 opens one crack; CRACK_N cracks make +20. Cracks belong
   //   to the smith and survive destruction, so luck averages over many rolls instead of one.
   const HIGH_FROM=10, HIGH_CD=1200, FAT_MAX=10000, FAT_SLOW=5000, FAT_REC=300/60000;
-  const HURT_AT=7000, HURT_P=.2, HURT_MIN=3600000, HURT_SPAN=3*3600000, HURT_CD=4, CRACK_N=20;
+  const HURT_AT=7000, HURT_P=.2, HURT_MIN=3600000, HURT_SPAN=3*3600000, HURT_CD=4, CRACK_N=10;
   const fatGain=l=>l>=17?60:l>=13?40:25;
   const P=[
     [95,5,0,0],[94,6,0,0],[92,8,0,0],[90,9,1,0],[87,11,2,0],
     [83,13,4,0],[78,15,6.5,.5],[72,18,9,1],[65,22,11.5,1.5],[58,26,13.5,2.5],
     [50,32,15,3],[42,37,17,4],[34,43,18,5],[20,56,18,6],[11.5,63.5,18,7],
-    [6.5,68.5,17,8],[3.5,71.5,16,9],[1.8,73.2,15,10],[1,74,14,11],[20,56,12,12]
+    [6.5,68.5,17,8],[3.5,71.5,16,9],[1.8,73.2,15,10],[1,74,14,11],[30,50,16,4]
   ];
   const PATHS={blade:{s:1,f:1,d:1,sell:1,cost:1,great:3},dagger:{s:1.12,f:1,d:1.12,sell:.8,cost:.7,great:0},club:{s:.95,f:1.15,d:.75,sell:.95,cost:1,great:0},leek:{s:1,f:1,d:1.15,sell:1.8,cost:1,great:0},pan:{s:.92,f:1,d:.6,sell:1.3,cost:1,great:0}};
   const VALUES=[0,40,95,175,300,520,900,1600,2800,4800,8500,14500,25000,45000,80000,150000,300000,650000,1600000,6000000,40000000];
@@ -64,6 +64,8 @@
   const swingDelay=(s,from,now)=>from<HIGH_FROM?650:Math.round(HIGH_CD*(1+s.fat/FAT_SLOW)*(hurt(s,now)?HURT_CD:1));
   function odds(s){
     if(s.lv>=MAX)return [0,0,0,0];
+    // +19 awakening is pure luck: no pity, stat, path or buff modifiers.
+    if(s.lv===MAX-1)return P[MAX-1].slice();
     let [a,k,f,d]=P[s.lv];const m=pm(s),st=s.smith.st,b=s.buffs;
     a*=m.s;f*=m.f;d*=m.d;if(b.star){k+=d;d=0;}if(b.curse){a*=1.5;d*=2;}
     // Focus always helps: protected players must not get extra downgrades for investing in it.
@@ -116,7 +118,7 @@
         else{if(from===MAX-1)s.crack=0;s.lv=Math.min(MAX,from+(out.great?2:1));}s.pity=0;s.st.ok++;if(out.great)s.st.great++;xp*=1.5;
       }else if(result==='keep'){s.pity=Math.min(10,s.pity+1);s.st.keep++;}
       else if(result==='fail'){s.pity=Math.min(10,s.pity+1);s.st.fail++;s.lv=Math.max(0,from-1);if(!s.lv){s.path=null;s.invested=0;}}
-      else if(s.useProt&&s.prot>0){s.prot--;s.pity=Math.min(10,s.pity+1);s.st.saved++;out.protected=true;}
+      else if(s.useProt&&s.prot>0&&from<MAX-1){s.prot--;s.pity=Math.min(10,s.pity+1);s.st.saved++;out.protected=true;}
       else {out.shards=Math.round((from*from/5+2)*(1+s.smith.st.luck*.03));s.shard+=out.shards;s.st.boom++;s.pity=0;s.lv=0;s.path=null;s.invested=0;xp=6+from*8;}
       gainXP(s,xp);s.best=Math.max(s.best,s.lv);s.seen=[...new Set([...s.seen,s.lv?s.path+':'+s.lv:'root'])];
       if(s.lv===MAX&&!s.cleared[s.path]){s.cleared[s.path]=true;out.ending=true;}
