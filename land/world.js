@@ -2,7 +2,7 @@ export const WORLD={version:2,width:1600,height:1120,spawn:{x:800,y:770},speed:1
 export const BUILDINGS=[
   {id:'forge',name:'대장간',sub:'오늘도 한 번만 더',x:540,y:560,roof:'#bd7355',side:'#8c4e3b',icon:'⚒'},
   {id:'fortune',name:'타로관',sub:'오늘의 작은 이야기',x:800,y:350,roof:'#9280aa',side:'#685578',icon:'☾'},
-  {id:'casino',name:'도박장',sub:'초코 걸고 한 판',x:1080,y:560,roof:'#70968b',side:'#49695f',icon:'♧'}
+  {id:'casino',name:'쪼꼬미 오락관',sub:'초코로 가볍게 한 판',x:1080,y:560,roof:'#70968b',side:'#49695f',icon:'♧'}
 ];
 export const FLOOR=[{x:800,y:70},{x:1530,y:560},{x:800,y:1060},{x:70,y:560}];
 export function polygon(p,points){let v=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const a=points[i],b=points[j];if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)v=!v;}return v;}
