@@ -964,7 +964,7 @@ function renderAcct(){
     <div class="f"><input id="accPin" type="password" inputmode="numeric" maxlength="8" placeholder="숫자 비밀번호 (가입 6~8자리)" autocomplete="current-password" aria-label="비밀번호"></div>
     <div class="f"><button class="btn main" id="accNew">새로 만들기</button><button class="btn" id="accIn">불러오기</button></div>
     <p class="err" id="accErr"></p>`;
-  $("accName").value=/^대장장이\d{4}$/.test(S.name)?"":S.name;
+  $("accName").value=!S.name||/^대장장이\d{4}$/.test(S.name)?"":S.name;
   const go=async(kind)=>{
     if(accountBusy)return;
     const name=$("accName").value.trim(), pin=$("accPin").value.trim(), err=$("accErr");
