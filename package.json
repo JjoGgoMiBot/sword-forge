@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/core.test.mjs tests/progression.test.mjs tests/client-session.test.mjs",
+    "test": "node --test tests/core.test.mjs tests/progression.test.mjs tests/client-session.test.mjs tests/security-100.test.mjs",
+    "test:security": "node --test tests/security-100.test.mjs",
+    "update:csp": "node scripts/update-csp.mjs",
     "test:api": "node --test tests/api.test.mjs tests/security-api.test.mjs",
     "test:land": "node --test tests/land.test.mjs tests/land-room.test.mjs tests/land-api.test.mjs",
     "balance": "node tests/balance.mjs",

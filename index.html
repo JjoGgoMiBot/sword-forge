@@ -2,6 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-TU791bKYmyTfmlyNsHqm832M44q25XWIkxwRrIl66hw='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' https://sword-forge-api.aicore-sj-relay.workers.dev http://127.0.0.1:8797 http://127.0.0.1:8798 http://127.0.0.1:8907; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>검 강화하기</title>
 <style>
@@ -770,7 +772,7 @@ function showRankUp(r){
   SFX.great(); emit(60,{spr:"fx-spark",speed:9,life:60,size:30,grav:.05});
   modal(`<img class="bigbadge" src="${ART('rank-'+(r+1))}" alt=""><h3 style="justify-content:center">직급 승급: ${RANKS[r][1]}</h3>
   <p style="text-align:center">대장간 사람들이 당신을 <b>${RANKS[r][1]}</b>(이)라 부르기 시작했다.<br>보너스 스탯 포인트 +2</p>
-  <div class="choices"><button class="btn main" onclick="closeModal();openStats()">스탯 찍기</button></div>`);
+  <div class="choices"><button class="btn main" data-modal-action="stats">스탯 찍기</button></div>`);
 }
 
 // ═════════ 강화 ═════════
@@ -816,7 +818,7 @@ async function buyProt(){if(unavailable()||$("modal").classList.contains("on"))r
 
 // ═════════ 모달 / 이벤트 / 일거리 ═════════
 let workTicker=0;
-function modal(html,lock=true){clearInterval(workTicker);delete $("mcard").dataset.gate;$("mcard").innerHTML=html;$("mcard").dataset.lock=lock?1:"";$("modal").classList.add("on");holding=false;}
+function modal(html,lock=true){clearInterval(workTicker);delete $("mcard").dataset.gate;$("mcard").innerHTML=html;$("mcard").querySelectorAll("[data-modal-action]").forEach(b=>b.onclick=()=>{closeModal();if(b.dataset.modalAction==="stats")openStats();});$("mcard").querySelectorAll("[data-legend-fallback]").forEach(i=>i.onerror=()=>{i.onerror=null;i.src=img(20);});$("mcard").querySelectorAll("[data-dim-error]").forEach(i=>i.onerror=()=>{i.style.opacity=.15;});$("mcard").dataset.lock=lock?1:"";$("modal").classList.add("on");holding=false;}
 function closeModal(){if(requestBusy)return;clearInterval(workTicker);$("modal").classList.remove("on");render();}
 $("modal").addEventListener("click",e=>{if(e.target.id==="modal"&&!$("mcard").dataset.lock)closeModal();});
 const EVENT_TEXT={
@@ -869,7 +871,7 @@ async function forkReveal(k){
 }
 function ending(){
   SFX.great(); emit(160,{spr:"fx-magic",speed:14,grav:.05,life:110,size:34}); emit(80,{spr:"fx-spark",speed:12,life:90,size:30}); ring(); flash("#ffffff",1200);
-  modal(`<img class="scene" src="${ART('ev-legend')}" alt="" onerror="this.src='${img(20)}'"><h3>${nameOf(S.path,20)} 완성</h3><p>${PATHS[S.path].name}의 끝에 도달했다. (정복한 길 ${Object.keys(S.cleared).length}/${Object.keys(PATHS).length})<br>시도 ${fmt(S.st.tries)}회 · 파괴 ${fmt(S.st.boom)}회 · 대장장이 ${S.smith.lv}레벨</p><div class="choices"><button class="btn main" onclick="closeModal()">전설로 남기기</button></div>`);
+  modal(`<img class="scene" src="${ART('ev-legend')}" alt="" data-legend-fallback><h3>${nameOf(S.path,20)} 완성</h3><p>${PATHS[S.path].name}의 끝에 도달했다. (정복한 길 ${Object.keys(S.cleared).length}/${Object.keys(PATHS).length})<br>시도 ${fmt(S.st.tries)}회 · 파괴 ${fmt(S.st.boom)}회 · 대장장이 ${S.smith.lv}레벨</p><div class="choices"><button class="btn main" data-modal-action="close">전설로 남기기</button></div>`);
 }
 
 // ═════════ 스탯 / 도감 / 규칙 ═════════
@@ -881,7 +883,7 @@ function openStats(){
   <div class="acct" id="acct"></div>
   <p>남은 스탯 포인트 <b style="color:var(--xp)">${sm.pts}</b> · 레벨업마다 +1, 직급 승급 시 +2</p>${rows}
   <p style="margin-top:12px"><b>직급</b></p><div class="ranks">${ranks}</div>
-  <div class="choices"><button class="btn" onclick="closeModal()">닫기</button></div>`,false);
+  <div class="choices"><button class="btn" data-modal-action="close">닫기</button></div>`,false);
   renderAcct();
   $("mcard").querySelectorAll(".plus").forEach(b=>b.onclick=async()=>{if(unavailable())return;const r=await dispatch({type:"stat",key:b.dataset.k});if(r){SFX.coin();openStats();}});
 }
@@ -939,8 +941,9 @@ async function cloudBoot(){
   catch(e){if(epoch!==accountEpoch)return;cloudState="fail";log("계정 기록을 확인하지 못했어요. 능력치 화면에서 재연결하거나 로그아웃해 주세요.","c-fail");}
   finally{if(epoch===accountEpoch){render();if($("acct"))renderAcct();}}
 }
-// Storage updates never merge balances; the newest complete revision wins.
-addEventListener("storage",e=>{if(e.key===ACC_KEY){holding=false;location.reload();return;}if(e.key!==KEY||!e.newValue||requestBusy||busy)return;try{const n=Forge.normalize(JSON.parse(e.newValue));if(n.rev>S.rev){S=n;setSword(S.lv);render();}}catch(_){} });
+// Cross-tab storage is a signal to reload authenticated server state, never trusted progress.
+addEventListener("storage",e=>{if(e.key===ACC_KEY){holding=false;location.reload();return;}if(e.key===KEY&&ACC&&accountReady&&!requestBusy&&!busy)cloudBoot();});
+
 document.addEventListener("visibilitychange",()=>{if(document.hidden)holding=false;});
 addEventListener("blur",()=>holding=false);
 function showLogin(){
@@ -989,16 +992,16 @@ function openDex(){
   const tabs=keys.map(k=>{ const P_=PATHS[k], known=!P_.rare||S.seen.includes("path:"+k)||S.seen.some(x=>x.startsWith(k+":")); const n=S.seen.filter(x=>x.startsWith(k+":")).length;
     return `<button class="${dexTab===k?'on':''}" data-t="${k}" style="color:${known?P_.color:'#666'}">${known?P_.name.replace("의 길",""):'???'}${S.cleared[k]?' ★':''}<br><span style="font-weight:400;color:#999">${n}/20</span></button>`; }).join("");
   const k=dexTab, P_=PATHS[k], known=!P_.rare||S.seen.includes("path:"+k)||S.seen.some(x=>x.startsWith(k+":"));
-  const cells=[`<div><img src="${img(0)}" alt=""><b>+0</b>${ROOT}</div>`].concat(P_.t.map((nm,i)=>{ const l=i+1, on=S.seen.includes(k+":"+l); return `<div class="${on?'':'lock'}"><img src="${img(l,k)}" alt="" onerror="this.style.opacity=.15"><b style="color:${on?tierColor(l):'#555'}">+${l}</b>${on?nm:'???'}</div>`; })).join("");
+  const cells=[`<div><img src="${img(0)}" alt=""><b>+0</b>${ROOT}</div>`].concat(P_.t.map((nm,i)=>{ const l=i+1, on=S.seen.includes(k+":"+l); return `<div class="${on?'':'lock'}"><img src="${img(l,k)}" alt="" data-dim-error><b style="color:${on?tierColor(l):'#555'}">+${l}</b>${on?nm:'???'}</div>`; })).join("");
   const st=S.st;
   modal(`<h3><img class="ic" style="width:26px;height:26px" src="${ART('icon-book')}" alt="">무기 도감 <span style="font-size:13px;color:var(--muted)">${got}/${total}</span></h3>
   <div class="ptabs">${tabs}</div><p style="margin:2px 0 6px;color:var(--muted);font-size:12px">${known?P_.desc:'희귀한 길. 아직 아무도 본 적 없다.'}</p>
   <div class="stats"><div>시도<b>${fmt(st.tries)}</b></div><div>성공<b>${fmt(st.ok)}</b></div><div>대성공<b>${fmt(st.great)}</b></div><div>파괴<b>${fmt(st.boom)}</b></div><div>방지권으로 살림<b>${fmt(st.saved)}</b></div><div>판매 수입<b>${fmt(st.earned)}G</b></div></div>
-  <div class="dex">${known?cells:''}</div><div class="choices"><button class="btn" onclick="closeModal()">닫기</button></div>`,false);
+  <div class="dex">${known?cells:''}</div><div class="choices"><button class="btn" data-modal-action="close">닫기</button></div>`,false);
   $("mcard").querySelectorAll(".ptabs button").forEach(b=>b.onclick=()=>{ dexTab=b.dataset.t; openDex(); });
 }
 async function openRanking(){
-  modal(`<h3>🏆 최고 강화 랭킹</h3><p style="font-size:12px;color:var(--muted)">로그인 계정의 서버 판정 기록만 올라가요. 같은 강화는 먼저 달성한 사람이 위.</p><ol class="rank-list" id="rankList"><li>불러오는 중…</li></ol><p id="rankMe" style="font-size:13px"></p><div class="choices"><button class="btn main" onclick="closeModal()">닫기</button></div>`,false);
+  modal(`<h3>🏆 최고 강화 랭킹</h3><p style="font-size:12px;color:var(--muted)">로그인 계정의 서버 판정 기록만 올라가요. 같은 강화는 먼저 달성한 사람이 위.</p><ol class="rank-list" id="rankList"><li>불러오는 중…</li></ol><p id="rankMe" style="font-size:13px"></p><div class="choices"><button class="btn main" data-modal-action="close">닫기</button></div>`,false);
   try{
     const r=await fetch(API+"/ranking",{signal:AbortSignal.timeout(15000)}),j=await r.json();if(!r.ok)throw Error(j.msg||"랭킹을 불러오지 못했어요");
     const ul=$("rankList");if(!ul)return;ul.innerHTML="";
@@ -1029,7 +1032,7 @@ $("bInfo").onclick=()=>{if(unavailable())return;
   const rows=P.map((p,i)=>`<tr><td>+${i}→${i+1}</td><td class="c-ok">${p[0]}</td><td class="c-keep">${p[1]}</td><td class="c-fail">${p[2]}</td><td class="c-boom">${p[3]}</td><td>${fmt(cost(i))}</td></tr>`).join("");
   modal(`<h3>규칙</h3>
   <p>당신은 대장장이. 골드를 내고 검을 두드린다. 결과는 <span class="c-ok">성공 +1</span> · <span class="c-keep">유지</span> · <span class="c-fail">실패 −1</span> · <span class="c-boom">파괴(나뭇가지로)</span>.</p>
-  <p><b>대성공</b>: +12 이하 성공 시 일정 확률로 +2 (힘).<br><b>장인의 집념</b>: 유지·실패마다 성공 확률 +5%(상대), 최대 +50%. 성공·파괴 시 초기화. 집념·손재주·컨디션의 상대 보너스는 고강화에서도 그대로 적용된다. 집중은 파괴 위험을 유지로 전환해 방지권과 함께 사용해도 유리하다.<br><b>파괴방지권</b>: 파괴 대신 소모. 파괴된 검 파편 ${PROT_COST}개로 구매. 저단계에서 파편을 반복 수급하는 효율을 낮췄다.<br><b>대장장이 성장</b>: 두드릴 때마다 경험치. 파괴는 가장 큰 교훈. 레벨업으로 스탯을 찍고 직급이 오른다.<br><b>판매</b>: 저단계 즉시 판매는 손해. +7~+10 구간부터 현금화를 고민할 수 있다. 고강화 판매가도 완화된 확률에 맞춰 조정했다. 판매 경험치는 없다.<br><b>일거리</b>: 광산 5단계 260G / 잡일 4단계 180G. 1,000G 미만이면 일당 +50%. 주문·위치가 매번 바뀌며 단계당 최소 0.9초, 제한 14초. 완료·포기 후 대기, 10분당 최대 30회 접수.<br><b>계정 보호</b>: 로그인 플레이는 서버가 확률·비용·보상을 계산한다. 기기 플레이의 저장파일 직접 조작까지 막을 수는 없다.</p>
+  <p><b>대성공</b>: +12 이하 성공 시 일정 확률로 +2 (힘).<br><b>장인의 집념</b>: 유지·실패마다 성공 확률 +5%(상대), 최대 +50%. 성공·파괴 시 초기화. 집념·손재주·컨디션의 상대 보너스는 고강화에서도 그대로 적용된다. 집중은 파괴 위험을 유지로 전환해 방지권과 함께 사용해도 유리하다.<br><b>파괴방지권</b>: 파괴 대신 소모. 파괴된 검 파편 ${PROT_COST}개로 구매. 저단계에서 파편을 반복 수급하는 효율을 낮췄다.<br><b>대장장이 성장</b>: 두드릴 때마다 경험치. 파괴는 가장 큰 교훈. 레벨업으로 스탯을 찍고 직급이 오른다.<br><b>판매</b>: 저단계 즉시 판매는 손해. +7~+10 구간부터 현금화를 고민할 수 있다. 고강화 판매가도 완화된 확률에 맞춰 조정했다. 판매 경험치는 없다.<br><b>일거리</b>: 광산 5단계 260G / 잡일 4단계 180G. 1,000G 미만이면 일당 +50%. 주문·위치가 매번 바뀌며 단계당 최소 0.9초, 제한 14초. 완료·포기 후 대기, 10분당 최대 30회 접수.<br><b>계정 보호</b>: 로그인 플레이는 서버가 확률·비용·보상을 계산한다. 기기의 표시나 저장값을 바꿔도 서버 기록·골드·랭킹에는 반영되지 않는다.</p>
   <p><b>✋ 손 피로</b>: +10 이상에서 두드릴 때마다 손이 지친다. 지칠수록 다음 망치질까지 오래 걸리고(기본 ${Forge.HIGH_CD/1000}초), 실제 시간이 지나야 풀린다. <b>🩹 손목 부상</b>: 많이 지친 채 계속 두드리면 가끔 손목을 다쳐 몇 시간 동안 훨씬 느려지고 회복도 더디다. 쉬어 가며 하자.<br><b>✨ 각성 균열</b>: +19에서 성공하면 바로 +20이 아니라 균열이 하나 열린다. ${Forge.CRACK_N}개를 모두 열면 +20. 균열은 대장장이에게 남아 검이 파괴돼도 유지된다. +19는 순수한 운이다: 손재주·연속 실패 보너스·버프가 통하지 않고, 보호권도 쓸 수 없다.<br><b>🏆 랭킹</b>: 로그인 계정이 서버 판정으로 달성한 최고 강화 순. 같은 강화는 먼저 달성한 사람이 위.</p>
   <p><b>갈림길</b>: 나뭇가지(+0)에서 처음 성공하면 무기의 길이 정해진다. 0으로 돌아가면 다시 갈림길.<br>
   ${Object.values(PATHS).map(P_=>`<span style="color:${P_.color}">${P_.rare&&!S.seen.some(x=>x==="path:"+Object.keys(PATHS).find(k=>PATHS[k]===P_))?'??? (희귀)':P_.name}</span> — ${P_.rare?'희귀 각 '+RARE_CH().toFixed(1)+'%. ':''}${P_.desc}`).join("<br>")}</p>
@@ -1040,7 +1043,7 @@ $("bInfo").onclick=()=>{if(unavailable())return;
   <b>CC-BY 4.0</b> (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">라이선스</a>): JC Sounds — <a href="https://opengameart.org/content/jc-sounds-fantasy-sfx-pack-vol-1" target="_blank" rel="noopener">Fantasy SFX Pack Vol 1</a><br>
   <b>CC0</b>: themightyglider (Hammer on Anvil) · VishwaJai (Blacksmith's Hammer) · artisticdude (RPG Sound Pack) · bart (Steam release sounds) · rubberduck (75 CC0 breaking/falling/hit sfx) · Kenney (RPG Audio)
   </details>
-  <div class="choices"><button class="btn" id="bResetLocal" ${ACC?'disabled':''}>기기 기록 초기화</button><button class="btn main" onclick="closeModal()">닫기</button></div>`,false);
+  <div class="choices"><button class="btn" id="bResetLocal" ${ACC?'disabled':''}>기기 기록 초기화</button><button class="btn main" data-modal-action="close">닫기</button></div>`,false);
   $("bResetLocal").onclick=()=>{if(ACC||requestBusy)return;if(confirm("기기 기록을 초기화할까요?")){S=Forge.fresh();save();location.reload();}};
 };
 
@@ -1054,7 +1057,7 @@ $("bSell").onclick=sell; $("bBuy").onclick=buyProt;
 $("useProt").onchange=e=>{if(!unavailable())dispatch({type:"useProt",value:e.target.checked});};
 addEventListener("keydown",e=>{if(e.target.closest("input,textarea,select,button")||e.target.isContentEditable)return; if(e.isTrusted&&e.code==="Space"){ e.preventDefault(); if(!e.repeat && !$("modal").classList.contains("on")) holdLoop(); } });
 addEventListener("keyup",e=>{ if(e.code==="Space") holding=false; });
-if(!ACC)S=Forge.fresh();
+S=Forge.fresh();
 setSword(S.lv);render();cloudBoot();
 if(S.st.tries===0) log("길에서 나뭇가지를 주웠다. 견습 대장장이의 첫 작품이 될 것이다.");
 </script>

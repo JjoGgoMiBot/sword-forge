@@ -18,7 +18,7 @@ async function account(){
   assert.equal(r.status,200);return {name,pin,...r};
 }
 function localDb(){
-  const dir=path.resolve('server/.wrangler/state/v3/d1/miniflare-D1DatabaseObject');
+  const dir=path.resolve(process.env.FORGE_TEST_DB_DIR||'server/.wrangler/state/v3/d1/miniflare-D1DatabaseObject');
   const files=fs.readdirSync(dir).filter(f=>f.endsWith('.sqlite'));
   for(const file of files){
     const db=new DatabaseSync(path.join(dir,file));db.exec('PRAGMA busy_timeout=5000');

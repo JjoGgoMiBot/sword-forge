@@ -76,6 +76,19 @@
   }
   function gainXP(s,n){const sm=s.smith;if(sm.lv>=60)return;sm.xp+=Math.round(n);while(sm.lv<60&&sm.xp>=xpNeed(sm.lv)){sm.xp-=xpNeed(sm.lv);const r=rankOf(sm.lv++);sm.pts+=1+(rankOf(sm.lv)>r?2:0);}if(sm.lv===60)sm.xp=0;}
   const fail=msg=>{throw new Error(msg);};
+  // Reject coercion, inherited keys and client-supplied outcomes before touching state.
+  const ACTION_FIELDS=Object.freeze({enhance:[],sell:[],buyProt:[],stat:['key'],useProt:['value'],event:['id','accept'],dismissEvent:['id'],workStart:['kind'],workStep:['id','roundId','cell'],workCancel:[]});
+  function validateAction(a){
+    if(!a||typeof a!=='object'||Array.isArray(a)||typeof a.type!=='string'||!Object.hasOwn(ACTION_FIELDS,a.type))fail('잘못된 행동입니다.');
+    const fields=ACTION_FIELDS[a.type];
+    if(Object.keys(a).some(k=>k!=='type'&&!fields.includes(k))||fields.some(k=>!Object.hasOwn(a,k)))fail('잘못된 행동 항목입니다.');
+    if(a.type==='stat'&&(typeof a.key!=='string'||!['dex','focus','str','luck','trade'].includes(a.key)))fail('올릴 수 없는 능력치입니다.');
+    if(a.type==='useProt'&&typeof a.value!=='boolean')fail('설정 변경이 없거나 잘못된 값입니다.');
+    if(a.type==='event'&&typeof a.accept!=='boolean')fail('잘못된 이벤트 선택입니다.');
+    for(const k of ['id','roundId'])if(fields.includes(k)&&(typeof a[k]!=='string'||a[k].length<1||a[k].length>64))fail(a.type==='event'||a.type==='dismissEvent'?'잘못된 이벤트 번호입니다.':'잘못된 작업 번호입니다.');
+    if(a.type==='workStart'&&(typeof a.kind!=='string'||!['mine','chores'].includes(a.kind)))fail('없는 일거리입니다.');
+    if(a.type==='workStep'&&(!Number.isSafeInteger(a.cell)||a.cell<0||a.cell>5))fail('잘못된 작업 위치입니다.');
+  }
   const addGold=(s,n)=>{s.gold=Math.min(LIMIT,s.gold+n);};
   function pickPath(s,rng){const r=rng()*100,c=3+s.smith.st.luck*.2;return r<c?'leek':r<c*2?'pan':['blade','dagger','club'][Math.floor(rng()*3)];}
   const EVENTS=['smith','star','curse','merchant','noble','cat','vein'];
@@ -94,6 +107,7 @@
     w.cells=a;w.target=a[Math.floor(rng()*a.length)];w.roundId=crypto.randomUUID();w.ready=now+900;w.deadline=now+14000;
   }
   function transition(raw,action,now=Date.now(),rng=Math.random){
+    validateAction(action);
     const s=rest(normalize(raw),now),a=action||{},out={};
     if(typeof a.type!=='string')fail('잘못된 행동입니다.');
     const expiredEvent=s.event&&now>s.event.expires?s.event.id:null;

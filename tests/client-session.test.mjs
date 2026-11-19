@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const setAcc=html.slice(html.indexOf('const setAcc='),html.indexOf('async function api('));
-const boot=html.slice(html.indexOf('async function cloudBoot(){'),html.indexOf('// Storage updates never'));
+const boot=html.slice(html.indexOf('async function cloudBoot(){'),html.indexOf('// Cross-tab storage'));
 function browserStub(){
   const sandbox={};vm.createContext(sandbox);
   vm.runInContext(`

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const API='http://127.0.0.1:8907';
+const API=process.env.FORGE_TEST_API||'http://127.0.0.1:8907';
+if(!/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(API))throw Error('Tests must use a disposable loopback Worker.');
 async function post(path,b){const r=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b),signal:AbortSignal.timeout(10000)});return {status:r.status,...await r.json()};}
 const request=(token,op,payload={})=>({token,op,payload,id:crypto.randomUUID(),issued:Date.now()});
 test('real DO economy is persistent, serialized, idempotent and hides secrets',async()=>{

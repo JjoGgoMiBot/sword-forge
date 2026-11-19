@@ -51,7 +51,8 @@ test('stats reject forged keys and the cap, migration clamps invalid data',()=>{
 test('event reward has a single use, no concurrent sale and no forged price',()=>{
   const s=F.fresh();s.lv=7;s.path='blade';s.event={id:'one',kind:'noble',price:2200,lv:7,path:'blade',expires:2e6};
   assert.throws(()=>run(s,{type:'sell'}),/이벤트/);
-  const r=run(s,{type:'event',id:'one',accept:true,price:1e12});assert.equal(r.state.gold,5200);assert.equal(r.state.lv,0);
+  assert.throws(()=>run(s,{type:'event',id:'one',accept:true,price:1e12}),/항목/);
+  const r=run(s,{type:'event',id:'one',accept:true});assert.equal(r.state.gold,5200);assert.equal(r.state.lv,0);
   assert.throws(()=>run(r.state,{type:'event',id:'one',accept:true},1e6+1000),/이벤트/);
 });
 test('job steps require matching challenge IDs, time and actual answer',()=>{
