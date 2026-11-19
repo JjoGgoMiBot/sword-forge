@@ -4,7 +4,7 @@ import {WORLD,BUILDINGS,move,canStand,near} from '../land/world.js';
 import {SYMBOLS,slotRate,value,stand,deal,oneShot} from '../server/src/land-games.js';
 test('walking has equal diagonal speed, bounded ground and reachable entrances',()=>{
  const p={x:480,y:400},right=move(p,1,0,.1),diag=move(p,1,1,.1);assert.ok(Math.abs(Math.hypot(diag.x-p.x,diag.y-p.y)-(right.x-p.x))<1e-8);
- let edge={...WORLD.spawn};for(let i=0;i<300;i++)edge=move(edge,1,0,.1);assert.ok(canStand(edge));assert.ok(edge.x<914);
+ let edge={...WORLD.spawn};for(let i=0;i<300;i++)edge=move(edge,1,0,.1);assert.ok(canStand(edge));assert.ok(edge.x<WORLD.width);assert.equal(canStand({x:500,y:780}),false);assert.equal(canStand({x:800,y:700}),false);
  for(const b of BUILDINGS){const door={x:b.x,y:b.y+19};assert.ok(canStand(door));assert.equal(near(door).id,b.id);}
 });
 test('ported slots RTP and all dice outcomes use gross payouts',()=>{

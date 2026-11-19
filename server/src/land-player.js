@@ -18,7 +18,7 @@ export class LandPlayer{
       if(b.op!=='get'){const previous=this.sql.exec('SELECT * FROM actions WHERE id=?',b.id).toArray()[0];if(previous){if(previous.fingerprint!==fingerprint)fail('같은 요청 번호의 내용이 달라요.',409);return Response.json({...JSON.parse(previous.response),replayed:true});}}
       let s;const row=this.sql.exec('SELECT data FROM player WHERE id=1').toArray()[0];
       if(row)s=JSON.parse(row.data);else{s={id:crypto.randomUUID(),name:b.name,avatar:{shirt:0,hat:0},balance:1000,rev:0,dailyClaim:null,rescueClaim:null,nextPlay:0,bj:null,race:null,quiz:null,quizDay:today,quizWins:0,quizNext:0,spread:null,dailyCard:null,history:[]};this.entry(s,1000,'첫 주민 선물',now);}
-      if(s.name!==b.name)s.name=b.name;
+      if(s.name!==b.name)s.name=b.name;s.avatar=avatar(s.avatar);
       if(s.bj&&!s.bj.done&&s.bj.expires<=now){stand(s.bj);if(s.bj.payout)this.entry(s,s.bj.payout,'블랙잭 시간 만료 · '+s.bj.outcome,now);s.rev++;}
       if(s.quizDay!==today){s.quizDay=today;s.quizWins=0;}
       let result=null;const p=b.payload||{};

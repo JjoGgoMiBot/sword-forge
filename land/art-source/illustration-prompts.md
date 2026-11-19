@@ -1,0 +1,13 @@
+# Original illustrated atlas
+
+Generated with the built-in image_gen tool on 2026-11-19. The shipped asset is `land/assets/town-illustrated-alpha.png`. It is a 4×2 atlas, consumed with native Canvas source rectangles and runtime wardrobe layers.
+
+## Generation prompt
+
+Use case: illustration-story. Asset type: ONE transparent sprite atlas for a playable cozy Korean 2.5D town. Create a 4 column by 2 row grid, evenly spaced 8 isolated complete sprites, each wholly confined to its own equal cell with generous transparent gutters, absolutely no grid lines or labels. Orthographic three-quarter isometric view looking down 30 degrees, all props share the same scale/camera. Top row left to right: 1) small warm terracotta roof timber forge cottage, arched door facing lower left, chimney, tiny anvil by door; 2) magical lavender curved-roof round tarot cottage, crescent sign, curtains and little crystal orb; 3) sage green roof cheerful games cottage, pennant bunting, dice sign, welcoming wooden door; 4) one lush organic deciduous tree with natural irregular canopy and curving trunk. Bottom row left to right: 5) wooden garden bench; 6) slender warm garden streetlamp; 7) small round stone fountain with blue water; 8) tiny adorable full-body cream round-headed Korean mascot resident, dot eyes, small crooked smile, cinnamon shirt, short dark legs, facing viewer. Style: authentic hand-painted storybook game illustration, gouache and colored pencil on textured paper, lively imperfect ink contours, subtle grain and brush strokes, richer warm shadows, soft sage cream terracotta lavender palette. It should look drawn by a human illustrator, NOT 3D renders, NOT plastic, NOT low-poly, NOT vector flat geometric shapes, no photorealism. No people outside last cell. Keep transparent background real alpha. No ground tiles or environment backgrounds. No text, lettering, watermarks. All sprites entire uncropped including roofs and shadows. Wide landscape atlas.
+
+## Alpha extraction prompt
+
+Background extraction edit. Preserve all eight hand-drawn sprites exactly in the same 4x2 layout, colors, geometry, paper texture inside painted objects and positions. Remove ALL the white/offwhite sheet background and white gutters entirely, make the empty areas genuinely transparent with alpha=0. Sprite atlas for a game: each sprite must have a clean isolated alpha silhouette, not a white rectangular patch. Keep delicate leaf edges. No new props, no text. Output real transparent PNG.
+
+The first generated sheet had an opaque offwhite background. The second, extracted version was checked to contain real alpha values from 0 to 255 and is the sole atlas used by the app.

@@ -17,13 +17,13 @@ export async function channelAccess(env,user,guild,channel){
   const cacheKey=[user,guild,channel].join(':'),cached=permissionsCache.get(cacheKey);if(cached&&cached.expires>Date.now())return cached.value;
   try{
     const [g,m,c]=await Promise.all([discord(env,'/guilds/'+guild),discord(env,'/guilds/'+guild+'/members/'+user),discord(env,'/channels/'+channel)]);
-    if(c.guild_id!==guild||c.type!==2)return null;
+    if(c.guild_id!==guild||![0,2].includes(c.type))return null;
     let bits=0n;const roles=new Set([guild,...m.roles]);for(const r of g.roles)if(roles.has(r.id))bits|=BigInt(r.permissions);
     const admin=g.owner_id===user||(bits&8n)!==0n;
     if(!admin){const everyone=(c.permission_overwrites||[]).find(x=>x.id===guild);if(everyone)bits=(bits&~BigInt(everyone.deny))|BigInt(everyone.allow);let allow=0n,deny=0n;for(const o of c.permission_overwrites||[])if(o.type===0&&o.id!==guild&&roles.has(o.id)){allow|=BigInt(o.allow);deny|=BigInt(o.deny);}bits=(bits&~deny)|allow;const own=(c.permission_overwrites||[]).find(x=>x.type===1&&x.id===user);if(own)bits=(bits&~BigInt(own.deny))|BigInt(own.allow);}
     const has=n=>admin||(bits&BigInt(n))!==0n;
     const timed=m.communication_disabled_until&&Date.parse(m.communication_disabled_until)>Date.now();
-    const value=has(1024)&&has(1048576)&&has(65536)?{guild,channel,name:c.name,canSend:has(2048)&&!timed}:null;
+    const value=has(1024)&&(c.type!==2||has(1048576))&&has(65536)?{guild,channel,name:c.name,kind:c.type===2?'voice':'text',canSend:has(2048)&&!timed}:null;
     if(permissionsCache.size>1000)permissionsCache.clear();permissionsCache.set(cacheKey,{expires:Date.now()+20000,value});return value;
   }catch{return null;}
 }
@@ -67,16 +67,32 @@ export async function handleLand(req,env,ctx,h){
     const p=await h.byToken(env,b.token);if(!p)return h.E(req,'auth','다시 로그인해주세요.',401);
     if(!await h.allowRequest(env,'land:user:'+p.key,120,60000,Date.now()))return h.E(req,'rate','조금 쉬었다가 다시 시도해주세요.',429);
     const linked=await env.DB.prepare('SELECT discord_id FROM land_discord_links WHERE player_key=?').bind(p.key).first();
+    if(path==='/land/voice/config'){
+      if(!env.DISCORD_CLIENT_SECRET||!env.DISCORD_APPLICATION_ID)return h.J(req,{available:false,reason:'setup'});
+      const c=await env.DB.prepare('SELECT * FROM land_channels WHERE room=?').bind(b.room||'').first();const access=c&&linked?await channelAccess(env,linked.discord_id,c.guild_id,c.channel_id):null;
+      if(!access||access.kind!=='voice')return h.J(req,{available:false,reason:'voice_room'});
+      return h.J(req,{available:true,applicationId:env.DISCORD_APPLICATION_ID,channel:access.channel,userId:linked.discord_id,state:await sign(env,{type:'voice-auth',key:p.key,room:b.room,exp:Date.now()+300000})});
+    }
+    if(path==='/land/voice/auth'){
+      if(!env.DISCORD_CLIENT_SECRET||!env.DISCORD_APPLICATION_ID)return h.E(req,'setup','Discord 발화 표시 설정이 아직 준비되지 않았어요.',503);
+      const state=await verify(env,b.state||'');if(!state||state.type!=='voice-auth'||state.key!==p.key||!linked||typeof b.code!=='string'||b.code.length>1000)return h.E(req,'auth','음성 연결을 다시 시작해주세요.',401);
+      const c=await env.DB.prepare('SELECT * FROM land_channels WHERE room=?').bind(state.room).first();const access=c?await channelAccess(env,linked.discord_id,c.guild_id,c.channel_id):null;if(!access||access.kind!=='voice')return h.E(req,'access','음성방 접근 권한을 확인해주세요.',403);
+      const tokenResponse=await fetch('https://discord.com/api/oauth2/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:env.DISCORD_APPLICATION_ID,client_secret:env.DISCORD_CLIENT_SECRET,grant_type:'authorization_code',code:b.code})});const oauth=await tokenResponse.json();if(!tokenResponse.ok||!oauth.access_token||!String(oauth.scope||'').split(' ').includes('rpc.voice.read'))return h.E(req,'scope','Discord 음성 상태 권한을 확인해주세요.',403);
+      const meResponse=await fetch('https://discord.com/api/users/@me',{headers:{Authorization:'Bearer '+oauth.access_token}});const me=await meResponse.json();if(!meResponse.ok||me.id!==linked.discord_id)return h.E(req,'identity','연결된 Discord 계정과 같은 계정으로 인증해주세요.',403);
+      const data=await player(env,p.key).fetch(new Request('https://player/',{method:'POST',body:JSON.stringify({key:p.key,name:p.name,op:'get',discordId:linked.discord_id})})).then(r=>r.json());
+      return h.J(req,{accessToken:oauth.access_token,proof:await sign(env,{type:'voice',resident:data.resident.id,room:state.room,exp:Date.now()+3600000})});
+    }
     if(path==='/land/player'){
       const r=await player(env,p.key).fetch(new Request('https://player/',{method:'POST',body:JSON.stringify({key:p.key,name:p.name,discordId:linked?.discord_id,op:b.op||'get',payload:b.payload,id:b.id,issued:b.issued})}));return h.J(req,{...await r.json(),discord:{linked:!!linked,available:!!env.LAND_BRIDGE_SECRET}},r.status);
     }
     if(path==='/land/session'){
       const key=b.room||'public:1';let access=null;if(!publicRoom(key)){const c=await env.DB.prepare('SELECT * FROM land_channels WHERE room=?').bind(key).first();if(!c||!linked)return h.E(req,'access','Discord 연결과 채널 권한이 필요해요.',403);access=await channelAccess(env,linked.discord_id,c.guild_id,c.channel_id);if(!access)return h.E(req,'access','채널을 보고 참여할 권한이 필요해요.',403);}
       const r=await player(env,p.key).fetch(new Request('https://player/',{method:'POST',body:JSON.stringify({key:p.key,name:p.name,op:'get',discordId:linked?.discord_id})}));const data=await r.json();
-      const ticket=await sign(env,{id:data.resident.id,key:p.key,name:p.name,avatar:data.resident.avatar,room:key,discordId:linked?.discord_id||null,guild:access?.guild||null,channel:access?.channel||null,canSend:access?access.canSend:true,tokenHash:await hash(b.token),exp:Date.now()+60000});return h.J(req,{ticket,room:key,name:access?.name||'광장 '+key.split(':')[1]});
+      if(b.worldVersion!==WORLD.version)return h.E(req,'version','마을이 넓어졌어요. 새로고침 후 다시 들어와주세요.',409);
+      const ticket=await sign(env,{version:WORLD.version,id:data.resident.id,key:p.key,name:p.name,avatar:data.resident.avatar,room:key,chatOnly:b.chatOnly===true,discordId:linked?.discord_id||null,guild:access?.guild||null,channel:access?.channel||null,canSend:access?access.canSend:true,tokenHash:await hash(b.token),exp:Date.now()+60000});return h.J(req,{ticket,room:key,name:access?.name||'광장 '+key.split(':')[1],kind:access?.kind||'public'});
     }
     if(path==='/land/channels'){
-      const channels=[];if(linked)for(const c of (await env.DB.prepare('SELECT * FROM land_channels LIMIT 15').all()).results){const access=await channelAccess(env,linked.discord_id,c.guild_id,c.channel_id);if(access)channels.push({room:c.room,name:c.name});}return h.J(req,{channels});
+      const channels=[];if(linked)for(const c of (await env.DB.prepare('SELECT * FROM land_channels LIMIT 15').all()).results){const access=await channelAccess(env,linked.discord_id,c.guild_id,c.channel_id);if(access)channels.push({room:c.room,name:c.name,kind:access.kind});}return h.J(req,{channels});
     }
     if(path==='/land/link'){
       if(!env.LAND_BRIDGE_SECRET)return h.E(req,'unavailable','Discord 연결을 준비하고 있어요.',503);if(linked)return h.J(req,{linked:true});
@@ -88,7 +104,7 @@ export async function handleLand(req,env,ctx,h){
 export class LandRoom{
   constructor(ctx,env){this.ctx=ctx;this.env=env;this.sql=ctx.storage.sql;this.sql.exec('CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT,client_id TEXT UNIQUE,uid TEXT NOT NULL,name TEXT NOT NULL,text TEXT NOT NULL,source TEXT NOT NULL,created INTEGER NOT NULL,discord_id TEXT,pending INTEGER NOT NULL DEFAULT 0)');if(ctx.setWebSocketAutoResponse)ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping','pong'));}
   sockets(){return this.ctx.getWebSockets().filter(ws=>ws.readyState===1);}
-  users(){const users=new Map();for(const ws of this.sockets()){const a=ws.deserializeAttachment();if(!a.bridge)users.set(a.id,{id:a.id,name:a.name,avatar:a.avatar,x:a.x,y:a.y});}return [...users.values()];}
+  users(){const users=new Map();for(const ws of this.sockets()){const a=ws.deserializeAttachment();if(!a.bridge&&!a.chatOnly)users.set(a.id,{id:a.id,name:a.name,avatar:a.avatar,x:a.x,y:a.y});}return [...users.values()];}
   send(ws,value){try{ws.send(JSON.stringify(value));}catch{}}
   broadcast(value,exclude=null){for(const ws of this.sockets())if(ws!==exclude&&!ws.deserializeAttachment().bridge)this.send(ws,value);}
   history(){return this.sql.exec('SELECT id,uid,name,text,source,created,pending FROM messages ORDER BY id DESC LIMIT 40').toArray().reverse();}
@@ -98,8 +114,8 @@ export class LandRoom{
   async fetch(req){
     const a=JSON.parse(decodeURIComponent(req.headers.get('X-Land-User')||'null'));if(!a)return new Response('Forbidden',{status:403});
     if(new URL(req.url).pathname==='/invalidate'&&a.bridge){for(const ws of this.sockets())ws.close(4003,'채널 연동이 해제되었어요.');return Response.json({ok:true});}
-    if(!a.bridge&&this.users().filter(u=>u.id!==a.id).length>=20)return new Response('이 광장은 가득 찼어요. 다른 광장을 선택해주세요.',{status:429});
-    for(const old of this.sockets()){const u=old.deserializeAttachment();if(a.bridge?u.bridge:u.id===a.id){old.close(4002,'다른 창에서 접속했어요.');}}
+    if(!a.bridge&&!a.chatOnly&&this.users().filter(u=>u.id!==a.id).length>=20||this.sockets().length>=60)return new Response('이 광장은 가득 찼어요. 다른 광장을 선택해주세요.',{status:429});
+    for(const old of this.sockets()){const u=old.deserializeAttachment();if(a.bridge?u.bridge:u.id===a.id&&!!u.chatOnly===!!a.chatOnly){old.close(4002,'다른 창에서 접속했어요.');}}
     const pair=new WebSocketPair(),[client,server]=Object.values(pair);this.ctx.acceptWebSocket(server,[a.bridge?'bridge':a.id]);
     server.serializeAttachment({...a,x:WORLD.spawn.x,y:WORLD.spawn.y,lastMove:Date.now(),seq:0,lastChat:0,authUntil:Date.now()+20000,connected:Date.now()});
     if(a.bridge){this.send(server,{type:'outbox',messages:this.sql.exec('SELECT * FROM messages WHERE pending=1 ORDER BY id LIMIT 100').toArray()});this.broadcast({type:'relay',online:true});}
@@ -113,11 +129,16 @@ export class LandRoom{
       await this.validateAudience();if(ws.readyState!==1)return;
       let a=ws.deserializeAttachment(),now=Date.now();
       if(a.bridge){this.bridgeMessage(ws,m,a);return;}
+      if(a.version!==WORLD.version){ws.close(4001,'새로고침 후 넓어진 마을에 들어와주세요.');return;}
       if(now-a.connected>3600000){ws.close(4001,'접속을 새로 확인해주세요.');return;}
       if(a.authUntil<now){const valid=await this.env.DB.prepare('SELECT hash FROM tokens WHERE hash=? AND created>=?').bind(a.tokenHash,now-30*86400000).first();let access=null;if(a.channel)access=await channelAccess(this.env,a.discordId,a.guild,a.channel);if(!valid||a.channel&&!access){ws.close(4003,'계정 또는 채널 권한이 바뀌었어요.');return;}a.canSend=access?access.canSend:true;a.authUntil=now+20000;}
-      if(m.type==='move'){
+      if(m.type==='voice'){
+        if(a.chatOnly||typeof m.speaking!=='boolean')return;const proof=await verify(this.env,m.proof||'');if(!proof||proof.type!=='voice'||proof.resident!==a.id||proof.room!==a.room)return;a.voiceUntil=m.speaking?now+4500:0;ws.serializeAttachment(a);this.broadcast({type:'voice',id:a.id,speaking:m.speaking});
+      }else if(m.type==='move'){
+        if(a.chatOnly)return;
         if(!Number.isSafeInteger(m.seq)||m.seq<=a.seq||![-1,0,1].includes(m.dx)||![-1,0,1].includes(m.dy))return;
         const elapsed=now-a.lastMove;if(elapsed<65)return;const pos=move(a,m.dx,m.dy,Math.min(.15,elapsed/1000));a.x=pos.x;a.y=pos.y;a.lastMove=now;a.seq=m.seq;ws.serializeAttachment(a);this.broadcast({type:'move',user:{id:a.id,name:a.name,avatar:a.avatar,x:a.x,y:a.y},seq:a.seq});
+      }else if(m.type==='history'){this.send(ws,{type:'history',messages:this.history()});
       }else if(m.type==='chat'){
         if(!a.canSend){this.send(ws,{type:'error',msg:'이 채널에 메시지를 보낼 권한이 없어요.'});return;}
         if(typeof m.text!=='string'||m.text.length>300||!/^[0-9a-f-]{36}$/i.test(m.clientId||''))return;
@@ -143,6 +164,6 @@ export class LandRoom{
     else if(m.type==='deliveryError'&&Number.isSafeInteger(m.id))this.broadcast({type:'deliveryError',id:m.id,msg:'Discord 전송 결과를 확인하지 못했어요. 마을 대화는 유지돼요.'});
   }
   prune(){this.sql.exec('DELETE FROM messages WHERE id<(SELECT COALESCE(MAX(id),0)-199 FROM messages) AND pending=0');}
-  webSocketClose(ws){if(ws.deserializeAttachment()?.bridge)this.broadcast({type:'relay',online:false});this.broadcast({type:'users',users:this.users()});}
+  webSocketClose(ws,code,reason){try{ws.close(code>=1000&&![1005,1006,1015].includes(code)?code:1000,String(reason||'').slice(0,60));}catch{}if(ws.deserializeAttachment()?.bridge)this.broadcast({type:'relay',online:false});this.broadcast({type:'users',users:this.users()});}
   webSocketError(ws){try{ws.close(1011,'다시 연결해주세요.');}catch{}}
 }

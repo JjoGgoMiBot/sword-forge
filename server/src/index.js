@@ -87,6 +87,8 @@ async function addToken(env, key, token, now) {
 
 export default {
   async fetch(req, env, ctx) {
+    const activityOrigin=env.DISCORD_APPLICATION_ID&&/^\d{16,21}$/.test(env.DISCORD_APPLICATION_ID)?'https://'+env.DISCORD_APPLICATION_ID+'.discordsays.com':null;
+    if(activityOrigin&&!ORIGINS.includes(activityOrigin))ORIGINS.push(activityOrigin);
     const origin=req.headers.get('Origin');
     if(origin&&!ORIGINS.includes(origin))return E(req,'origin','허용되지 않은 출처입니다.',403);
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(req) });

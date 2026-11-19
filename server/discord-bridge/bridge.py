@@ -23,10 +23,10 @@ COMMANDS = [
     {'name': '랜드', 'description': '쪼꼬미랜드 마을 열기', 'type': 1, 'contexts': [0]},
     {'name': '랜드연결', 'description': '웹의 주민을 내 Discord 계정과 연결', 'type': 1, 'contexts': [0], 'options': [
         {'name': '코드', 'description': '마을 프로필에서 받은 10자리 연결 코드', 'type': 3, 'required': True, 'min_length': 10, 'max_length': 10}]},
-    {'name': '랜드방연결', 'description': '음성방의 문자 채팅을 쪼꼬미랜드와 연결 (서버 관리)', 'type': 1, 'contexts': [0], 'default_member_permissions': '32', 'options': [
-        {'name': '음성방', 'description': '연결할 음성채널 (생략하면 현재 음성방)', 'type': 7, 'channel_types': [2], 'required': False}]},
-    {'name': '랜드방해제', 'description': '음성방과 쪼꼬미랜드의 채팅 연결 해제 (서버 관리)', 'type': 1, 'contexts': [0], 'default_member_permissions': '32', 'options': [
-        {'name': '음성방', 'description': '해제할 음성채널 (생략하면 현재 음성방)', 'type': 7, 'channel_types': [2], 'required': False}]},
+    {'name': '랜드방연결', 'description': '일반채널 또는 음성방 채팅을 쪼꼬미랜드와 연결 (서버 관리)', 'type': 1, 'contexts': [0], 'default_member_permissions': '32', 'options': [
+        {'name': '채널', 'description': '연결할 일반/음성채널 (생략하면 현재 음성방)', 'type': 7, 'channel_types': [0, 2], 'required': False}]},
+    {'name': '랜드방해제', 'description': '일반채널 또는 음성방의 마을 채팅 연결 해제 (서버 관리)', 'type': 1, 'contexts': [0], 'default_member_permissions': '32', 'options': [
+        {'name': '채널', 'description': '해제할 일반/음성채널 (생략하면 현재 음성방)', 'type': 7, 'channel_types': [0, 2], 'required': False}]},
 ]
 
 
@@ -85,9 +85,15 @@ class Bridge(discord.Client):
 
     async def ensure_commands(self):
         existing = await self.discord_api('GET', f'/applications/{self.application_id}/commands')
-        names = {c['name'] for c in existing}
+        names = {c['name']: c for c in existing}
+        def matches(actual, expected):
+            if isinstance(expected, dict):
+                return isinstance(actual, dict) and all(matches(actual.get(k), v) for k, v in expected.items())
+            if isinstance(expected, list):
+                return isinstance(actual, list) and len(actual) == len(expected) and all(matches(a, b) for a, b in zip(actual, expected))
+            return actual == expected
         for command in COMMANDS:
-            if command['name'] not in names:
+            if not matches(names.get(command['name']), command):
                 await self.discord_api('POST', f'/applications/{self.application_id}/commands', command)
         self.registered = True
 
@@ -231,10 +237,10 @@ class Bridge(discord.Client):
             permissions = interaction.user.guild_permissions
             if not (permissions.administrator or permissions.manage_guild or interaction.user.id == interaction.guild.owner_id):
                 raise RuntimeError('서버 관리 권한이 있어야 연결을 바꿀 수 있어요.')
-            requested = options.get('음성방')
+            requested = options.get('채널') or options.get('음성방')
             channel = interaction.guild.get_channel(int(requested)) if requested else interaction.channel if isinstance(interaction.channel, discord.VoiceChannel) else getattr(interaction.user.voice, 'channel', None)
-            if not isinstance(channel, discord.VoiceChannel):
-                raise RuntimeError('연결할 음성방을 명령 옵션에서 선택해주세요.')
+            if not isinstance(channel, (discord.VoiceChannel, discord.TextChannel)):
+                raise RuntimeError('연결할 일반채널 또는 음성방을 명령 옵션에서 선택해주세요.')
             if name == '랜드방해제':
                 await self.land('unregister', {'guild': str(interaction.guild.id), 'channel': str(channel.id)})
                 task = self.tasks.pop(f'd:{interaction.guild.id}:{channel.id}', None)
@@ -244,7 +250,7 @@ class Bridge(discord.Client):
                 await interaction.followup.send('이 음성방의 마을 채팅 연동을 해제했어요.', ephemeral=True)
                 return
             own = channel.permissions_for(interaction.guild.me)
-            if not all((own.view_channel, own.connect, own.read_message_history, own.send_messages)):
+            if not all((own.view_channel, own.read_message_history, own.send_messages)) or isinstance(channel, discord.VoiceChannel) and not own.connect:
                 raise RuntimeError('봇에게 채널 보기·연결·메시지 기록 보기·메시지 보내기 권한이 필요해요.')
             await self.land('register', {'guild': str(interaction.guild.id), 'channel': str(channel.id), 'name': channel.name})
             data = await self.land('channels', {})
@@ -252,7 +258,7 @@ class Bridge(discord.Client):
             self.channels[str(channel.id)] = item
             if item['room'] not in self.tasks or self.tasks[item['room']].done():
                 self.tasks[item['room']] = asyncio.create_task(self.room_loop(item))
-            await interaction.followup.send('음성방의 문자 채팅을 마을과 연결했어요. 연결된 주민만 해당 모임에 들어올 수 있어요. 마을에서 Discord 연결 후 광장 목록을 확인해주세요.', ephemeral=True)
+            await interaction.followup.send('채널의 문자 채팅을 마을과 연결했어요. 연결된 주민 중 채널 권한이 있는 분만 볼 수 있어요. 일반채널은 옆 채팅창에서, 음성방은 광장 목록에서도 선택할 수 있어요.', ephemeral=True)
         except Exception as error:
             log.warning('User command failed: %s', type(error).__name__)
             await interaction.followup.send(str(error)[:300], ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
