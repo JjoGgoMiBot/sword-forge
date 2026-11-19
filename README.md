@@ -2,10 +2,11 @@
 
 GitHub Pages frontend + Cloudflare Worker/D1 account game.
 
-## Rules v3
+## Rules v5
 
-- Opening success probabilities: 95 → 94 → 92 → 90 → 87%. Levels +0 through +12 retain the previous curve. From +13: 20 → 11.5 → 6.5 → 3.5 → 1.8 → 1 → 0.5%. Final destruction stays 12%; long-term difficulty comes from lower success rates, downgrades, rebuilding and earned resources rather than longer animations.
-- Dexterity, smith-condition and pity bonuses retain their full relative effect in the endgame. Focus converts prevented destruction into maintenance, so investing in it also helps protection-scroll users.
+- The first five base success rates are 95%, 94%, 92%, 90%, and 87%. For attempts from +13 through +18 the base rates are 20%, 11.5%, 6.5%, 3.5%, 1.8%, and 1%.
+- At +19, each attempt has a 30% chance to open a crack, 50% to maintain, 16% to downgrade, and 4% to destroy the weapon. Ten cracks awaken a +20 weapon. Cracks survive destruction. Stats, weapon paths, pity, buffs, and protection scrolls do not affect this roll.
+- Starting at +10, attempts build fatigue. Fatigue slows swings and recovers over time. Hammering while exhausted can cause an injury that further slows swings and recovery.
 - `game-core.js` is the single rules implementation, shared by the browser and Worker.
 - Low-level +1/+2 sales return at most 70% of the actual gold spent on that weapon. Free rolls and great successes cannot bypass this cap. Sales grant no smith XP.
 - Costs grow at ×1.32 per level, with a starting 80G cost. Trade grants +1.5% sale value and −1.2% cost per point.
@@ -40,11 +41,26 @@ Star blessing and Focus both convert avoided destruction into maintenance. Empty
 
 `npm run balance:lifetime -- --runs 10 --out result.json` runs the actual shared reducer from a fresh 3,000G / smith-level-1 game to the first +20, with seeded random draws and a virtual clock. It allocates earned stat points, farms and sells +8/+10/+12 weapons for funds, mines if necessary, buys protection from earned shards, optionally buys affordable merchant scrolls and resolves events. It respects work quotas and cooldowns. The model adds 150ms network latency, a 1s manual response/restart and actual animation durations; it assumes correct work answers and no breaks. It is one reproducible play strategy, not optimal play or measured user play time. Random outcomes have a broad tail: a long-term goal is not a guaranteed minimum number of hours for every player.
 
-For local server integration tests:
+For local server integration tests, install the locked Wrangler dependencies and initialize a fresh local D1 database. Run these commands from the repository root:
 
-1. Install `server` dev dependencies and initialize disposable D1: `wrangler d1 execute sword-forge --local --file schema.sql`.
-2. Run `wrangler dev --port 8797` from `server/`.
-3. Run `npm run test:api` from the repository root with Node 22+ (`node:sqlite` enabled). The tests target only loopback and create disposable local accounts. Security tests modify only this checkout's local SQLite fixtures to verify legacy PINs and token expiration.
+```sh
+npm ci --prefix server
+cd server
+npx wrangler d1 execute sword-forge --local --file schema.sql
+npx wrangler d1 execute sword-forge --local --file ranking-schema.sql
+npx wrangler d1 execute sword-forge --local --file land-schema.sql
+npx wrangler dev --ip 127.0.0.1 --port 8907 --var LAND_SIGNING_KEY:local-test-only
+```
+
+Apply `ranking-schema.sql` once per local database. With Wrangler still running, run the following in a second terminal from the repository root using Node 22+:
+
+```sh
+export FORGE_TEST_API=http://127.0.0.1:8907
+npm run test:api
+npm run test:land
+```
+
+The tests use loopback and create disposable accounts. The API suite writes to local SQLite fixtures to check legacy PINs and token expiration. If Wrangler uses a custom persistence directory, set `FORGE_TEST_DB_DIR` to its `v3/d1/miniflare-D1DatabaseObject` directory.
 
 ## Deployment
 
