@@ -888,7 +888,7 @@ function openStats(){
 $("bStat").onclick=()=>{if(!busy&&!requestBusy)openStats();};
 
 // ═════════ 닉네임 계정: 다른 기기에서 이어하기 (Cloudflare Workers + D1) ═════════
-const API="https://sword-forge-api.aicore-sj-relay.workers.dev";
+const API=["localhost","127.0.0.1"].includes(location.hostname)?(new URLSearchParams(location.search).has("land")?"http://127.0.0.1:8907":"http://127.0.0.1:8797"):"https://sword-forge-api.aicore-sj-relay.workers.dev";
 const ACC_KEY="swordforge-acc";
 let ACC=(()=>{ try{ const a=JSON.parse(localStorage.getItem(ACC_KEY)); if(a&&a.token) return a; }catch(e){} return null; })();
 let cloudState="",cloudLast=0,requestBusy=false,accountReady=false,tabReady=true,accountEpoch=0,accountBusy=false;

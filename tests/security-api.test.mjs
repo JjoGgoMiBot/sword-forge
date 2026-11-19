@@ -6,7 +6,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {randomBytes,pbkdf2Sync,createHash} from 'node:crypto';
-const API='http://127.0.0.1:8797';
+const API=process.env.FORGE_TEST_API||'http://127.0.0.1:8797';
+if(!/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(API))throw Error('Tests must use a disposable loopback Worker.');
 const newIp=()=>`2001:db8:${randomBytes(12).toString('hex').match(/.{4}/g).join(':')}`;
 async function post(route,body,ip=newIp()){
   const r=await fetch(API+route,{method:'POST',headers:{'Content-Type':'application/json','CF-Connecting-IP':ip},body:JSON.stringify(route==='/action'&&!('cv' in body)?{cv:5,...body}:body)});

@@ -2,3 +2,8 @@ node_modules/
 .wrangler/
 server/.dev.vars
 *.log
+.dev.vars
+.env.land
+land-bridge-private/
+__pycache__/
+*.pyc

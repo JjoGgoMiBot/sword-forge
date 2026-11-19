@@ -6,3 +6,15 @@ compatibility_date = "2026-11-01"
 binding = "DB"
 database_name = "sword-forge"
 database_id = "6f30adc2-b98e-4ec3-a3ab-b5e2b70122fc"
+
+[[durable_objects.bindings]]
+name = "LAND_PLAYERS"
+class_name = "LandPlayer"
+
+[[durable_objects.bindings]]
+name = "LAND_ROOMS"
+class_name = "LandRoom"
+
+[[migrations]]
+tag = "land-v1"
+new_sqlite_classes = ["LandPlayer", "LandRoom"]
