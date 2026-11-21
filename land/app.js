@@ -233,11 +233,26 @@ const minimap=$('minimap'),mini=minimap.getContext('2d');
 let townView=null;
 import('./scene-illustrated.js?v=1').then(module=>module.createIllustratedTown($('stage'))).then(view=>{townView=view;$('world').style.opacity='0';}).catch(error=>{console.warn('Illustrated renderer unavailable:',error.message);toast('일러스트를 불러오지 못해 간단한 마을로 표시해요. 이동과 게임은 이용할 수 있어요.');});
 function drawMinimap(){const sx=160/WORLD.width,sy=112/WORLD.height;mini.clearRect(0,0,160,112);mini.fillStyle='#fffaf0ee';mini.fillRect(0,0,160,112);mini.beginPath();FLOOR.forEach((p,i)=>i?mini.lineTo(p.x*sx,p.y*sy):mini.moveTo(p.x*sx,p.y*sy));mini.closePath();mini.fillStyle='#c7d9ae';mini.fill();for(const b of BUILDINGS){mini.fillStyle=b.roof;mini.fillRect(b.x*sx-5,b.y*sy-7,10,7);mini.font='10px sans-serif';mini.textAlign='center';mini.fillStyle='#5e4a39';mini.fillText(b.name,b.x*sx,b.y*sy-10);}mini.beginPath();mini.arc(position.x*sx,position.y*sy,3.5,0,Math.PI*2);mini.fillStyle='#9b5941';mini.fill();mini.strokeStyle='#8f7b6055';mini.strokeRect(camera.x*sx,camera.y*sy,width/zoom*sx,height/zoom*sy);}
-let previousTime=performance.now();function frame(now){const dt=Math.min(.05,(now-previousTime)/1000);previousTime=now;if(canWalk()){const {dx,dy}=directions();if(dx||dy)Object.assign(position,move(position,dx,dy,dt));if(now-lastSent>100&&(held.size||previousMoving))sendMovement();}const entrance=near(position);$('enterButton').hidden=!entrance||!!venue;$('enterButton').textContent=entrance?entrance.name+' 입장 · E':'';$('walkHint').textContent=!account?'마을을 누르고 WASD · 방향키로 걸어보세요':socket?.readyState!==1?'연결을 기다리고 있어요. 위에서 다시 접속할 수 있어요.':entrance?entrance.name+' 입구 · E로 들어가요':'WASD · 방향키로 걷기 / Enter 채팅';
-  if(townView){zoom=width>=700?.79:.67;camera.x=Math.max(0,position.x-width/zoom/2);camera.y=Math.max(0,position.y-110-height/zoom/2);townView.update({position,self,name:account?.name||'둘러보는 주민',avatar:profile?.resident.avatar||selectedAvatar,peers});drawMinimap();requestAnimationFrame(frame);return;}
+let previousTime=performance.now();function drawFrame(now){const dt=Math.min(.05,(now-previousTime)/1000);previousTime=now;if(canWalk()){const {dx,dy}=directions();if(dx||dy)Object.assign(position,move(position,dx,dy,dt));if(now-lastSent>100&&(held.size||previousMoving))sendMovement();}const entrance=near(position);$('enterButton').hidden=!entrance||!!venue;$('enterButton').textContent=entrance?entrance.name+' 입장 · E':'';$('walkHint').textContent=!account?'마을을 누르고 WASD · 방향키로 걸어보세요':socket?.readyState!==1?'연결을 기다리고 있어요. 위에서 다시 접속할 수 있어요.':entrance?entrance.name+' 입구 · E로 들어가요':'WASD · 방향키로 걷기 / Enter 채팅';
+  if(townView){zoom=width>=700?.79:.67;camera.x=Math.max(0,position.x-width/zoom/2);camera.y=Math.max(0,position.y-110-height/zoom/2);townView.update({position,self,name:account?.name||'둘러보는 주민',avatar:profile?.resident.avatar||selectedAvatar,peers});drawMinimap();return;}
   ctx.clearRect(0,0,width,height);const visibleW=width/zoom,visibleH=height/zoom;const targetX=Math.max(0,Math.min(WORLD.width-visibleW,position.x-visibleW/2)),targetY=Math.max(0,Math.min(WORLD.height-visibleH,position.y-visibleH*.6));camera.x+=(targetX-camera.x)*.12;camera.y+=(targetY-camera.y)*.12;ctx.save();ctx.scale(zoom,zoom);ctx.translate(-camera.x,-camera.y);
   drawGround();
   for(const [x,y] of [[650,660],[950,650],[730,900],[1180,650],[450,720],[600,860],[1000,880]]){ellipse(x,y,3,3,'#f1dca5');ellipse(x+8,y-5,3,3,'#fff4d8');}
   const drawables=BUILDINGS.map(b=>({y:b.y,draw:()=>house(b)}));for(const [x,y,s] of [[250,590,1.2],[360,680,1],[1250,650,1.2],[1100,760,.9],[1020,350,1.1],[580,390,.9],[660,930,1.1],[930,950,1],[350,520,.8],[1190,500,1]])drawables.push({y,draw:()=>tree(x,y,s)});
-  for(const p of peers.values()){if(p.id===self)continue;p.drawX+=(p.x-p.drawX)*Math.min(1,dt*12);p.drawY+=(p.y-p.drawY)*Math.min(1,dt*12);drawables.push({y:p.drawY,draw:()=>resident(p)});}drawables.push({y:position.y,draw:()=>resident(peers.get(self)||{},true)});drawables.sort((a,b)=>a.y-b.y);drawables.forEach(d=>d.draw());ctx.restore();drawMinimap();requestAnimationFrame(frame);}
+  for(const p of peers.values()){if(p.id===self)continue;p.drawX+=(p.x-p.drawX)*Math.min(1,dt*12);p.drawY+=(p.y-p.drawY)*Math.min(1,dt*12);drawables.push({y:p.drawY,draw:()=>resident(p)});}drawables.push({y:position.y,draw:()=>resident(peers.get(self)||{},true)});drawables.sort((a,b)=>a.y-b.y);drawables.forEach(d=>d.draw());ctx.restore();drawMinimap();}
+// Keep the animation scheduler alive even if a renderer fails for one frame.
+let lastFrameErrorAt=-Infinity;
+function frame(now){
+  try{drawFrame(now);}
+  catch(error){
+    if(townView){
+      try{townView.dispose();}catch{}
+      townView=null;$('world').style.opacity='1';
+      delete $('stage').dataset.renderer;
+      toast('일러스트 표시가 중단되어 기본 마을로 복구했어요. 이동과 게임을 계속 이용할 수 있어요.');
+    }
+    if(now-lastFrameErrorAt>5000){console.error('Town frame recovered:',error);lastFrameErrorAt=now;}
+  }
+  finally{requestAnimationFrame(frame);}
+}
 requestAnimationFrame(frame);renderHeader();boot();
