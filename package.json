@@ -7,7 +7,7 @@
     "test:security": "node --test tests/security-100.test.mjs",
     "update:csp": "node scripts/update-csp.mjs",
     "test:api": "node --test tests/api.test.mjs tests/security-api.test.mjs",
-    "test:land": "node --test tests/land.test.mjs tests/land-room.test.mjs tests/land-api.test.mjs",
+    "test:land": "node --test tests/land-casino-fx.test.mjs tests/land.test.mjs tests/land-room.test.mjs tests/land-api.test.mjs",
     "balance": "node tests/balance.mjs",
     "balance:progression": "node tests/progression.mjs",
     "balance:lifetime": "node tests/lifetime.mjs"

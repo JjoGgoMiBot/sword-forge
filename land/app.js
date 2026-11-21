@@ -1,5 +1,6 @@
 import {WORLD,BUILDINGS,FLOOR,SHIRTS,SKINS,avatar,move,near} from './world.js?v=3';
 import {isActivity,connectDiscordVoice} from './discord-voice.js';
+import {casinoOutcome as classifyOutcome,playCasinoFx} from './casino-fx.js?v=2';
 const $=id=>document.getElementById(id),local=['localhost','127.0.0.1'].includes(location.hostname);
 const API=local?'http://127.0.0.1:8907':'https://sword-forge-api.aicore-sj-relay.workers.dev';
 const money=n=>Number(n||0).toLocaleString('ko-KR'),h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -140,26 +141,13 @@ function renderFortune(){const box=$('venueContent'),tabs=[['daily','오늘의 �
   if(fortuneTab==='deck'){const draw=()=>{const query=$('deckSearch').value.trim();$('deckGrid').innerHTML=(deck||[]).filter(c=>c.ko.includes(query)||c.en.toLowerCase().includes(query.toLowerCase())).map(c=>'<button class="deck-item" data-deck="'+c.id+'"><span aria-hidden="true">✧</span>'+h(c.ko)+'</button>').join('');$('deckGrid').querySelectorAll('[data-deck]').forEach(button=>button.onclick=()=>{$('deckDetail').innerHTML=cardMarkup({...deck.find(c=>c.id===Number(button.dataset.deck)),reversed:false})+'<button id="reverseCard">역방향 해석 보기</button>';let reversed=false;$('reverseCard').onclick=()=>{reversed=!reversed;const c=deck.find(c=>c.id===Number(button.dataset.deck));$('deckDetail').querySelector('.tarot-display').outerHTML=cardMarkup({...c,reversed});$('reverseCard').textContent=reversed?'정방향 해석 보기':'역방향 해석 보기';};$('deckDetail').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'nearest'});});};$('deckSearch').oninput=draw;draw();}
 }
 function resultText(r){if(!r)return '';if(r.message)return r.message;if(r.game==='blackjack'){const b=r.round;return b.done?({blackjack:'블랙잭!',win:'승리!',dealer_bust:'딜러 버스트!',push:'무승부',bust:'버스트',lose:'이번엔 딜러 승리'})[b.outcome]+' · 지급 '+money(b.payout)+'초코':'한 장 더 받을까요, 여기서 멈출까요?';}return (r.payout>r.bet?'당첨! ':r.payout===r.bet?'무승부 · ':'다음 기회에 · ')+'지급 '+money(r.payout)+'초코 (원금 포함)';}
-function casinoOutcome(result,game=casinoTab){
-  if(!result)return 'idle';
-  if(game==='blackjack'){const round=result.round;return !round?.done?'deal':round.outcome==='blackjack'?'blackjack':['win','dealer_bust'].includes(round.outcome)?'win':round.outcome==='push'?'draw':'loss';}
-  if(game==='quiz')return result.correct===true?'win':result.correct===false?'loss':'idle';
-  if(['daily','rescue'].includes(game))return 'win';
-  if(!Number.isFinite(result.payout)||!Number.isFinite(result.bet))return 'idle';
-  if(game==='slots'&&result.payout>=result.bet*20)return 'jackpot';
-  return result.payout>result.bet?'win':result.payout===result.bet?'draw':'loss';
-}
+function casinoOutcome(result,game=casinoTab){return classifyOutcome(result,game);}
 function outcomeBanner(result,game){const outcome=casinoOutcome(result,game),labels={win:'승리',loss:'아쉬운 패배',draw:'무승부',blackjack:'BLACKJACK',jackpot:'JACKPOT'};return labels[outcome]?'<div class="outcome-banner '+outcome+'" role="status">'+labels[outcome]+'</div>':'';}
 function slotSymbol(symbol,index){const file=SLOT_ART[symbol]||SLOT_ART['⭐'];return '<span class="reel" style="--reel:'+index+'"><img src="'+art(file)+'" alt="'+h(symbol)+'"></span>';}
 function casinoStageClass(result,game){const outcome=casinoOutcome(result,game);return 'game-stage casino-stage fx-'+outcome+(game==='slots'&&result?' fx-reels':'')+(game==='horse'&&result?' fx-race':'')+(game==='dice'&&result?' fx-dice':'')+(game==='blackjack'&&result?' fx-cards':'');}
 function runCasinoFx(box,result,game){
-  const outcome=casinoOutcome(result,game),target=box.querySelector('.casino-stage')||box.querySelector('.casino-wallet');
-  if(!target||matchMedia('(prefers-reduced-motion: reduce)').matches||!['win','blackjack','jackpot'].includes(outcome))return;
-  const layer=document.createElement('div');layer.className='result-particles '+outcome;layer.setAttribute('aria-hidden','true');
-  const coins=outcome==='jackpot'?24:outcome==='win'?12:6,sparks=outcome==='jackpot'?18:12;
-  for(let i=0;i<coins;i++){const coin=document.createElement('img');coin.className='fx-coin';coin.src=art('choco-coin.png');coin.alt='';coin.style.setProperty('--i',i);coin.style.setProperty('--x',((i*47)%101-50)+'px');coin.style.setProperty('--d',(i%7)*55+'ms');layer.append(coin);}
-  for(let i=0;i<sparks;i++){const spark=document.createElement('i');spark.className='fx-spark';spark.style.setProperty('--i',i);spark.style.setProperty('--x',((i*67)%181-90)+'px');spark.style.setProperty('--y',((i*43)%91-45)+'px');layer.append(spark);}
-  target.append(layer);setTimeout(()=>layer.remove(),3000);
+  const stage=box.querySelector('.casino-stage')||box.querySelector('.casino-wallet');
+  playCasinoFx(stage,{outcome:casinoOutcome(result,game),game});
 }
 function renderCasino(){const box=$('venueContent'),wallet=profile.wallet;let html='<div class="casino-wallet"><div><small>내 랜드 초코</small><strong>'+money(wallet.balance)+'</strong><span> C</span></div><div class="wallet-actions"><button data-action="daily" '+(wallet.daily?'disabled':'')+'>'+(wallet.daily?'출석 완료':'출석 +300')+'</button><button data-action="rescue" '+(wallet.rescue||wallet.balance>=100?'disabled':'')+'>응원 +300</button></div></div><p class="venue-intro">랜드 초코는 대장간 골드·기존 Discord 서버별 초코와 따로예요. 배당은 원금을 포함한 총 지급액입니다.</p><div class="venue-tabs">'+Object.entries(GAME_NAMES).map(([id,name])=>'<button data-casino-tab="'+id+'" aria-pressed="'+(id===casinoTab)+'">'+name+'</button>').join('')+'</div>';
   const same=lastResult?.game===casinoTab?lastResult:null;
