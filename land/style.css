@@ -43,3 +43,5 @@
 @media(prefers-reduced-motion:reduce){.fx-race .game-result,.fx-race .status-note,.fx-reels .game-result{animation:none!important}}
 /* 좁은 폰(≤420px): 릴 3개가 기계 옆에 안 들어가서 잘린다. 기계를 위·릴을 아래로 쌓고, 결과 배너는 그림 위가 아니라 비워 둔 윗줄에 놓는다. */
 @media(max-width:420px){.slot-cabinet{grid-template-columns:1fr;justify-items:center}.slot-machine{width:150px}.reel{width:min(84px,21vw)}.casino-stage:has(.outcome-banner){padding-top:58px}}
+/* 좁은 폰: 미니맵이 마을 그림의 1/3을 가리고 안내 문구와 겹친다. 작게 줄여 안내 아래 오른쪽 구석으로. */
+@media(max-width:420px){#minimap{width:80px;height:56px;top:48px;right:8px;opacity:.9}}
