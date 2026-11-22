@@ -4,6 +4,7 @@
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const COIN_SRC = ['assets/photo/choco-coin.webp', 'assets/choco-coin.png'];
+import { RACE } from './race-script.js?v=1';
 const HOLD_MS = 55; // 임팩트 순간 정지감(몇 프레임 멈춘 듯 보이게)
 const HOLD_SCALE = 0.12;
 
@@ -99,7 +100,7 @@ export const REEL = { spin: 1050, step: 320, land: 0.86 };
 export const reelStopMs = i => REEL.spin + REEL.step * i;
 const SETTLE = {
   slots: { base: REEL.spin, step: REEL.step, sel: '.reel' },
-  horse: { base: 1650, step: 55, sel: '.horse-runner' },
+  horse: { base: RACE.settle, step: 0, sel: '.horse-runner' }, // 경주 대본(race-script)의 판정 끝 시각
   dice: { base: 1760, step: 0 }, // 통을 들어 올려 두 번째 주사위가 자리 잡는 때(1.9s 의 ~92%)
   blackjack: { base: 520, step: 85, sel: '.playing-card' },
 };
@@ -350,7 +351,7 @@ export function playSceneFx(stage, game, { outcome = 'idle', rand = Math.random,
   const R = (a, b) => a + (b - a) * rand();
   const rel = el => { const b = stage.getBoundingClientRect(), r = el.getBoundingClientRect(); return { x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height }; };
   const parts = [], glints = [];
-  const total = game === 'horse' ? settleMs('horse', targets.length) + 900 : cfg.land + cfg.step * (targets.length - 1) + 700;
+  const total = game === 'horse' ? RACE.finish + RACE.runout + 900 : cfg.land + cfg.step * (targets.length - 1) + 700;
   const big = outcome === 'win' || outcome === 'jackpot';
   let raf = 0, stopped = false, resolveDone, last = performance.now(), el = 0;
   const done = new Promise(r => { resolveDone = r; });
@@ -377,7 +378,7 @@ export function playSceneFx(stage, game, { outcome = 'idle', rand = Math.random,
     last = now; el += dt * 1000;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
 
-    if (game === 'horse' && el < total - 900) for (const r of runners) {
+    if (game === 'horse' && el >= RACE.gate && el < RACE.finish + RACE.runout) for (const r of runners) {
       const b = rel(r.el), hx = b.x + b.w * 0.3, hy = b.y + b.h * 0.86;
       if (r.px === null) { // 출발 순간: 크게 박차고 나간다(앤티 → 임팩트)
         r.px = hx;
