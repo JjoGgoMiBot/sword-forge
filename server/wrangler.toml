@@ -20,4 +20,5 @@ tag = "land-v1"
 new_sqlite_classes = ["LandPlayer", "LandRoom"]
 
 [vars]
+LAND_ENABLED = "false"
 DISCORD_APPLICATION_ID = "1563724683591942204"

@@ -112,6 +112,7 @@ export class LandRoom{
     const now=Date.now();await Promise.all(this.sockets().map(async ws=>{const a=ws.deserializeAttachment();if(a.bridge||a.authUntil>=now)return;const valid=await this.env.DB.prepare('SELECT hash FROM tokens WHERE hash=? AND created>=?').bind(a.tokenHash,now-30*86400000).first();const access=a.channel?await channelAccess(this.env,a.discordId,a.guild,a.channel):null;if(!valid||a.channel&&!access||now-a.connected>3600000){ws.close(4003,'계정 또는 채널 권한이 바뀌었어요.');return;}const current=ws.deserializeAttachment();current.canSend=access?access.canSend:true;current.authUntil=now+20000;ws.serializeAttachment(current);}));
   }
   async fetch(req){
+    if(this.env.LAND_ENABLED!=='true')return Response.json({error:'land_disabled',msg:'쪼꼬미랜드는 개발 중이에요.'},{status:503});
     const a=JSON.parse(decodeURIComponent(req.headers.get('X-Land-User')||'null'));if(!a)return new Response('Forbidden',{status:403});
     if(new URL(req.url).pathname==='/invalidate'&&a.bridge){for(const ws of this.sockets())ws.close(4003,'채널 연동이 해제되었어요.');return Response.json({ok:true});}
     if(!a.bridge&&!a.chatOnly&&this.users().filter(u=>u.id!==a.id).length>=20||this.sockets().length>=60)return new Response('이 광장은 가득 찼어요. 다른 광장을 선택해주세요.',{status:429});
@@ -123,6 +124,7 @@ export class LandRoom{
     return new Response(null,{status:101,webSocket:client});
   }
   async webSocketMessage(ws,raw){
+    if(this.env.LAND_ENABLED!=='true'){for(const peer of this.sockets())peer.close(1013,'쪼꼬미랜드는 개발 중이에요.');return;}
     if(typeof raw!=='string'||raw.length>2048){ws.close(1009,'메시지가 너무 커요.');return;}
     let m;try{m=JSON.parse(raw);}catch{return;}
     await this.ctx.blockConcurrencyWhile(async()=>{
