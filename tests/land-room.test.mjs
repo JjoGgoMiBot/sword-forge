@@ -20,3 +20,14 @@ test('channel gate applies role overrides and timeout instead of inheriting bot 
 test('ordinary text channels require text permissions without an unrelated voice Connect bit',async()=>{
  const original=globalThis.fetch,guild='223456789012345670',channel='223456789012345671',user='223456789012345673';globalThis.fetch=async url=>{if(url.endsWith('/guilds/'+guild))return Response.json({owner_id:'223456789012345699',roles:[{id:guild,permissions:String(1024+65536+2048)}]});if(url.includes('/members/'))return Response.json({roles:[],communication_disabled_until:null});return Response.json({guild_id:guild,type:0,name:'일반',permission_overwrites:[]});};try{const access=await channelAccess({DISCORD_BOT_TOKEN:'unit-test-placeholder'},user,guild,channel);assert.equal(access.kind,'text');assert.equal(access.canSend,true);}finally{globalThis.fetch=original;}
 });
+test('walking applies elapsed time with the previous direction and accepts a quick stop',async()=>{
+ const {WORLD}=await import('../land/world.js');const f=fixture(),now=Date.now();
+ const ws=f.socket({id:'walker',name:'걷는 주민',avatar:{},x:WORLD.spawn.x,y:WORLD.spawn.y,seq:0,lastMove:now-500,version:WORLD.version,connected:now,authUntil:now+60000});
+ await f.room.webSocketMessage(ws,JSON.stringify({type:'move',seq:1,dx:1,dy:0}));
+ assert.equal(ws.attachment.x,WORLD.spawn.x,'a new direction must not move the resident backwards in time');
+ ws.attachment.lastMove=Date.now()-100;await f.room.webSocketMessage(ws,JSON.stringify({type:'move',seq:2,dx:1,dy:0}));
+ const walked=ws.attachment.x-WORLD.spawn.x;assert.ok(walked>15&&walked<25,'about 100ms at walking speed, got '+walked);
+ await f.room.webSocketMessage(ws,JSON.stringify({type:'move',seq:3,dx:0,dy:0}));assert.equal(ws.attachment.seq,3,'a stop right after a step is still accepted');
+ await f.room.webSocketMessage(ws,JSON.stringify({type:'move',seq:4,dx:-1,dy:0}));assert.equal(ws.attachment.seq,3,'other moves inside 65ms are still throttled');
+ assert.equal(ws.sent.filter(m=>m.type==='move').length,3);f.db.close();
+});
