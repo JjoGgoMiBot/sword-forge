@@ -93,8 +93,12 @@ function softGlow(stage, plan) {
 
 // 게임 화면의 움직임(릴 회전·말 질주·카드 딜)이 끝나는 시각. 결과 연출은 그 뒤에 터져야 결과와 어긋나지 않는다.
 // base: 첫 요소 애니메이션 길이(ms) · step: 요소마다 늦게 시작하는 간격 · sel: 세어 볼 요소
+// 슬롯 릴 한 칸이 도는 시간. 화면(app.js의 --spin)과 결과 연출이 이 숫자 하나를 같이 쓴다.
+// spin: 첫 릴이 완전히 멈추는(튕김까지 끝난) 시각 · step: 다음 릴이 더 도는 시간 · land: 결과 칸에 처음 닿는 지점(애니메이션 진행 비율)
+export const REEL = { spin: 1050, step: 320, land: 0.86 };
+export const reelStopMs = i => REEL.spin + REEL.step * i;
 const SETTLE = {
-  slots: { base: 780, step: 115, sel: '.reel' },
+  slots: { base: REEL.spin, step: REEL.step, sel: '.reel' },
   horse: { base: 1650, step: 55, sel: '.horse-runner' },
   dice: { base: 720, step: 0 },
   blackjack: { base: 520, step: 85, sel: '.playing-card' },
@@ -322,7 +326,7 @@ function burst(stage, plan, rand) {
 // 슬롯: 릴이 멈추는 순간 유리에 빛줄기가 훑고 지나가고 작은 불티가 튄다. 마지막 릴은 결과에 따라 세기가 다르다.
 const SCENE = {
   horse: { sel: '.horse-runner', life: [0.7, 1.25], grit: 3, puffEvery: 34, startKick: 5 },
-  slots: { sel: '.reel', land: 0.78 * 780, step: 115, chips: 5 },
+  slots: { sel: '.reel', land: REEL.land * REEL.spin, step: REEL.land * REEL.step, chips: 5 },
 };
 const sceneRunning = new WeakMap();
 
