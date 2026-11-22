@@ -137,7 +137,8 @@ export class LandRoom{
       }else if(m.type==='move'){
         if(a.chatOnly)return;
         if(!Number.isSafeInteger(m.seq)||m.seq<=a.seq||![-1,0,1].includes(m.dx)||![-1,0,1].includes(m.dy))return;
-        const elapsed=now-a.lastMove;if(elapsed<65)return;const pos=move(a,m.dx,m.dy,Math.min(.15,elapsed/1000));a.x=pos.x;a.y=pos.y;a.lastMove=now;a.seq=m.seq;ws.serializeAttachment(a);this.broadcast({type:'move',user:{id:a.id,name:a.name,avatar:a.avatar,x:a.x,y:a.y},seq:a.seq});
+        // 지난 메시지 뒤로 흐른 시간은 그때 받은 방향으로 걷고(클라이언트 예측과 같은 계산), 새 방향은 다음 구간에 쓴다. 멈춤은 65ms 안이라도 받는다.
+        const elapsed=now-a.lastMove,stopping=!m.dx&&!m.dy&&(a.dx||a.dy);if(elapsed<65&&!stopping)return;const pos=move(a,a.dx||0,a.dy||0,Math.min(.15,elapsed/1000));a.x=pos.x;a.y=pos.y;a.dx=m.dx;a.dy=m.dy;a.lastMove=now;a.seq=m.seq;ws.serializeAttachment(a);this.broadcast({type:'move',user:{id:a.id,name:a.name,avatar:a.avatar,x:a.x,y:a.y},seq:a.seq});
       }else if(m.type==='history'){this.send(ws,{type:'history',messages:this.history()});
       }else if(m.type==='chat'){
         if(!a.canSend){this.send(ws,{type:'error',msg:'이 채널에 메시지를 보낼 권한이 없어요.'});return;}
