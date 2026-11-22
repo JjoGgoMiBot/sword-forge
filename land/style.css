@@ -45,3 +45,16 @@
 @media(max-width:420px){.slot-cabinet{grid-template-columns:1fr;justify-items:center}.slot-machine{width:150px}.reel{width:min(84px,21vw)}.casino-stage:has(.outcome-banner){padding-top:58px}}
 /* 좁은 폰: 미니맵이 마을 그림의 1/3을 가리고 안내 문구와 겹친다. 작게 줄여 안내 아래 오른쪽 구석으로. */
 @media(max-width:420px){#minimap{width:80px;height:56px;top:48px;right:8px;opacity:.9}}
+/* 실사 자산(assets/photo)이 모두 읽혔을 때만 적용. 못 읽으면 위의 그림 자산 규칙이 그대로 쓰인다. */
+.photo-ok .casino-wallet>div:first-child:before{background-image:url('assets/photo/choco-coin.webp')}
+.photo-ok .playing-card.card-hidden{background:#1f3a26 url('assets/photo/arcade-card-back.webp') center/100% 100% no-repeat;border-color:#b89a5e}
+.photo-ok .playing-card{background:linear-gradient(150deg,#fbf5e6,#eadcbf);border-color:#bda77c;box-shadow:0 1px 1px #2a1c1240,0 6px 10px #2a1c1238}
+.photo-ok .slot-windows{left:21.6%;top:35%;width:49.6%;height:24.6%;gap:3.4%}
+.photo-ok .slot-window{border-radius:3px;background:linear-gradient(#bfae8a,#f3e8cf 22%,#fffaf0 50%,#f3e8cf 78%,#b3a17c);box-shadow:inset 0 6px 7px -4px #3a2a1680,inset 0 -6px 7px -4px #3a2a1680}
+.photo-ok .slot-window img{width:96%;filter:drop-shadow(0 2px 2px #2a1c1250)}
+.photo-ok .reel{background:linear-gradient(#cdbd9a,#f6ecd6 24%,#fffaf0 50%,#f6ecd6 76%,#c4b28d);box-shadow:inset 0 0 0 2px #8a6a3e55,inset 0 8px 9px -6px #3a2a1670,inset 0 -8px 9px -6px #3a2a1670,0 7px 14px #2a1c1228}
+.photo-ok .reel img{width:84%;height:84%;margin:8%;filter:drop-shadow(0 3px 3px #2a1c1250)}
+.photo-ok .blackjack-table-art{opacity:.92;filter:drop-shadow(0 12px 14px #2a1c1240)}
+.photo-ok .horse-runner{filter:drop-shadow(0 4px 3px #2a1c1250)}
+/* 사진 펠트 테이블: 무대 크림 조명(:after)과 무대 배경이 테이블을 덮지 않게 무대를 독립 쌓임 맥락으로 만들고 글씨는 밝게 */
+.photo-ok .blackjack-stage{isolation:isolate}.photo-ok .blackjack-stage:after{display:none}.photo-ok .blackjack-stage .table-row{color:#f6ecd2;text-shadow:0 1px 2px #0009;font-weight:600}.photo-ok .blackjack-stage .game-result{display:table;margin:8px auto 0;padding:3px 12px;border-radius:999px;background:#2a1c12d0;color:#f6e3b0}

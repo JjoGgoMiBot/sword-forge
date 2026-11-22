@@ -44,3 +44,5 @@ Cloud sessions are bearer-token based and share the existing GitHub Pages origin
 ## Artwork
 
 `assets/town-illustrated-alpha.png` is the original generated gouache/colored-pencil sprite atlas with real alpha. `art-source/illustration-prompts.md` records generation and extraction prompts. Runtime draw ordering, paper-grain terrain, avatar palette variants and walking interpolation live in `scene-illustrated.js`. Blender studies are not used by the shipped renderer.
+
+The shipped look is photoreal: `assets/photo/*.webp` (town atlas in the same 4×2/444px layout, grass and path ground tiles, slot symbols, coin, arcade props, card back) generated with ChatGPT from the prompts in `art-source/photo-prompts.md`. Every photo asset has a painted fallback: `art()` points at `assets/photo/`, a capture-phase image `error` listener swaps a failed WebP back to the matching `assets/*.png`, CSS photo overrides only apply once `html.photo-ok` is set by a probe, and `scene-illustrated.js` falls back to the painted atlas and paper floor if the photo atlas or ground tiles fail (`#stage[data-art]` reports which one is live).

@@ -1,0 +1,35 @@
+# 쪼꼬미랜드 실사 자산 프롬프트
+
+2026-11-22에 ChatGPT 이미지 생성으로 만들었다. 대장간(forge) 사진을 스타일 레퍼런스로 첨부하고 같은 대화에서 이어 생성했다.
+공통 조건: 사실적인 미니어처 마을 사진, 해 질 녘 빛이 왼쪽 위에서(약 4500K), 약 35° 위 3/4 시점, 85mm f/8, 순수 검정 #000000 배경, 글자·로고·워터마크·사람 없음.
+
+원본은 검정 배경이다. 가장자리에서 이어진 검정만 투명하게 오려 `land/assets/photo/*.webp`로 만든다.
+- 건물·소품: 4×2, 444px 칸 아틀라스 `town-atlas.webp` (0 대장간, 1 타로, 2 오락관, 3 나무, 4 벤치, 5 가로등, 6 분수, 7 아바타). 아바타 칸은 기존 그림 아틀라스에서 복사한다(아바타는 실사화 대상이 아님).
+- 바닥: 512px 타일 `ground-grass.webp`, `ground-path.webp`.
+- 오락관: 슬롯 심볼·코인 384px, 소품 420px, 카드 뒷면은 카드 윤곽에 맞게 자른다.
+
+대장간·타로관 건물과 흙길 텍스처는 앞선 세션에서 같은 공통 조건으로 생성했고 프롬프트 원문은 남아 있지 않다. 요지: 대장간은 돌·목조 대장간과 화덕 불빛·작은 둥근 자갈 받침, 타로관은 보라 꽃 덩굴과 등불이 있는 작은 점술 가게, 흙길은 위에서 본 이음매 없는 다져진 흙·자갈 길.
+
+## 오락관 건물 → gen/arcade.webp
+
+Generate an image. Use exactly the same photographic style, lighting, camera angle and black background as the attached blacksmith image (photorealistic miniature-village photograph, warm golden-hour sunlight from the upper left ~4500K, 3/4 view from about 35 degrees above, 85mm f/8, sharp detail, pure black #000000 background, the building sitting on a small round cobblestone base). Subject: a cozy medieval village GAME ARCADE / gambling hall building: half-timbered plaster walls, weathered green copper roof with patches of moss and a small dormer window, a string of colorful triangular pennant flags across the front, warm glowing windows showing a card table and stacked dice inside, a wooden arched door, a hanging iron bracket sign shaped like a large ivory dice (no numbers other than pips), small flower pots. Single building centered, whole building visible with margin. Square 1:1. Negative: no text, no letters, no numbers, no logos, no watermark, no people.
+
+## 마을 소품 2×2(나무·벤치·가로등·분수) → gen/props.webp
+
+Generate another image in exactly the same photographic style, lighting (golden-hour sun from upper left), camera angle (3/4 view from 35 degrees above) and pure black #000000 background as the blacksmith and arcade images. Square 1:1, a 2x2 grid of four separate isolated objects, each centered in its own quadrant with wide pure black empty space between them (nothing touching or crossing the quadrant borders, no ground plane, only a tiny soft contact shadow): top-left a lush deciduous oak tree with full rounded canopy and visible trunk and roots; top-right a weathered wooden park bench with wrought iron armrests and a few small white flowers; bottom-left a tall black wrought-iron Victorian street lamp with a warm glowing lantern, full height visible from base to top; bottom-right a round stone village fountain with a two-tier basin and clear splashing water. Photorealistic miniature-village photograph, sharp detail. Negative: no text, no letters, no numbers, no logos, no watermark, no people, no grid lines.
+
+## 잔디 바닥 → gen/grass.webp
+
+Now generate a seamless tileable ground texture photographed straight top-down (orthographic, no perspective, no horizon): short lush meadow grass of a village green with tiny clover, a few small daisies and subtle soil patches, natural mid-green with warm golden-hour tint, evenly lit (no strong directional shadows, no vignette), uniform density so it tiles without visible seams or repeating landmarks. Square 1:1, fills the whole frame edge to edge. Negative: no text, no objects, no paths, no border.
+
+## 슬롯 심볼·초코 코인 4×2 → gen/symbols.webp
+
+Now generate a product-photography sprite sheet in the same warm golden-hour lighting (key light from upper left) on a pure black #000000 background. Landscape 3:2, a 4-column by 2-row grid of eight separate isolated objects, each centered in its own equal cell with wide pure black gaps, nothing touching cell borders, all objects the same visual size, slight 3/4 front view, macro photo, sharp detail, glossy realistic materials. Top row: a pair of shiny red cherries joined by green stems with one leaf; a bright yellow ripe lemon with a green leaf; a bunch of purple grapes with a vine leaf; a polished brass bell with a small bow. Bottom row: a gold metal five-pointed star with beveled facets; a brilliant-cut pale blue diamond gemstone; a glossy red enamel numeral seven shape made of cast metal with a gold rim (the only allowed character is this single 7); a thick round milk-chocolate coin with a cocoa-bean emblem embossed on its face. Negative: no text, no letters, no other numbers, no logos, no watermark, no grid lines, no table surface.
+
+## 오락관 소품 2×2(슬롯머신·블랙잭 테이블·주사위 컵·경주마) → gen/arcadeprops.webp
+
+Now generate another sheet in the same photorealistic golden-hour style (key light from upper left) on pure black #000000 background. Square 1:1, a 2x2 grid of four separate isolated objects, each centered in its own quadrant with wide pure black gaps, nothing touching quadrant borders. Top-left: a vintage three-reel mechanical slot machine viewed straight from the front, polished brass and dark walnut wood cabinet, chrome pull lever on the right side, three EMPTY blank cream-colored reel windows in a horizontal row across the middle (nothing shown in the windows). Top-right: a round blackjack card table seen straight from above (top-down), rich green felt with an empty center, polished dark wood padded rim, no cards and no printing on the felt. Bottom-left: a worn leather dice cup tipped on its side with two ivory dice with black pips next to it. Bottom-right: a chestnut thoroughbred racehorse in full gallop, exact side view facing right, all four legs visible and anatomically correct, flowing dark mane and tail, no rider, no saddle. Negative: no text, no letters, no numbers, no logos, no watermark, no grid lines, no people.
+
+## 카드·퀴즈판·손·경주로·코인 더미 3×2 → gen/cards.webp
+
+Now generate one more sheet in the same photorealistic golden-hour style (key light from upper left) on pure black #000000 background. Landscape 3:2, a 3-column by 2-row grid of six separate isolated objects, each centered in its own equal cell with wide pure black gaps, nothing touching cell borders. Top row: (1) the BACK of a single vintage playing card standing upright, viewed straight on, deep forest-green linen card stock with an ornate gold-foil filigree pattern and cream border, rounded corners; (2) the FACE of a single playing card, the ace of hearts, viewed straight on, cream linen stock, one large red heart in the center and a small A with heart in two opposite corners (only these A characters allowed); (3) a small wooden easel quiz board holding a cream card with one large hand-painted question mark, with a milk-chocolate coin leaning against its foot. Bottom row: (4) three realistic human hands side by side making rock (closed fist), paper (open flat hand with exactly five fingers) and scissors (index and middle finger extended), natural skin, anatomically correct; (5) a miniature oval horse racing dirt track seen from 35 degrees above with white wooden rails, green infield and a small checkered finish flag; (6) a neat stack of thick milk-chocolate coins with cocoa-bean emblems, one coin leaning on the stack. Negative: no other text, no logos, no watermark, no grid lines, no extra fingers.
