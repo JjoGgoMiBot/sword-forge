@@ -100,7 +100,7 @@ export const reelStopMs = i => REEL.spin + REEL.step * i;
 const SETTLE = {
   slots: { base: REEL.spin, step: REEL.step, sel: '.reel' },
   horse: { base: 1650, step: 55, sel: '.horse-runner' },
-  dice: { base: 720, step: 0 },
+  dice: { base: 1760, step: 0 }, // 통을 들어 올려 두 번째 주사위가 자리 잡는 때(1.9s 의 ~92%)
   blackjack: { base: 520, step: 85, sel: '.playing-card' },
 };
 export function settleMs(game, count = 1) {
