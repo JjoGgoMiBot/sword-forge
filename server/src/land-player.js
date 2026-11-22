@@ -4,8 +4,7 @@ import cards from './land-deck.js';
 const day=now=>new Date(now+32400000).toISOString().slice(0,10);
 const digest=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(x=>x.toString(16).padStart(2,'0')).join('');
 const fail=(msg,status=400)=>{const e=Error(msg);e.status=status;throw e;};
-const questions=[['대장간','검을 만드는 곳'],['초콜릿','달콤한 간식'],['도서관','책을 빌리는 곳'],['무지개','비가 그친 뒤 하늘'],['자전거','두 바퀴 탈것'],['고양이','야옹'],['강아지','멍멍'],['우체국','편지를 보내는 곳'],['솜사탕','구름 같은 간식'],['해바라기','노란 꽃'],['호박','가을의 주황 채소'],['은하수','밤하늘의 별 무리'],['바다','짭짤한 물결'],['눈사람','겨울에 만드는 친구'],['산책','천천히 걷는 시간'],['연필','글씨 쓰는 도구'],['마법사','주문을 외우는 사람'],['별똥별','밤하늘의 찰나'],['나침반','방향을 알려주는 도구'],['소나기','갑자기 내리는 비']];
-const initials=s=>[...s].map(c=>{const n=c.charCodeAt(0)-44032;return n>=0&&n<11172?'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'[Math.floor(n/588)]:c;}).join('');
+import {QUIZ,initials} from './land-quiz.js';
 function cardView(c){return {...cards[c.id],reversed:c.reversed,day:c.day};}
 export class LandPlayer{
   constructor(ctx,env){this.ctx=ctx;this.env=env;this.sql=ctx.storage.sql;this.sql.exec('CREATE TABLE IF NOT EXISTS player (id INTEGER PRIMARY KEY CHECK(id=1),data TEXT NOT NULL)');this.sql.exec('CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,response TEXT NOT NULL)');this.sql.exec('CREATE TABLE IF NOT EXISTS ledger (id INTEGER PRIMARY KEY AUTOINCREMENT,delta INTEGER NOT NULL,balance INTEGER NOT NULL,reason TEXT NOT NULL,created INTEGER NOT NULL)');}
@@ -44,7 +43,7 @@ export class LandPlayer{
       else if(b.op==='race'){if(!s.race||s.race.expires<now)s.race={id:crypto.randomUUID(),horses:horses(),expires:now+900000};result={message:'이번 개인 경주표예요.'};}
       else if(b.op==='quiz'){
         if(s.quizWins>=25)fail('오늘의 퀴즈 보상을 모두 받았어요.');if(now<s.quizNext)fail('잠시 쉬었다가 다음 문제를 받아주세요.');
-        if(!s.quiz||s.quiz.expires<now){const [answer,hint]=questions[integer(questions.length)];s.quiz={id:crypto.randomUUID(),answer,hint,initials:initials(answer),created:now,expires:now+90000,tries:0};}result={message:'초성을 보고 단어를 맞혀보세요.'};
+        if(!s.quiz||s.quiz.expires<now){const [answer,clue,field]=QUIZ[integer(QUIZ.length)],hint=`${field} · ${clue}`;s.quiz={id:crypto.randomUUID(),answer,hint,initials:initials(answer),created:now,expires:now+90000,tries:0};}result={message:'초성을 보고 단어를 맞혀보세요.'};
       }
       else if(b.op==='quizAnswer'){
         const q=s.quiz;if(!q||q.id!==p.quizId||q.expires<now)fail('문제 시간이 지났어요.');if(now-q.created<1000)fail('문제를 조금 더 읽어주세요.');if(typeof p.answer!=='string'||p.answer.length>30)fail('답을 짧게 입력해주세요.');
