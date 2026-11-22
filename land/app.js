@@ -1,6 +1,6 @@
 import {WORLD,BUILDINGS,FLOOR,SHIRTS,SKINS,avatar,move,near} from './world.js?v=3';
 import {isActivity,connectDiscordVoice} from './discord-voice.js';
-import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx} from './casino-fx.js?v=4';
+import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx} from './casino-fx.js?v=5';
 const $=id=>document.getElementById(id),local=['localhost','127.0.0.1'].includes(location.hostname);
 const API=local?'http://127.0.0.1:8907':'https://sword-forge-api.aicore-sj-relay.workers.dev';
 const money=n=>Number(n||0).toLocaleString('ko-KR'),h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -10,7 +10,10 @@ const position={...WORLD.spawn},held=new Set(),movingKeys=new Map([['KeyW',[0,-1
 const GAME_NAMES={slots:'슬롯',blackjack:'블랙잭',dice:'홀짝',horse:'개인 경마',rps:'가위바위보',quiz:'초성퀴즈',ledger:'이용 기록'};
 const RPS={rock:'✊ 바위',paper:'✋ 보',scissors:'✌ 가위'};
 const SLOT_ART={'🍒':'arcade-slot-cherry.png','🍋':'arcade-slot-lemon.png','🍇':'arcade-slot-grape.png','🔔':'arcade-slot-bell.png','⭐':'arcade-slot-star.png','💎':'arcade-slot-diamond.png','7️⃣':'arcade-slot-seven.png'};
-const art=name=>'assets/'+name;
+// 실사 WebP(assets/photo)를 먼저 쓰고, 없거나 깨지면 기존 그림 PNG로 되돌린다.
+const art=name=>'assets/photo/'+name.replace(/\.png$/,'.webp');
+document.addEventListener('error',event=>{const img=event.target;if(img?.tagName!=='IMG'||img.dataset.fallback||!img.src.includes('/assets/photo/'))return;img.dataset.fallback='1';img.src=img.src.replace('/assets/photo/','/assets/').replace(/\.webp(\?.*)?$/,'.png');},true);
+Promise.all(['arcade-slot-machine','arcade-card-back','choco-coin'].map(n=>new Promise((ok,no)=>{const i=new Image();i.onload=ok;i.onerror=no;i.src='assets/photo/'+n+'.webp';}))).then(()=>document.documentElement.classList.add('photo-ok'),()=>console.warn('photo assets missing; using painted fallback'));
 const canWalk=()=>!document.querySelector('dialog[open]')&&(!account||socket?.readyState===1);
 function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4500);}
 async function api(path,body={},authenticated=true){const token=account?.token;const response=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,...(authenticated?{token}:{})}),signal:AbortSignal.timeout(18000)});const data=await response.json();if(authenticated&&token!==account?.token)throw Error('계정이 바뀌었어요.');if(!response.ok){const error=Error(data.msg||'서버와 연결할 수 없어요.');error.status=response.status;error.code=data.error;throw error;}return data;}
@@ -222,7 +225,7 @@ function drawGround(){
 }
 const minimap=$('minimap'),mini=minimap.getContext('2d');
 let townView=null;
-import('./scene-illustrated.js?v=1').then(module=>module.createIllustratedTown($('stage'))).then(view=>{townView=view;$('world').style.opacity='0';}).catch(error=>{console.warn('Illustrated renderer unavailable:',error.message);toast('일러스트를 불러오지 못해 간단한 마을로 표시해요. 이동과 게임은 이용할 수 있어요.');});
+import('./scene-illustrated.js?v=2').then(module=>module.createIllustratedTown($('stage'))).then(view=>{townView=view;$('world').style.opacity='0';}).catch(error=>{console.warn('Illustrated renderer unavailable:',error.message);toast('일러스트를 불러오지 못해 간단한 마을로 표시해요. 이동과 게임은 이용할 수 있어요.');});
 function drawMinimap(){const sx=160/WORLD.width,sy=112/WORLD.height;mini.clearRect(0,0,160,112);mini.fillStyle='#fffaf0ee';mini.fillRect(0,0,160,112);mini.beginPath();FLOOR.forEach((p,i)=>i?mini.lineTo(p.x*sx,p.y*sy):mini.moveTo(p.x*sx,p.y*sy));mini.closePath();mini.fillStyle='#c7d9ae';mini.fill();for(const b of BUILDINGS){mini.fillStyle=b.roof;mini.fillRect(b.x*sx-5,b.y*sy-7,10,7);mini.font='10px sans-serif';mini.textAlign='center';mini.fillStyle='#5e4a39';mini.fillText(b.name,b.x*sx,b.y*sy-10);}mini.beginPath();mini.arc(position.x*sx,position.y*sy,3.5,0,Math.PI*2);mini.fillStyle='#9b5941';mini.fill();mini.strokeStyle='#8f7b6055';mini.strokeRect(camera.x*sx,camera.y*sy,width/zoom*sx,height/zoom*sy);}
 let previousTime=performance.now();function drawFrame(now){const dt=Math.min(.05,(now-previousTime)/1000);previousTime=now;if(canWalk()){const {dx,dy}=directions();if(dx||dy)Object.assign(position,move(position,dx,dy,dt));if(now-lastSent>100&&(held.size||previousMoving))sendMovement();}const entrance=near(position);$('enterButton').hidden=!entrance||!!venue;$('enterButton').textContent=entrance?entrance.name+' 입장 · E':'';$('walkHint').textContent=!account?'마을을 누르고 WASD · 방향키로 걸어보세요':socket?.readyState!==1?'연결을 기다리고 있어요. 위에서 다시 접속할 수 있어요.':entrance?entrance.name+' 입구 · E로 들어가요':'WASD · 방향키로 걷기 / Enter 채팅';
   if(townView){zoom=width>=700?.79:.67;camera.x=Math.max(0,position.x-width/zoom/2);camera.y=Math.max(0,position.y-110-height/zoom/2);townView.update({position,self,name:account?.name||'둘러보는 주민',avatar:profile?.resident.avatar||selectedAvatar,peers});drawMinimap();return;}

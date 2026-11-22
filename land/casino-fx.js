@@ -3,7 +3,7 @@
 // 바깥에 내놓는 것: casinoOutcome(결과 분류) · fxPlanFor(상황별 연출표) · playCasinoFx(재생)
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-const COIN_SRC = 'assets/choco-coin.png';
+const COIN_SRC = ['assets/photo/choco-coin.webp', 'assets/choco-coin.png'];
 const HOLD_MS = 55; // 임팩트 순간 정지감(몇 프레임 멈춘 듯 보이게)
 const HOLD_SCALE = 0.12;
 
@@ -57,10 +57,15 @@ export const reducedMotion = () => {
 
 let coinPromise = null;
 const loadCoin = () => coinPromise || (coinPromise = new Promise(resolve => {
-  const img = new Image();
-  img.onload = () => resolve(img);
-  img.onerror = () => resolve(null);
-  img.src = COIN_SRC;
+  // 실사 코인을 먼저 시도하고, 실패하면 기존 그림, 그것도 없으면 도형 코인(null).
+  const tryAt = i => {
+    if (i >= COIN_SRC.length) return resolve(null);
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => tryAt(i + 1);
+    img.src = COIN_SRC[i];
+  };
+  tryAt(0);
 }));
 
 const running = new WeakMap();
