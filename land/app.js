@@ -1,6 +1,6 @@
 import {WORLD,BUILDINGS,BOUNDARY,OFFSET,SHIRTS,SKINS,avatar,move,near} from './world.js?v=4';
 import {isActivity,connectDiscordVoice} from './discord-voice.js';
-import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=6';
+import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=7';
 const $=id=>document.getElementById(id),local=['localhost','127.0.0.1'].includes(location.hostname);
 const API=local?'http://127.0.0.1:8907':'https://sword-forge-api.aicore-sj-relay.workers.dev';
 const money=n=>Number(n||0).toLocaleString('ko-KR'),h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -153,6 +153,9 @@ function reelStrip(symbol,i,spin){const cell=s=>'<span class="reel-cell"><img sr
   const n=20+i*6,cells=[];const pick=prev=>{let s;do s=SLOT_KEYS[Math.random()*SLOT_KEYS.length|0];while(s===prev||s===symbol&&cells.length<5);return s;};cells.push(pick(symbol),symbol);while(cells.length<n)cells.push(pick(cells[cells.length-1]));
   return '<span class="reel-strip" style="--cells:'+n+';--from:'+(n-2)+'">'+cells.map(cell).join('')+'</span>';}
 function reelBox(cls,symbol,i,spin,label=''){return '<span class="'+cls+(spin?' rolling':'')+'" style="--reel:'+i+(spin?';--spin:'+reelStopMs(i)+'ms':'')+'"'+(label?' role="img" aria-label="'+h(label)+'"':'')+'>'+reelStrip(symbol,i,spin)+'</span>';}
+// 주사위: 두 알을 가죽 통에 담아 흔든 뒤 엎었다가 들어 올려 결과를 보인다. 흔들기 전 주사위(pre)는 아무 눈이나, 결과는 통 아래에서 나온다.
+function diceScene(dice){const show=dice||[3,5],die=(n,i,cls)=>'<img class="'+cls+'" style="--i:'+i+'" src="'+art('die-'+n+'.png')+'" alt="">';
+  return '<div class="dice-scene" role="img" aria-label="'+(dice?'주사위 '+dice.join('과 ')+' · 합계 '+(dice[0]+dice[1]):'가죽 통과 주사위 두 개')+'"><span class="dice-felt"></span>'+(dice?[1+Math.random()*6|0,1+Math.random()*6|0].map((n,i)=>die(n,i,'die die-pre')).join(''):'')+show.map((n,i)=>die(n,i,'die die-roll')).join('')+'<img class="dice-cup" src="'+art('arcade-dice-cup-down.png')+'" alt=""></div>';}
 function casinoStageClass(result,game){const outcome=casinoOutcome(result,game);return 'game-stage casino-stage fx-'+outcome+(game==='slots'&&result?' fx-reels':'')+(game==='horse'&&result?' fx-race':'')+(game==='dice'&&result?' fx-dice':'')+(game==='blackjack'&&result?' fx-cards':'');}
 function runCasinoFx(box,result,game){
   const stage=box.querySelector('.casino-stage')||box.querySelector('.casino-wallet');
@@ -171,7 +174,7 @@ function renderCasino(){const box=$('venueContent'),wallet=profile.wallet;let ht
   }else{
     html+='<div class="'+casinoStageClass(same,casinoTab)+'"'+(casinoTab==='slots'?' style="--settle:'+settleMs('slots',3)+'ms"':'')+'>'+outcomeBanner(same,casinoTab);
     if(casinoTab==='slots'){const reels=same?.reels||['🍒','⭐','7️⃣'],spin=!!same&&!reduceMotion();html+='<div class="slot-cabinet"><div class="slot-machine"><img class="slot-machine-art" src="'+art('arcade-slot-machine.png')+'" alt="슬롯머신"><span class="slot-windows" aria-hidden="true">'+reels.map((symbol,i)=>reelBox('slot-window',symbol,i,spin)).join('')+'</span></div><div class="slots-reels">'+reels.map((symbol,i)=>reelBox('reel',symbol,i,spin,symbol)).join('')+'</div></div>';}
-    if(casinoTab==='dice')html+='<div class="dice-scene"><img class="dice-cup-art" src="'+art('arcade-dice-cup.png')+'" alt="나무 컵과 주사위"><div class="dice-result">'+(same?.dice.map(n=>'⚀⚁⚂⚃⚄⚅'[n-1]).join(' ')||'⚂ ⚄')+'</div></div><p>'+(same?'주사위 합계 '+same.dice.reduce((a,b)=>a+b,0):'두 주사위 합계의 홀·짝을 골라요.')+'</p>';
+    if(casinoTab==='dice')html+=diceScene(same?.dice)+'<p>'+(same?'주사위 합계 '+same.dice.reduce((a,b)=>a+b,0):'두 주사위 합계의 홀·짝을 골라요.')+'</p>';
     if(casinoTab==='rps')html+='<div class="rps-scene"><img class="rps-hands-art" src="'+art('arcade-rps-hands.png')+'" alt="바위 보 가위 손"><div class="rps-result">'+(same?'<span>나 · '+h(RPS[same.choice])+'</span><b>VS</b><span>쪼꼬미 · '+h(RPS[same.opponent])+'</span>':'<span>✊ 바위</span><span>✋ 보</span><span>✌ 가위</span>')+'</div></div><p class="muted">쪼꼬미와 가위바위보</p>';
     if(casinoTab==='horse'){const race=same?{horses:same.horses}:profile.race;html+='<div class="race-heading"><img src="'+art('arcade-racetrack.png')+'" alt="결승선이 있는 경마 트랙"><p>개인 경주 · '+(same?'결승선 도착!':'이번 경주의 컨디션과 배당')+'</p></div><div class="horse-list">'+(race?.horses||[]).map((horse,i)=>'<div class="horse-lane"><span class="horse-name">'+h(horse.name)+'</span><span class="horse-track"><img class="horse-runner '+(same?.winner===i?'winner':'')+'" style="--finish:'+(same?(same.winner===i?88:Math.max(45,75-i*5)):2)+'%;--lane:'+i+'" src="'+art('arcade-racehorse.png')+'" alt=""></span><span class="horse-odds">'+(horse.rate/10).toFixed(1)+'배</span></div>').join('')+'</div>'+(same?'<p class="status-note">우승: '+h(same.horses[same.winner].name)+'</p>':'');}
     html+='<p class="game-result '+(same&&same.payout>same.bet?'win':'')+'">'+h(resultText(same))+'</p></div>';
