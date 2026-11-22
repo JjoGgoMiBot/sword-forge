@@ -31,3 +31,15 @@
 @keyframes sparkle{0%,100%{opacity:0;transform:scale(0) rotate(0)}35%{opacity:1;transform:scale(1.6) rotate(45deg)}65%{opacity:.9;transform:scale(.8) rotate(90deg)}}
 @media(max-width:600px){.slot-cabinet{grid-template-columns:112px 1fr;gap:4px}.slots-reels{gap:5px}.reel{border-radius:12px}.blackjack-stage{min-height:285px}.blackjack-table-art{width:100%}.playing-card{width:48px;height:69px;font-size:17px}.blackjack-empty{grid-template-columns:95px 1fr;gap:10px}.blackjack-empty img{width:95px}.rps-scene{grid-template-columns:110px 1fr}.rps-result{font-size:12px}.race-heading img{width:88px}.horse-track{height:27px}.horse-runner{width:43px;height:43px}.quiz-stage{grid-template-columns:105px 1fr;gap:9px}.quiz-initials{font-size:31px;letter-spacing:5px;padding:8px}.outcome-banner{top:8px;font-size:13px}.casino-wallet>div:first-child{padding-left:35px}.casino-wallet>div:first-child:before{width:34px;height:34px}}
 @media(prefers-reduced-motion:reduce){.result-particles{display:none}.outcome-banner{animation:none}.fx-reels .reel,.fx-cards .playing-card,.fx-dice .dice-cup-art,.fx-dice .dice-result,.fx-race .horse-runner,.fx-loss,.fx-draw,.fx-win,.fx-blackjack,.fx-jackpot{animation:none!important}.horse-runner{left:var(--finish)}}
+/* 슬롯머신 그림 속 창에도 실제 결과 그림을 보여 준다(그림에 박힌 체리 3개가 결과와 어긋나 보이지 않게). */
+.slot-machine{position:relative}.slot-windows{position:absolute;left:25.6%;top:42.6%;width:45.6%;height:25.4%;display:flex;gap:1.5%;pointer-events:none}.slot-window{flex:1;display:grid;place-items:center;overflow:hidden;border-radius:22%/14%;background:radial-gradient(ellipse at 50% 42%,#fff4e2 0 45%,#fae2c0 75%,#efcd9f)}.slot-window img{width:122%;max-width:none;aspect-ratio:1;object-fit:contain}.fx-reels .slot-window img{animation:reel-spin-stop .78s cubic-bezier(.18,.78,.3,1) both;animation-delay:calc(var(--reel)*115ms)}
+@media(prefers-reduced-motion:reduce){.fx-reels .slot-window img{animation:none!important}}
+/* 말 그림(51px)이 트랙(31px) 밖으로 나와도 위아래가 잘리지 않게: 가로만 자른다. */
+.horse-track{overflow:visible;clip-path:inset(-30px -28px -30px 0)}
+/* 결과는 움직임이 끝난 뒤에 공개한다(경주 중·릴 회전 중에 승패가 먼저 보이지 않게). 경마 배너는 트랙 그림을 가리지 않게 오른쪽 위로. */
+.fx-race .outcome-banner{left:auto;right:16px;transform:rotate(-2deg);animation-delay:1.85s}.fx-reels .outcome-banner{animation-delay:1.02s}
+.fx-race .game-result,.fx-race .status-note{animation:result-reveal .35s 1.85s both}.fx-reels .game-result{animation:result-reveal .35s 1.02s both}
+@keyframes result-reveal{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.fx-race .game-result,.fx-race .status-note,.fx-reels .game-result{animation:none!important}}
+/* 좁은 폰(≤420px): 릴 3개가 기계 옆에 안 들어가서 잘린다. 기계를 위·릴을 아래로 쌓고, 결과 배너는 그림 위가 아니라 비워 둔 윗줄에 놓는다. */
+@media(max-width:420px){.slot-cabinet{grid-template-columns:1fr;justify-items:center}.slot-machine{width:150px}.reel{width:min(84px,21vw)}.casino-stage:has(.outcome-banner){padding-top:58px}}
