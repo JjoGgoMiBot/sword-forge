@@ -18,3 +18,22 @@ test('blackjack aces, natural and dealer soft 17 match the bot rules',()=>{
  const n={player:['A♠','K♥'],dealer:['10♦','8♣'],deck:[],bet:101};stand(n);assert.equal(n.payout,252);
  const fresh=deal(100,1000,()=>.5);assert.equal(fresh.deck.length+fresh.player.length+fresh.dealer.length,208);
 });
+
+
+test('a failed illustrated frame recovers the visible town and schedules later frames', async()=>{
+ const fs=await import('node:fs'),vm=await import('node:vm');
+ const source=fs.readFileSync(new URL('../land/app.js',import.meta.url),'utf8');
+ const loop=source.slice(source.indexOf('let lastFrameErrorAt='),source.indexOf('requestAnimationFrame(frame);renderHeader();boot();'));
+ const elements={world:{style:{opacity:'0'}},stage:{dataset:{renderer:'painted-2d'}}};
+ const queued=[],notices=[],errors=[];let failures=2,disposed=0,draws=0;
+ const context={townView:{dispose(){disposed++;}},$:(id)=>elements[id],toast:text=>notices.push(text),
+   console:{error:(...args)=>errors.push(args)},requestAnimationFrame:callback=>queued.push(callback),
+   drawFrame:()=>{draws++;if(failures-->0)throw Error('transient canvas failure');}};
+ vm.createContext(context);vm.runInContext(loop,context);
+ context.frame(100);assert.equal(disposed,1);assert.equal(context.townView,null);
+ assert.equal(elements.world.style.opacity,'1');assert.equal(elements.stage.dataset.renderer,undefined);
+ assert.equal(notices.length,1);assert.equal(queued.length,1);
+ // The basic renderer can also fail once without terminating the scheduler.
+ queued.shift()(116);assert.equal(queued.length,1);assert.equal(notices.length,1);
+ queued.shift()(132);assert.equal(draws,3);assert.equal(queued.length,1);assert.equal(errors.length,1);
+});
