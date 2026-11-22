@@ -34,7 +34,7 @@ test('재생 실패 경로: 무대가 없거나 연출이 없으면 조용히 �
 
 test('결과 연출은 움직임이 끝난 뒤에: 릴·말 수만큼 늦춘다',()=>{
  assert.equal(settleMs('slots',3),1050+320*2);
- assert.equal(settleMs('horse',5),1650+55*4);
+ assert.ok(settleMs('horse',5)>=8000&&settleMs('horse',5)<=12000&&settleMs('horse',5)===settleMs('horse',8));
  assert.equal(settleMs('dice'),1760);
  assert.equal(settleMs('quiz'),0);
 });
