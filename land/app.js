@@ -1,6 +1,6 @@
 import {WORLD,BUILDINGS,FLOOR,SHIRTS,SKINS,avatar,move,near} from './world.js?v=3';
 import {isActivity,connectDiscordVoice} from './discord-voice.js';
-import {casinoOutcome as classifyOutcome,playCasinoFx} from './casino-fx.js?v=2';
+import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx} from './casino-fx.js?v=4';
 const $=id=>document.getElementById(id),local=['localhost','127.0.0.1'].includes(location.hostname);
 const API=local?'http://127.0.0.1:8907':'https://sword-forge-api.aicore-sj-relay.workers.dev';
 const money=n=>Number(n||0).toLocaleString('ko-KR'),h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -147,7 +147,10 @@ function slotSymbol(symbol,index){const file=SLOT_ART[symbol]||SLOT_ART['⭐'];r
 function casinoStageClass(result,game){const outcome=casinoOutcome(result,game);return 'game-stage casino-stage fx-'+outcome+(game==='slots'&&result?' fx-reels':'')+(game==='horse'&&result?' fx-race':'')+(game==='dice'&&result?' fx-dice':'')+(game==='blackjack'&&result?' fx-cards':'');}
 function runCasinoFx(box,result,game){
   const stage=box.querySelector('.casino-stage')||box.querySelector('.casino-wallet');
-  playCasinoFx(stage,{outcome:casinoOutcome(result,game),game});
+  const outcome=casinoOutcome(result,game);
+  // 움직이는 동안의 상황 연출(말 흙먼지·릴 멈춤) → 움직임이 끝난 뒤 결과 연출 순서로 겹치지 않게 재생한다.
+  if(result&&box.querySelector('.casino-stage'))playSceneFx(box.querySelector('.casino-stage'),game,{outcome});
+  playCasinoFx(stage,{outcome,game});
 }
 function renderCasino(){const box=$('venueContent'),wallet=profile.wallet;let html='<div class="casino-wallet"><div><small>내 랜드 초코</small><strong>'+money(wallet.balance)+'</strong><span> C</span></div><div class="wallet-actions"><button data-action="daily" '+(wallet.daily?'disabled':'')+'>'+(wallet.daily?'출석 완료':'출석 +300')+'</button><button data-action="rescue" '+(wallet.rescue||wallet.balance>=100?'disabled':'')+'>응원 +300</button></div></div><p class="venue-intro">랜드 초코는 대장간 골드·기존 Discord 서버별 초코와 따로예요. 배당은 원금을 포함한 총 지급액입니다.</p><div class="venue-tabs">'+Object.entries(GAME_NAMES).map(([id,name])=>'<button data-casino-tab="'+id+'" aria-pressed="'+(id===casinoTab)+'">'+name+'</button>').join('')+'</div>';
   const same=lastResult?.game===casinoTab?lastResult:null;
@@ -158,7 +161,7 @@ function renderCasino(){const box=$('venueContent'),wallet=profile.wallet;let ht
     if(b&&!b.done)html+='<div class="inline-actions"><button class="primary" data-action="bj" data-choice="hit">한 장 더</button><button data-action="bj" data-choice="stand">멈추기</button><button data-action="bj" data-choice="double" '+(!b.canDouble||wallet.balance<b.bet?'disabled':'')+'>더블</button></div><p class="status-note">5분 뒤에도 미완료라면 자동으로 멈추기 처리돼요. 나가도 베팅은 취소되지 않아요.</p>';else html+=betControls();
   }else{
     html+='<div class="'+casinoStageClass(same,casinoTab)+'">'+outcomeBanner(same,casinoTab);
-    if(casinoTab==='slots')html+='<div class="slot-cabinet"><img class="slot-machine-art" src="'+art('arcade-slot-machine.png')+'" alt="손그림 슬롯머신"><div class="slots-reels">'+(same?.reels||['🍒','⭐','7️⃣']).map(slotSymbol).join('')+'</div></div>';
+    if(casinoTab==='slots'){const reels=same?.reels||['🍒','⭐','7️⃣'];html+='<div class="slot-cabinet"><div class="slot-machine"><img class="slot-machine-art" src="'+art('arcade-slot-machine.png')+'" alt="슬롯머신"><span class="slot-windows" aria-hidden="true">'+reels.map((symbol,i)=>'<span class="slot-window" style="--reel:'+i+'"><img src="'+art(SLOT_ART[symbol]||SLOT_ART['⭐'])+'" alt=""></span>').join('')+'</span></div><div class="slots-reels">'+reels.map(slotSymbol).join('')+'</div></div>';}
     if(casinoTab==='dice')html+='<div class="dice-scene"><img class="dice-cup-art" src="'+art('arcade-dice-cup.png')+'" alt="나무 컵과 주사위"><div class="dice-result">'+(same?.dice.map(n=>'⚀⚁⚂⚃⚄⚅'[n-1]).join(' ')||'⚂ ⚄')+'</div></div><p>'+(same?'주사위 합계 '+same.dice.reduce((a,b)=>a+b,0):'두 주사위 합계의 홀·짝을 골라요.')+'</p>';
     if(casinoTab==='rps')html+='<div class="rps-scene"><img class="rps-hands-art" src="'+art('arcade-rps-hands.png')+'" alt="바위 보 가위 손"><div class="rps-result">'+(same?'<span>나 · '+h(RPS[same.choice])+'</span><b>VS</b><span>쪼꼬미 · '+h(RPS[same.opponent])+'</span>':'<span>✊ 바위</span><span>✋ 보</span><span>✌ 가위</span>')+'</div></div><p class="muted">쪼꼬미와 가위바위보</p>';
     if(casinoTab==='horse'){const race=same?{horses:same.horses}:profile.race;html+='<div class="race-heading"><img src="'+art('arcade-racetrack.png')+'" alt="결승선이 있는 경마 트랙"><p>개인 경주 · '+(same?'결승선 도착!':'이번 경주의 컨디션과 배당')+'</p></div><div class="horse-list">'+(race?.horses||[]).map((horse,i)=>'<div class="horse-lane"><span class="horse-name">'+h(horse.name)+'</span><span class="horse-track"><img class="horse-runner '+(same?.winner===i?'winner':'')+'" style="--finish:'+(same?(same.winner===i?88:Math.max(45,75-i*5)):2)+'%;--lane:'+i+'" src="'+art('arcade-racehorse.png')+'" alt=""></span><span class="horse-odds">'+(horse.rate/10).toFixed(1)+'배</span></div>').join('')+'</div>'+(same?'<p class="status-note">우승: '+h(same.horses[same.winner].name)+'</p>':'');}
