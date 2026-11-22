@@ -70,3 +70,5 @@
 @keyframes reel-blur{0%,9%{filter:none}10%,70%{filter:url(#reel-blur)}71%,100%{filter:none}}
 /* 원통 음영: 위·아래 끝은 어둡게 말려 들어가고 가운데에 유리 반사 한 줄. 띠 위에 얹어 회전 중에도 원통처럼 보이게. */
 .slot-window::after,.reel::after{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;border-radius:inherit;background:linear-gradient(#24170b8c,#24170b00 24%,#fff8e81f 44%,#fff8e800 52%,#24170b00 76%,#24170b8c)}
+
+.forge-loading{position:absolute;inset:0;display:grid;place-items:center;margin:0;pointer-events:none}
