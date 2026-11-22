@@ -10,7 +10,7 @@ export {LandPlayer,LandRoom} from './land.js';
 // POST /load     {token}          → {name,save,saved}
 // GET  /ranking                   → {top:[{rank,name,best}],at}  server-verified peak level
 // POST /myrank   {token}          → {rank,best}
-const ORIGINS = ["https://seungjaehh.github.io", "http://localhost:5188", "http://127.0.0.1:5188"];
+const ORIGINS = ["https://jjoggomibot.github.io", "https://seungjaehh.github.io", "http://localhost:5188", "http://127.0.0.1:5188"];
 const MAX_BODY=8192, TOKEN_TTL=30*86400000;
 const ROUTE_LIMITS={'/register':[20,3600000],'/login':[30,60000],'/action':[600,60000],'/load':[120,60000],'/logout':[60,60000],'/myrank':[30,60000]};
 const RANK_TTL=20000,RANK_SIZE=50;
