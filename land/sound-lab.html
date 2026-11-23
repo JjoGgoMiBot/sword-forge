@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>소리 실험실</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+/* 개발용 화면: 가끔 본다. 숫자(측정 결과) 먼저, 파형·트랙은 각 줄에. 움직임 없음. */
+:root{color-scheme:light dark;
+  --bg:#fbf7ef;--card:#fffdf7;--ink:#49372f;--muted:#6f6055;--line:#e7ddcc;--soft:#f1e9dc;--accent:#ad6951;--ok:#4f6b4a;--warn:#a5432f;
+  --wave:#ad6951;--lane:#efe6d8;--clip:#8a7563;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
+  --f-sm:12px;--f-md:14px;--f-lg:16px;--f-xl:22px;--font:'Noto Sans KR','Malgun Gothic',system-ui,sans-serif;--mono:ui-monospace,Consolas,monospace}
+@media(prefers-color-scheme:dark){:root{--bg:#1d1916;--card:#26211d;--ink:#efe6dc;--muted:#b8a999;--line:#3b332c;--soft:#2f2924;--accent:#e09a7d;--ok:#9cc18f;--warn:#f08a74;--wave:#e09a7d;--lane:#2f2924;--clip:#a8968a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:var(--f-md)/1.5 var(--font)}
+main{max-width:1100px;margin:0 auto;padding:var(--s5) var(--s4) var(--s6)}
+h1{font-size:var(--f-xl);margin:0 0 var(--s1)}
+p{margin:0}
+.muted{color:var(--muted)}
+button,select{font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:8px;min-height:44px;padding:0 var(--s4);cursor:pointer}
+button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button:disabled{opacity:.55;cursor:progress}
+.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s2);margin:var(--s4) 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:var(--s3)}
+.stat b{display:block;font-size:var(--f-xl);font-variant-numeric:tabular-nums}
+.stat small{color:var(--muted);font-size:var(--f-sm)}
+.stat.bad b{color:var(--warn)}
+.bar{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center;margin-bottom:var(--s4)}
+.concepts{display:flex;flex-wrap:wrap;gap:var(--s2)}
+.bar .spacer{flex:1}
+h2{font-size:var(--f-lg);margin:var(--s5) 0 var(--s2)}
+.rows{display:grid;gap:var(--s2)}
+.row{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:var(--s3);display:grid;grid-template-columns:44px minmax(0,190px) minmax(0,1fr);gap:var(--s3);align-items:start}
+.row .play{width:44px;padding:0;font-size:var(--f-lg)}
+.row .name b{display:block}
+.row .name code{font:var(--f-sm) var(--mono);color:var(--muted);word-break:break-all}
+.row .nums{font:var(--f-sm) var(--mono);color:var(--muted);margin-top:var(--s1);font-variant-numeric:tabular-nums}
+.row .nums .bad{color:var(--warn);font-weight:700}
+.row canvas{width:100%;display:block;border-radius:6px;background:var(--soft)}
+.legend{font-size:var(--f-sm);color:var(--muted);margin-top:var(--s1)}
+@media(max-width:600px){.summary{grid-template-columns:repeat(2,minmax(0,1fr))}.row{grid-template-columns:44px minmax(0,1fr)}.row canvas,.row .legend{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<main>
+  <h1>소리 실험실</h1>
+  <p class="muted">외부 음원 없이 Web Audio로 합성합니다. 각 소리는 목표 음량(LUFS)으로 맞춘 뒤 피크를 -1 dBFS 아래로 제한합니다.</p>
+  <section class="summary" aria-label="측정 요약" id="summary"></section>
+  <div class="bar">
+    <div class="concepts" role="group" aria-label="컨셉" id="concepts"></div>
+    <span class="spacer"></span>
+    <button type="button" id="measure">전체 측정</button>
+    <button type="button" id="stopAll">모두 멈춤</button>
+  </div>
+  <p class="muted" id="status" role="status">▶를 누르면 소리가 나요. 첫 입력 전에는 오디오를 켜지 않습니다.</p>
+  <h2>배경음(루프)</h2>
+  <div class="rows" id="bgmRows"></div>
+  <h2>효과음</h2>
+  <div class="rows" id="sfxRows"></div>
+</main>
+<script type="module" src="sound/lab.js?v=1"></script>
+</body>
+</html>
