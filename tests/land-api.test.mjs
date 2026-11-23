@@ -6,6 +6,8 @@ async function post(path,b){const r=await fetch(API+path,{method:'POST',headers:
 const request=(token,op,payload={})=>({token,op,payload,id:crypto.randomUUID(),issued:Date.now()});
 test('real DO economy is persistent, serialized, idempotent and hides secrets',async()=>{
  const a=await post('/register',{name:'LA'+Date.now().toString(36).slice(-8),pin:'12345678'});assert.equal(a.status,200);const token=a.token;
+ // 가짜·재사용 서버(미리보기 목업 등)는 가입마다 새 주민을 만들지 않아 잔액이 어긋난다. 뜻 모를 금액 오류 대신 원인을 바로 알려준다.
+ const other=await post('/register',{name:'LB'+Date.now().toString(36).slice(-8),pin:'12345678'});assert.notEqual(other.token,token,'FORGE_TEST_API가 가입마다 새 주민을 만드는 일회용 Worker가 아니에요(미리보기 목업이면 wrangler dev로 바꿔 주세요).');
  let s=await post('/land/player',{token});assert.equal(s.wallet.balance,1000);const resident=s.resident.id;
  const daily=request(token,'daily');const pair=await Promise.all([post('/land/player',daily),post('/land/player',daily)]);assert(pair.every(x=>x.status===200));assert.equal(pair[0].wallet.balance,1300);
  assert.equal((await post('/land/player',request(token,'daily'))).status,400);
