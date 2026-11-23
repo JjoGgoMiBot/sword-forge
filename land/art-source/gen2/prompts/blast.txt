@@ -1,0 +1,5 @@
+Generate one image with the image generation tool and save it as PNG at C:\Users\admin\Desktop\AI\projects\sword-forge-mastery\land\art-source\gen2$1.png (resize with Python PIL to 1024x1024 if needed). Reply with only the saved path.
+
+Style reference: the attached images (photoreal casino product renders: studio product photography, deep green felt, dark leather, polished brass, walnut wood; ONE key light from upper left, soft fill, pure black #000000 background; macro detail with fine scratches, oil sheen, material grain). Match that exact photographic style, palette (deep green, brass gold, walnut, oxblood red, ivory, blued steel) and lighting for a consistent set. Must read clearly even in grayscale. Pure black #000000 background. Negative: no text, no letters, no numbers, no logos, no watermark, no hands, no fingers, no people, no cartoon, no flat vector shapes, no plastic toy look.
+
+Subject: a violent fiery explosion burst seen from the front: hot orange and white core, debris fragments, glowing sparks, billowing dark smoke ring, spherical shape, centered, photoreal pyrotechnic photograph on black. Whole burst visible with margin, 1:1.

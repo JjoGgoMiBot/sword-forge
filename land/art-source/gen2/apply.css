@@ -1,0 +1,24 @@
+/* 생성 그림(ac-*.webp) 적용 */
+.ac-pic{display:block;max-width:100%;height:auto;user-select:none;-webkit-user-drag:none;pointer-events:none}
+.ac-hero{width:140px;filter:drop-shadow(0 8px 8px #0008)}.ac-hero.wide{width:200px}.ac-hero.flip{transform:scaleX(-1)}
+.ac-faceoff{display:flex;justify-content:center;gap:10px;align-items:center;width:100%}.ac-faceoff .ac-hero{width:min(150px,38%)}
+.ac-stage{background:#143a2c url(assets/photo/ac-felt.webp) center/200px;color:#f4efe0;border-color:#0b2a1f;box-shadow:inset 0 0 40px #0007}
+.ac-stage .ac-empty{color:#d6cfb6}.ac-stage .ac-result{color:#f4efe0}.ac-stage .ac-result.win{color:#f6d27a}.ac-stage .ac-result.loss{color:#ffb4a3}
+.ac-baccarat{background:#0e3326 url(assets/photo/ac-bacc-felt.webp) center/cover}
+.ac-card{background:#efe3c4 url(assets/photo/ac-card-face.webp) center/100% 100% no-repeat;border-color:#b9a77a;color:#22201c;width:46px;height:64px;box-shadow:0 3px 6px #0006}.ac-card.red{color:#a3261f}
+.ac-grid button{display:grid;place-items:center;position:relative;border:0;border-radius:0;background:url(assets/photo/ac-mines-tile.webp) center/contain no-repeat}.ac-grid button:disabled{opacity:1}
+.ac-grid button.safe,.ac-grid button.bomb,.ac-grid button.hit{background-color:transparent}.ac-grid button .ac-pic{width:76%;filter:drop-shadow(0 3px 3px #0009)}
+.ac-grid button.hit:before{content:'';position:absolute;inset:-30%;z-index:1;background:url(assets/photo/ac-blast.webp) center/contain no-repeat;pointer-events:none;animation:ac-pop .45s ease-out}
+.ac-wheelbox{position:relative;width:min(210px,62%)}.ac-wheelbox .ac-ball{position:absolute;left:50%;top:50%;width:54px;height:54px;font-size:22px;transform:translate(-50%,-50%);border:2px solid #d9b56a;box-shadow:0 2px 8px #000a}
+.ac-wheel-img{width:100%;filter:drop-shadow(0 8px 10px #000a)}.ac-wheel-img.spin{animation:ac-spin 1.4s cubic-bezier(.15,.8,.3,1)}
+.ac-boxrow{display:flex;gap:10px;justify-content:center;align-items:flex-end}.ac-boxrow .ac-pic{width:min(92px,28%);filter:drop-shadow(0 6px 6px #0008)}
+.ac-prize{background:transparent;border:0}.ac-prize .ac-pic{width:120px;filter:drop-shadow(0 6px 8px #000a);animation:ac-pop .5s ease-out}.ac-prize b{color:#f4efe0}.ac-prize span{color:#d6cfb6}.ac-prize.tier5 b,.ac-prize.tier6 b{color:#f6d27a}
+.ac-boxb{display:grid;justify-items:center;gap:4px;min-width:96px}.ac-boxb .ac-pic{width:64px}
+.ac-seat{width:36px}.ac-seats li{background:#0d2a1f;border-color:#2e5a45;color:#f4efe0}.ac-seats li b{display:grid;place-items:center;height:38px}.ac-seats li.me{border-color:#f6d27a}
+.ac-crash{background:#0e241c url(assets/photo/ac-felt.webp) center/200px;border-color:#0b2a1f}.ac-crash-mult b{color:#f4efe0}.ac-crash-mult span,.ac-crash-last{color:#d6cfb6}
+.ac-crash-blast{position:absolute;right:6%;bottom:4%;width:120px;opacity:.55;pointer-events:none}
+.ac-giftbox{min-height:0;padding:10px}.ac-giftbox .ac-hero{width:110px}
+@keyframes ac-spin{from{transform:rotate(-540deg)}}@keyframes ac-pop{from{scale:.4;opacity:0}}
+@media(prefers-reduced-motion:reduce){.ac-wheel-img.spin,.ac-boom,.ac-prize .ac-pic,.ac-grid button.hit:before{animation:none}}
+.ac-stage .ac-summary{color:var(--ink)}.ac-stage .ac-summary strong{color:inherit}.ac-stage .ac-summary .win strong{color:var(--green)}
+.ac-stage .ac-shoot:not(.go){color:var(--ink)}
