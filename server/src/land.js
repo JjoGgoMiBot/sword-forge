@@ -1,6 +1,7 @@
 import {WORLD,move,avatar,canStand} from '../../land/world.js';
 export {LandPlayer} from './land-player.js';
 import {NOTICE,winNotice,joinNotice,leaveNotice} from './land-notice.js';
+import {newTable,checkSit,sit as pokerSit,standUp,setAway,act as pokerAct,tick as pokerTick,nextDue,view as pokerView} from './land-poker.js';
 const enc=new TextEncoder(),hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
 const hash=async s=>hex(await crypto.subtle.digest('SHA-256',enc.encode(s)));
 const equal=(a,b)=>{if(typeof a!=='string'||typeof b!=='string'||a.length!==b.length)return false;let n=0;for(let i=0;i<a.length;i++)n|=a.charCodeAt(i)^b.charCodeAt(i);return n===0;};
@@ -109,7 +110,7 @@ export async function handleLand(req,env,ctx,h){
   }catch(e){console.error('land',e.name,e.message);return h.E(req,'land','연결을 확인할 수 없어요. 잠시 후 다시 시도해주세요.',503);}
 }
 export class LandRoom{
-  constructor(ctx,env){this.ctx=ctx;this.env=env;this.sql=ctx.storage.sql;this.sql.exec('CREATE TABLE IF NOT EXISTS presence (id TEXT PRIMARY KEY,name TEXT NOT NULL,joined INTEGER NOT NULL DEFAULT 0,leave_due INTEGER)');this.noticeIds=new Set();this.sql.exec('CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT,client_id TEXT UNIQUE,uid TEXT NOT NULL,name TEXT NOT NULL,text TEXT NOT NULL,source TEXT NOT NULL,created INTEGER NOT NULL,discord_id TEXT,pending INTEGER NOT NULL DEFAULT 0)');if(ctx.setWebSocketAutoResponse)ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping','pong'));}
+  constructor(ctx,env){this.ctx=ctx;this.env=env;this.sql=ctx.storage.sql;this.sql.exec('CREATE TABLE IF NOT EXISTS presence (id TEXT PRIMARY KEY,name TEXT NOT NULL,joined INTEGER NOT NULL DEFAULT 0,leave_due INTEGER)');this.noticeIds=new Set();this.sql.exec('CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT,client_id TEXT UNIQUE,uid TEXT NOT NULL,name TEXT NOT NULL,text TEXT NOT NULL,source TEXT NOT NULL,created INTEGER NOT NULL,discord_id TEXT,pending INTEGER NOT NULL DEFAULT 0)');this.sql.exec('CREATE TABLE IF NOT EXISTS poker (id INTEGER PRIMARY KEY CHECK(id=1),data TEXT NOT NULL)');this.sql.exec('CREATE TABLE IF NOT EXISTS poker_payouts (id TEXT PRIMARY KEY,key TEXT NOT NULL,name TEXT NOT NULL,amount INTEGER NOT NULL,created INTEGER NOT NULL,due INTEGER NOT NULL,tries INTEGER NOT NULL DEFAULT 0)');if(ctx.setWebSocketAutoResponse)ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping','pong'));}
   sockets(){return this.ctx.getWebSockets().filter(ws=>ws.readyState===1);}
   users(){const users=new Map();for(const ws of this.sockets()){const a=ws.deserializeAttachment();if(!a.bridge&&!a.chatOnly)users.set(a.id,{id:a.id,name:a.name,avatar:a.avatar,x:a.x,y:a.y});}return [...users.values()];}
   send(ws,value){try{ws.send(JSON.stringify(value));}catch{}}
@@ -127,6 +128,7 @@ export class LandRoom{
     for(const old of this.sockets()){const u=old.deserializeAttachment();if(a.bridge?u.bridge:u.id===a.id&&!!u.chatOnly===!!a.chatOnly){old.close(4002,'다른 창에서 접속했어요.');}}
     const returning=this.sockets().some(s=>{const u=s.deserializeAttachment();return !u.bridge&&!u.chatOnly&&u.id===a.id;});const pair=new WebSocketPair(),[client,server]=Object.values(pair);this.ctx.acceptWebSocket(server,[a.bridge?'bridge':a.id]);
     server.serializeAttachment({...a,x:WORLD.spawn.x,y:WORLD.spawn.y,lastMove:Date.now(),seq:0,lastChat:0,authUntil:Date.now()+20000,connected:Date.now()});
+    if(!a.bridge&&!a.chatOnly&&setAway(this.pokerState(),a.id,false))this.pokerSave();
     if(a.bridge){this.send(server,{type:'outbox',messages:this.sql.exec('SELECT * FROM messages WHERE pending=1 ORDER BY id LIMIT 100').toArray()});this.broadcast({type:'relay',online:true});}
     else{this.send(server,{type:'welcome',self:a.id,users:this.users(),messages:this.history()});if(a.channel)this.send(server,{type:'relay',online:this.sockets().some(s=>s.deserializeAttachment().bridge)});this.broadcast({type:'users',users:this.users()},server);if(!a.chatOnly)this.arrive(a,returning,server);}
     return new Response(null,{status:101,webSocket:client});
@@ -142,6 +144,7 @@ export class LandRoom{
       if(a.version!==WORLD.version){ws.close(4001,'새로고침 후 넓어진 마을에 들어와주세요.');return;}
       if(now-a.connected>3600000){ws.close(4001,'접속을 새로 확인해주세요.');return;}
       if(a.authUntil<now){const valid=await this.env.DB.prepare('SELECT hash FROM tokens WHERE hash=? AND created>=?').bind(a.tokenHash,now-30*86400000).first();let access=null;if(a.channel)access=await channelAccess(this.env,a.discordId,a.guild,a.channel);if(!valid||a.channel&&!access){ws.close(4003,'계정 또는 채널 권한이 바뀌었어요.');return;}a.canSend=access?access.canSend:true;a.authUntil=now+20000;}
+      if(m.type==='poker'){await this.pokerMessage(ws,a,m,now);return;}
       if(m.type==='voice'){
         if(a.chatOnly||typeof m.speaking!=='boolean')return;const proof=await verify(this.env,m.proof||'');if(!proof||proof.type!=='voice'||proof.resident!==a.id||proof.room!==a.room)return;a.voiceUntil=m.speaking?now+4500:0;ws.serializeAttachment(a);this.broadcast({type:'voice',id:a.id,speaking:m.speaking});
       }else if(m.type==='move'){
@@ -183,11 +186,49 @@ export class LandRoom{
     this.sql.exec('INSERT INTO presence(id,name,joined) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,joined=excluded.joined,leave_due=NULL',a.id,a.name,now);this.notice(joinNotice(a.name),null,exclude);}
   // 퇴장: 마지막 창이 닫히면 leaveDelayMs 뒤에 아직 없을 때만 알린다
   depart(a){if(!a||a.bridge||a.chatOnly||this.users().some(u=>u.id===a.id))return;const due=Date.now()+NOTICE.leaveDelayMs;this.sql.exec('UPDATE presence SET leave_due=? WHERE id=?',due,a.id);this.schedule().catch(e=>console.error("land alarm",e.message));}
-  async schedule(){const next=this.sql.exec('SELECT MIN(leave_due) AS due FROM presence WHERE leave_due IS NOT NULL').toArray()[0]?.due;if(next!=null&&this.ctx.storage.setAlarm)await this.ctx.storage.setAlarm(next);}
+  // 알람 하나로 퇴장 공지·포커 차례·포커 정산 재시도를 모두 깨운다
+  async schedule(){const leave=this.sql.exec('SELECT MIN(leave_due) AS due FROM presence WHERE leave_due IS NOT NULL').toArray()[0]?.due,pay=this.sql.exec('SELECT MIN(due) AS due FROM poker_payouts').toArray()[0]?.due;const next=Math.min(...[leave,nextDue(this.pokerState()),pay].filter(x=>x!=null));if(Number.isFinite(next)&&this.ctx.storage.setAlarm)await this.ctx.storage.setAlarm(next);}
   async alarm(){const now=Date.now(),online=new Set(this.users().map(u=>u.id));
     for(const row of this.sql.exec('SELECT * FROM presence WHERE leave_due IS NOT NULL AND leave_due<=?',now).toArray()){this.sql.exec('UPDATE presence SET leave_due=NULL WHERE id=?',row.id);if(!online.has(row.id))this.notice(leaveNotice(row.name));}
-    this.sql.exec('DELETE FROM presence WHERE leave_due IS NULL AND joined<?',now-86400000);await this.schedule();}
+    this.sql.exec('DELETE FROM presence WHERE leave_due IS NULL AND joined<?',now-86400000);await this.pokerAlarm();await this.schedule();}
+  // ── 포커: 방마다 테이블 하나. 덱·남의 패는 이 DO 안에만 있고 손님에게는 각자 view()만 보낸다 ──
+  pokerState(){if(!this.pokerT){const row=this.sql.exec('SELECT data FROM poker WHERE id=1').toArray()[0];this.pokerT=row?JSON.parse(row.data):newTable();}return this.pokerT;}
+  pokerSave(){this.sql.exec('INSERT INTO poker(id,data) VALUES(1,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data',JSON.stringify(this.pokerT));}
+  pokerPush(now=Date.now()){const t=this.pokerState();for(const ws of this.sockets()){const a=ws.deserializeAttachment();if(a.poker&&!a.bridge)this.send(ws,{type:'poker',table:pokerView(t,a.id,now)});}}
+  async pokerMessage(ws,a,m,now){
+    if(a.chatOnly||typeof m.op!=='string')return;
+    const t=this.pokerState();if(a.room)t.room=a.room;
+    let ev={cashOuts:[],wins:[]};
+    try{
+      if(m.op==='watch'){a.poker=m.on!==false;ws.serializeAttachment(a);if(a.poker){if(setAway(t,a.id,false))this.pokerSave();this.send(ws,{type:'poker',table:pokerView(t,a.id,now)});}return;}
+      if(m.op==='sit'){
+        const seat=Number(m.seat),amount=Number(m.buyIn),who={id:a.id,key:a.key,name:a.name};checkSit(t,seat,who,amount);
+        const paid=await this.pokerWallet(a.key,a.name,'pokerBuyIn',crypto.randomUUID(),amount);if(!paid.ok){this.send(ws,{type:'pokerError',msg:paid.msg});return;}
+        try{pokerSit(t,seat,who,amount,Date.now());}catch(e){ev.cashOuts.push({key:a.key,id:a.id,name:a.name,amount,reason:'refund'});this.send(ws,{type:'pokerError',msg:e.message});}
+        if(!a.poker){a.poker=true;ws.serializeAttachment(a);}
+      }else if(m.op==='leave')ev=standUp(t,a.id,now);
+      else if(m.op==='act'){if(m.hand!==t.hand){this.send(ws,{type:'pokerError',msg:'이미 지난 판이에요.'});return;}ev=pokerAct(t,a.id,{type:m.action,amount:m.amount},now);}
+      else return;
+    }catch(e){if(!e.poker)throw e;this.send(ws,{type:'pokerError',msg:e.message});return;}
+    await this.pokerCommit(ev);
+  }
+  // 저장 → 돌려줄 칩은 먼저 표에 적고(재시도 가능) → 큰 당첨 공지 → 지급 → 화면 갱신 → 알람
+  async pokerCommit(ev,now=Date.now()){this.pokerSave();for(const c of ev.cashOuts)this.sql.exec('INSERT INTO poker_payouts(id,key,name,amount,created,due) VALUES(?,?,?,?,?,?)',crypto.randomUUID(),c.key,c.name,c.amount,now,now);
+    const t=this.pokerT;for(const w of ev.wins){const n=winNotice(w.name,{game:'poker',bet:w.contributed,payout:w.amount});if(!n)continue;const id='poker:'+(t.room||'')+':'+w.hand+':'+w.seat;this.notice(n,id);const others=NOTICE.winRooms.filter(k=>k!==t.room);if(this.env.LAND_ROOMS&&others.length)Promise.all(others.map(k=>room(this.env,k).fetch(new Request('https://room/notice',{method:'POST',body:JSON.stringify({notice:n,id})})))).catch(e=>console.error('poker notice',e.message));}
+    this.pokerPush(now);await this.pokerPay();await this.schedule();}
+  async pokerPay(){const now=Date.now();for(const row of this.sql.exec('SELECT * FROM poker_payouts WHERE due<=? ORDER BY created LIMIT 20',now).toArray()){const r=await this.pokerWallet(row.key,row.name,'pokerCashOut',row.id,row.amount);if(r.ok)this.sql.exec('DELETE FROM poker_payouts WHERE id=?',row.id);else this.sql.exec('UPDATE poker_payouts SET tries=tries+1,due=? WHERE id=?',now+Math.min(600000,5000*2**Math.min(row.tries,7)),row.id);}}
+  // 지갑(LandPlayer)에 바이인·정산을 적는다. 같은 id는 지갑이 한 번만 반영한다(재시도 안전)
+  async pokerWallet(key,name,op,id,amount){
+    if(!key||!this.env.LAND_PLAYERS)return {ok:false,msg:'지갑에 연결할 수 없어요. 잠시 후 다시 해주세요.'};
+    try{const r=await player(this.env,key).fetch(new Request('https://player/',{method:'POST',body:JSON.stringify({key,name,op,internal:true,id,issued:Date.now(),payload:{amount}})}));const data=await r.json();
+      if(!r.ok)return {ok:false,msg:data.msg||'지갑 처리에 실패했어요.'};
+      const balance=data.wallet?.balance;if(Number.isSafeInteger(balance)){for(const ws of this.sockets()){const a=ws.deserializeAttachment();if(a.key===key&&!a.bridge)this.send(ws,{type:'wallet',balance});}Promise.resolve().then(()=>saveRank(this.env,key,data.resident?.name||name,balance)).catch(e=>console.error('poker rank',e.message));}
+      return {ok:true,balance};
+    }catch{return {ok:false,msg:'지갑에 연결할 수 없어요. 잠시 후 다시 해주세요.'};}
+  }
+  async pokerAlarm(){const run=async()=>{const now=Date.now(),t=this.pokerState(),due=nextDue(t);if(due!=null&&due<=now)await this.pokerCommit(pokerTick(t,now),now);else await this.pokerPay();};return this.ctx.blockConcurrencyWhile?this.ctx.blockConcurrencyWhile(run):run();}
   prune(){this.sql.exec('DELETE FROM messages WHERE id<(SELECT COALESCE(MAX(id),0)-199 FROM messages) AND pending=0');}
-  webSocketClose(ws,code,reason){try{ws.close(code>=1000&&![1005,1006,1015].includes(code)?code:1000,String(reason||'').slice(0,60));}catch{}const gone=ws.deserializeAttachment();if(gone?.bridge)this.broadcast({type:'relay',online:false});this.broadcast({type:'users',users:this.users()});this.depart(gone);}
+  webSocketClose(ws,code,reason){try{ws.close(code>=1000&&![1005,1006,1015].includes(code)?code:1000,String(reason||'').slice(0,60));}catch{}const gone=ws.deserializeAttachment();if(gone?.bridge)this.broadcast({type:'relay',online:false});this.broadcast({type:'users',users:this.users()});this.depart(gone);
+    if(gone&&!gone.bridge&&!gone.chatOnly&&!this.sockets().some(s=>s.deserializeAttachment().id===gone.id)&&setAway(this.pokerState(),gone.id,true)){this.pokerSave();this.pokerPush();this.schedule().catch(e=>console.error('land alarm',e.message));}}
   webSocketError(ws){try{ws.close(1011,'다시 연결해주세요.');}catch{}}
 }

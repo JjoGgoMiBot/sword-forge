@@ -3,13 +3,19 @@ import {drawResident,drawResidentFast} from './resident-art.js?v=3';
 import {isActivity,connectDiscordVoice} from './discord-voice.js';
 import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=12';
 import {raceMarkup,playRace,RACE} from './race-script.js?v=1';
+import {createPoker} from './poker-ui.js?v=1';
 const $=id=>document.getElementById(id),local=['localhost','127.0.0.1'].includes(location.hostname);
 const API=local?'http://127.0.0.1:8907':'https://sword-forge-api.aicore-sj-relay.workers.dev';
 const money=n=>Number(n||0).toLocaleString('ko-KR'),h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const store={get:(k,session=false)=>{try{return JSON.parse((session?sessionStorage:localStorage).getItem(k));}catch{return null;}},set:(k,v,session=false)=>{try{const s=session?sessionStorage:localStorage;v===null?s.removeItem(k):s.setItem(k,JSON.stringify(v));}catch{}}};
 let account=store.get('swordforge-acc'),profile=null,forge=null,socket=null,self=null,peers=new Map(),messages=[],chatPending=new Map(),epoch=0,reconnectTimer=null,reconnectCount=0,manualDisconnect=false,activeRoom='public:1',authMode='login',busy=false,venue=null,fortuneTab='daily',casinoTab='slots',lastResult=null,lastBet=100,casinoFx=null,selectedAvatar={shirt:0,hat:0},deck=null,linkCommand='',linkTimer=null,toastTimer=null;
 const position={...WORLD.spawn},held=new Set(),movingKeys=new Map([['KeyW',[0,-1]],['ArrowUp',[0,-1]],['KeyS',[0,1]],['ArrowDown',[0,1]],['KeyA',[-1,0]],['ArrowLeft',[-1,0]],['KeyD',[1,0]],['ArrowRight',[1,0]]]);
-const GAME_NAMES={slots:'슬롯',blackjack:'블랙잭',dice:'홀짝',horse:'개인 경마',rps:'가위바위보',quiz:'초성퀴즈',ledger:'이용 기록'};
+const GAME_NAMES={slots:'슬롯',blackjack:'블랙잭',dice:'홀짝',horse:'개인 경마',rps:'가위바위보',poker:'포커',quiz:'초성퀴즈',ledger:'이용 기록'};
+// 포커는 방(LandRoom)이 판을 돌리고 소켓으로 상태를 보낸다. 탭을 열면 구경(watch)을 켜고 닫으면 끈다.
+const poker=createPoker({money,h,toast,balance:()=>profile?.wallet?.balance||0,send:m=>{if(socket?.readyState===1)socket.send(JSON.stringify({type:'poker',...m}));else toast('마을 연결이 끊겼어요. 잠시 뒤 다시 해주세요.');}});
+let pokerWatching=false;
+function pokerWatch(on){if(pokerWatching===on)return;pokerWatching=on;if(socket?.readyState===1)socket.send(JSON.stringify({type:'poker',op:'watch',on}));}
+setInterval(()=>{if(pokerWatching)poker.tick();},250);
 const RPS={rock:'✊ 바위',paper:'✋ 보',scissors:'✌ 가위'};
 const SLOT_ART={'🍒':'arcade-slot-cherry.png','🍋':'arcade-slot-lemon.png','🍇':'arcade-slot-grape.png','🔔':'arcade-slot-bell.png','⭐':'arcade-slot-star.png','💎':'arcade-slot-diamond.png','7️⃣':'arcade-slot-seven.png'};
 // 실사 WebP(assets/photo)를 먼저 쓰고, 없거나 깨지면 기존 그림 PNG로 되돌린다.
@@ -37,7 +43,7 @@ async function recover(){if(busy)return;const request=store.get(pendingKey(),tru
 function stop(){held.clear();if(socket?.readyState===1)sendMovement(true);}
 function open(dialog){stop();if(!dialog.open)dialog.showModal();}
 document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>button.closest('dialog').close()));
-document.querySelectorAll('dialog').forEach(dialog=>{dialog.addEventListener('close',async()=>{if(dialog===$('venueDialog')){venue=null;$('venueContent').replaceChildren();$('venueDialog').classList.remove('forge-mode');if(account){try{const data=await api('/load');forge=JSON.parse(data.save);renderHeader();}catch{}}}if(dialog===$('profileDialog'))clearInterval(linkTimer);$('world').focus({preventScroll:true});});dialog.addEventListener('cancel',stop);});
+document.querySelectorAll('dialog').forEach(dialog=>{dialog.addEventListener('close',async()=>{if(dialog===$('venueDialog')){venue=null;pokerWatch(false);$('venueContent').replaceChildren();$('venueDialog').classList.remove('forge-mode');if(account){try{const data=await api('/load');forge=JSON.parse(data.save);renderHeader();}catch{}}}if(dialog===$('profileDialog'))clearInterval(linkTimer);$('world').focus({preventScroll:true});});dialog.addEventListener('cancel',stop);});
 function renderHeader(){$('profileButton').textContent=account?account.name+' 주민':'주민 등록 / 로그인';$('gold').textContent=forge?money(forge.gold)+' G':'—';$('choco').textContent=profile?money(profile.wallet.balance)+' C':'—';}
 function setAccount(value){closeSidebar();sidebarRoom='';$('chatChannel').value='';epoch++;account=value;store.set('swordforge-acc',value);profile=null;forge=null;self=null;chatPending.clear();messages=[];peers.clear();Object.assign(position,WORLD.spawn);closeSocket();renderChat(true);renderHeader();}
 function showAuth(){open($('authDialog'));$('authError').textContent='';$('nameInput').focus();}
@@ -81,7 +87,7 @@ async function joinRoom(key){
 }
 function peerUpdate(users){const ids=new Set(users.map(u=>u.id));for(const id of peers.keys())if(!ids.has(id))peers.delete(id);for(const u of users){const old=peers.get(u.id);peers.set(u.id,{...old,...u,drawX:old?.drawX??u.x,drawY:old?.drawY??u.y});}$('population').textContent=users.length+' / 20 주민';}
 function handleSocket(data,sidebar=false){if(['chat','ack','edit','delete','delivery','deliveryError','relay','error','history'].includes(data.type)&&sidebar!==!!sidebarRoom)return;
-  if(data.type==='welcome'){if(!sidebar){self=data.self;peerUpdate(data.users);const mine=peers.get(self);if(mine)Object.assign(position,{x:mine.x,y:mine.y});}if(sidebar===!!sidebarRoom){messages=data.messages;renderChat(true);for(const [clientId,p] of chatPending)chatTransport()?.send(JSON.stringify({type:'chat',clientId,text:p.text}));}}
+  if(data.type==='welcome'){if(!sidebar){self=data.self;if(pokerWatching)socket?.send(JSON.stringify({type:'poker',op:'watch',on:true}));peerUpdate(data.users);const mine=peers.get(self);if(mine)Object.assign(position,{x:mine.x,y:mine.y});}if(sidebar===!!sidebarRoom){messages=data.messages;renderChat(true);for(const [clientId,p] of chatPending)chatTransport()?.send(JSON.stringify({type:'chat',clientId,text:p.text}));}}
   else if(data.type==='history'){messages=data.messages;renderChat(true);}
   else if(data.type==='users'&&!sidebar)peerUpdate(data.users);
   else if(data.type==='move'&&!sidebar){const u=data.user;if(u.id===self){const err=Math.hypot(position.x-u.x,position.y-u.y);if(err>90||(!held.size&&u.seq===moveSeq&&err>1.5)||(held.size&&err>48))selfFix={x:u.x-position.x,y:u.y-position.y};}const previous=peers.get(u.id);peers.set(u.id,{...previous,...u,drawX:previous?.drawX??u.x,drawY:previous?.drawY??u.y,track:[...(previous?.track||[]).slice(-5),{t:performance.now(),x:u.x,y:u.y}]});}
@@ -94,6 +100,9 @@ function handleSocket(data,sidebar=false){if(['chat','ack','edit','delete','deli
   else if(data.type==='deliveryError'){toast(data.msg);}
   else if(data.type==='error'){if(data.clientId){const pending=chatPending.get(data.clientId);if(pending&&!$('chatInput').value)$('chatInput').value=pending.text;chatPending.delete(data.clientId);}toast(data.msg);}
   else if(data.type==='notice'){if(!sidebar)notices?.push(data.notice);}
+  else if(data.type==='poker'&&!sidebar)poker.update(data.table);
+  else if(data.type==='pokerError'&&!sidebar){toast(data.msg);if(poker.state)poker.update(poker.state);}
+  else if(data.type==='wallet'&&!sidebar){if(profile){profile.wallet.balance=data.balance;renderHeader();const shown=document.querySelector('.casino-wallet strong');if(shown)shown.textContent=money(data.balance);}}
   else if(data.type==='relay'){$('chatNotice').textContent=data.online?'Discord 채널의 문자 채팅과 연결됐어요.':'중계가 잠시 쉬고 있어요. 마을 대화는 가능하며 Discord 전달은 대기해요.';}
 }
 function putMessage(message){if(messages.some(m=>m.id===message.id))return;messages.push(message);messages=messages.slice(-100);renderChat();}
@@ -195,6 +204,7 @@ function renderCasino(){const box=$('venueContent'),wallet=profile.wallet;let ht
   const same=lastResult?.game===casinoTab?lastResult:null;
   if(casinoTab==='ledger')html+='<h3>최근 초코 이용 내역</h3><table class="ledger"><thead><tr><th>시각 / 내역</th><th>변동</th></tr></thead><tbody>'+profile.ledger.map(row=>'<tr><td>'+h(new Date(row.created).toLocaleString('ko-KR'))+'<br>'+h(row.reason)+'</td><td class="'+(row.delta>0?'positive':'')+'">'+(row.delta>0?'+':'')+money(row.delta)+' C<br><span class="muted">잔액 '+money(row.balance)+'</span></td></tr>').join('')+'</tbody></table>';
   else if(casinoTab==='quiz'){const q=profile.quiz,quizResult=lastResult&&'correct' in lastResult?lastResult:null;html+='<div class="'+casinoStageClass(quizResult,'quiz')+' quiz-stage">'+outcomeBanner(quizResult,'quiz')+'<img class="quiz-board-art" src="'+art('arcade-quiz-board-coin.png')+'" alt="질문표와 초코 코인"><div class="quiz-copy"><p>오늘 정답 '+wallet.quizWins+' / 25 · 정답 보상 40초코</p>'+(q?'<div class="quiz-initials">'+h(q.initials)+'</div><p>'+h(q.hint)+'</p><p class="status-note">남은 시간 <span id="quizTime">'+Math.max(0,Math.ceil((q.expires-Date.now())/1000))+'</span>초 · '+(3-q.tries)+'번 도전 가능</p>':'<p class="muted">초성을 보고 단어를 맞혀보세요.</p>')+'</div></div><div class="casino-controls">'+(q?'<label>답<input id="quizAnswer" class="quiz-answer" maxlength="30" autocomplete="off"></label><button class="primary" data-action="quizAnswer">정답 확인</button>':'<button class="primary" data-action="quiz">문제 받기</button>')+'</div><p class="game-result">'+h(lastResult?.message||'')+'</p>';}
+  else if(casinoTab==='poker')html+='<div id="pokerBox" class="poker-box"></div>';
   else if(casinoTab==='blackjack'){
     const b=profile.blackjack,bjResult=same||b?{game:'blackjack',round:b}:null;const bjHtml=bjTable(b,!!same);html+='<div class="'+casinoStageClass(same,'blackjack')+' blackjack-stage" style="--bj-end:'+bjEnd+'ms">'+outcomeBanner(same,'blackjack')+bjHtml+(b?'<p class="bj-info"><span>베팅 '+money(b.bet)+' C</span><b class="game-result">'+h(resultText(bjResult))+'</b></p>':'')+'</div>';
     if(b&&!b.done)html+='<div class="inline-actions"><button class="primary" data-action="bj" data-choice="hit">한 장 더</button><button data-action="bj" data-choice="stand">멈추기</button><button data-action="bj" data-choice="double" '+(!b.canDouble||wallet.balance<b.bet?'disabled':'')+'>더블</button></div><p class="status-note">5분 뒤에도 미완료라면 자동으로 멈추기 처리돼요. 나가도 베팅은 취소되지 않아요.</p>';else html+=betControls();
@@ -208,6 +218,7 @@ function renderCasino(){const box=$('venueContent'),wallet=profile.wallet;let ht
     html+=casinoTab==='horse'&&!profile.race?'<div class="inline-actions"><button class="primary" data-action="race">다음 경주표 받기</button></div>':betControls();
   }
   html+='<div class="inline-actions"><button class="quiet" data-action="recover">기록 새로 확인</button></div>'+casinoRules(casinoTab);box.innerHTML=html;
+  if(casinoTab==='poker'){poker.mount($('pokerBox'));pokerWatch(true);}else pokerWatch(false);
   box.querySelectorAll('[data-casino-tab]').forEach(button=>button.onclick=()=>{casinoTab=button.dataset.casinoTab;lastResult=null;casinoFx=null;renderCasino();});
   box.querySelector('#betInput')?.addEventListener('change',event=>lastBet=Number(event.target.value));
   box.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',async()=>{
@@ -225,7 +236,7 @@ function renderCasino(){const box=$('venueContent'),wallet=profile.wallet;let ht
   setBusy(busy);
 }
 function betControls(){let choice='';if(casinoTab==='dice')choice='<label>내 선택<select id="gameChoice"><option value="odd">홀수</option><option value="even">짝수</option></select></label>';if(casinoTab==='rps')choice='<label>내 선택<select id="gameChoice">'+Object.entries(RPS).map(([id,name])=>'<option value="'+id+'">'+name+'</option>').join('')+'</select></label>';if(casinoTab==='horse')choice='<label>응원할 말<select id="gameChoice">'+profile.race.horses.map((horse,i)=>'<option value="'+i+'">'+h(horse.name)+' · '+(horse.rate/10).toFixed(1)+'배</option>').join('')+'</select></label>';return '<div class="casino-controls"><label>베팅 초코<input id="betInput" type="number" inputmode="numeric" min="10" max="5000" step="1" value="'+Math.min(5000,Math.max(10,lastBet||100))+'"></label>'+choice+'<button class="primary" data-action="play">'+(casinoTab==='blackjack'?'카드 받기':'한 판 시작')+'</button></div><p class="status-note">10~5,000초코 · 확정하면 베팅금이 차감돼요. 자동 연속 베팅은 없어요.</p>';}
-function casinoRules(game){const rules={slots:'세 그림 일치: 체리 4배, 레몬 6배, 포도 10배, 종 20배, 별 50배, 다이아 120배, 7은 777배. 두 그림 일치: 체리 1.5배, 나머지 1.2배. 그림 가중치는 순서대로 30·24·18·13·8·5·2입니다.',dice:'두 개의 공정한 주사위를 굴려 합계를 맞혀요. 맞히면 1.9배, 틀리면 0. 지급액의 소수점은 버립니다.',blackjack:'4덱을 매 판 새로 섞어요. 딜러는 소프트 17에서도 멈춰요. 일반 승리 2배, 내추럴 블랙잭 2.5배, 무승부 원금 반환. 첫 선택에서만 더블할 수 있어요. 보험·스플릿은 없습니다.',horse:'각 말의 승률은 경주표 생성 시 정해지며, 배당은 0.92/승률을 소수 첫째 자리에서 내린 값입니다. 다른 이용자와 결과를 공유하지 않는 개인 경주예요.',rps:'봇은 가위·바위·보를 같은 확률로 선택해요. 이기면 2배, 비기면 원금 반환, 지면 0입니다.',quiz:'정답은 서버에서 확인해요. 한 문제 세 번까지, 제한 시간 90초. 정답마다 40초코, 하루 25번까지 보상해요. 다음 문제까지 10초 쉬어요.',ledger:'재시작·새로고침 뒤에도 서버의 잔액과 정산 기록이 유지돼요. 결과 확인이 안 된 요청은 같은 번호로 다시 조회합니다.'};return '<details class="rules"><summary>규칙과 지급 기준</summary><p>'+h(rules[game]||'')+'</p><p>랜드 초코는 현금 가치·환전·대장간 골드 교환이 없어요. 출석 300초코, 잔액 100 미만이면 하루 한 번 응원 300초코를 받을 수 있어요.</p></details>';}
+function casinoRules(game){const rules={poker:'텍사스 홀덤 노리밋, 블라인드 10/20, 최대 6명. 서버가 매 판 52장을 새로 섞어 나눠 주고, 다른 사람 패는 쇼다운 전까지 누구에게도 보내지 않아요. 사람이 앉으면 빈자리는 봇이 채워요(봇도 자기 패와 보드만 봐요). 내 차례는 20초, 넘기면 체크할 수 있으면 체크·아니면 폴드되고, 두 번 연속이면 판이 끝날 때 자리에서 일어나요. 일어나면 남은 칩이 바로 지갑으로 돌아와요.',slots:'세 그림 일치: 체리 4배, 레몬 6배, 포도 10배, 종 20배, 별 50배, 다이아 120배, 7은 777배. 두 그림 일치: 체리 1.5배, 나머지 1.2배. 그림 가중치는 순서대로 30·24·18·13·8·5·2입니다.',dice:'두 개의 공정한 주사위를 굴려 합계를 맞혀요. 맞히면 1.9배, 틀리면 0. 지급액의 소수점은 버립니다.',blackjack:'4덱을 매 판 새로 섞어요. 딜러는 소프트 17에서도 멈춰요. 일반 승리 2배, 내추럴 블랙잭 2.5배, 무승부 원금 반환. 첫 선택에서만 더블할 수 있어요. 보험·스플릿은 없습니다.',horse:'각 말의 승률은 경주표 생성 시 정해지며, 배당은 0.92/승률을 소수 첫째 자리에서 내린 값입니다. 다른 이용자와 결과를 공유하지 않는 개인 경주예요.',rps:'봇은 가위·바위·보를 같은 확률로 선택해요. 이기면 2배, 비기면 원금 반환, 지면 0입니다.',quiz:'정답은 서버에서 확인해요. 한 문제 세 번까지, 제한 시간 90초. 정답마다 40초코, 하루 25번까지 보상해요. 다음 문제까지 10초 쉬어요.',ledger:'재시작·새로고침 뒤에도 서버의 잔액과 정산 기록이 유지돼요. 결과 확인이 안 된 요청은 같은 번호로 다시 조회합니다.'};return '<details class="rules"><summary>규칙과 지급 기준</summary><p>'+h(rules[game]||'')+'</p><p>랜드 초코는 현금 가치·환전·대장간 골드 교환이 없어요. 출석 300초코, 잔액 100 미만이면 하루 한 번 응원 300초코를 받을 수 있어요.</p></details>';}
 setInterval(()=>{if(venue==='casino'&&profile?.quiz&&$('quizTime'))$('quizTime').textContent=Math.max(0,Math.ceil((profile.quiz.expires-Date.now())/1000));},1000);
 // Native canvas art: an isometric floor, tiny houses and customizable residents.
 const canvas=$('world'),ctx=canvas.getContext('2d');let width=0,height=0,zoom=1,camera={x:0,y:0};

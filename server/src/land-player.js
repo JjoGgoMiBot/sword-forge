@@ -60,6 +60,14 @@ export class LandPlayer{
       else if(b.op==='spreadPick'){
         const spread=s.spread;if(!spread||p.spreadId!==spread.id)fail('카드를 다시 펼쳐주세요.');if(!Number.isInteger(p.index)||p.index<0||p.index>7||spread.picked.includes(p.index)||spread.picked.length>=3)fail('다른 카드 세 장을 골라주세요.');spread.picked.push(p.index);
       }
+      // 포커 바이인·정산은 마을 방(LandRoom)만 부른다. 손님 요청 경로(/land/player)는 internal을 넘기지 않는다.
+      else if(b.op==='pokerBuyIn'||b.op==='pokerCashOut'){
+        if(b.internal!==true)fail('없는 기능이에요.',404);
+        if(!Number.isSafeInteger(p.amount)||p.amount<=0||p.amount>1e9)fail('포커 칩 금액을 확인해주세요.');
+        if(b.op==='pokerBuyIn'){if(s.balance<p.amount)fail('초코가 부족해요. 바이인을 줄이거나 출석·퀴즈를 이용해보세요.');this.entry(s,-p.amount,'포커 바이인',now);}
+        else this.entry(s,p.amount,'포커 정산',now);
+        result={game:'poker',amount:p.amount};
+      }
       else if(b.op!=='get')fail('없는 기능이에요.',404);
       if(b.op!=='get')s.rev++;
       if(s.balance<0||!Number.isSafeInteger(s.balance)||s.balance>1e12)fail('잔액을 확인할 수 없어요. 지원을 요청해주세요.',409);
