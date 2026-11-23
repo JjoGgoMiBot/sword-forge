@@ -9,7 +9,7 @@ import { humanize, dbToGain, clamp } from './dsp.js';
 import { recipeFor, CONCEPTS, DEFAULT_CONCEPT } from './recipes.js';
 
 export const STORAGE_KEY = 'land.sound.v1';
-export const DEFAULTS = Object.freeze({ muted: false, master: 0.9, bgm: 0.55, sfx: 0.9, concept: 'auto' });
+export const DEFAULTS = Object.freeze({ muted: false, music: true, master: 0.9, bgm: 0.55, sfx: 0.9, concept: 'auto' });
 export const SCENE_CONCEPT = { town: 'sunny', forge: 'grand', casino: 'urgent', fortune: 'mist' };
 const CACHE_LIMIT = 8e6; // 캐시 표본 수 상한(≈32MB float). BGM 은 고정, 나머지는 오래 안 쓴 것부터 버린다.
 const NOOP = Object.freeze({ stop() {}, cancel() {}, done: Promise.resolve() });
@@ -18,6 +18,7 @@ export function normalizeSettings(raw) {
   const s = { ...DEFAULTS };
   if (raw && typeof raw === 'object') {
     if (typeof raw.muted === 'boolean') s.muted = raw.muted;
+    if (typeof raw.music === 'boolean') s.music = raw.music;
     for (const k of ['master', 'bgm', 'sfx']) if (Number.isFinite(raw[k])) s[k] = clamp(raw[k], 0, 1);
     if (raw.concept === 'auto' || CONCEPTS[raw.concept]) s.concept = raw.concept;
   }
@@ -200,7 +201,7 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
 
   // ── BGM ──
   async function startBgm() {
-    if (!ctx || settings.muted || !wantBgm) return;
+    if (!ctx || settings.muted || !settings.music || !wantBgm) return;
     const concept = wantBgm, token = {};
     bgm?.fade?.();
     bgm = { concept, token };
@@ -231,6 +232,7 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
     saveSettings(storage, settings);
     if (!settings.muted && before.muted) { if (gestured || patch.muted === false) unlock(); }
     applyVolumes();
+    if (!settings.music) stopBgm();
     if (settings.muted) {
       stopBgm();
       if (ctx) setTimeout(() => { if (settings.muted) ctx.suspend?.().catch(() => {}); }, 250); // 음소거 중엔 오디오 스레드를 쉰다

@@ -18,6 +18,9 @@ export function casinoCues(game, outcome, { count = 1, reduced = false } = {}) {
       out.push({ at: 130, id: 'dice.shake', params: { dur: 0.78 } }, { at: 1235, id: 'dice.slam' }, { at: 1330, id: 'dice.reveal' });
     } else if (game === 'blackjack') { // app.js bjTable: 카드 k 는 k*300ms 에 날아와 330ms 뒤 뒤집힌다
       for (let k = 0; k < count; k++) out.push({ at: k * 300, id: 'card.deal' }, { at: k * 300 + 330, id: 'card.flip' });
+    } else if (game === 'baccarat' || game === 'hilo') { // 카드를 나눠 주고 한 장씩 뒤집는다
+      const n = game === 'baccarat' ? 4 : 1;
+      for (let k = 0; k < n; k++) out.push({ at: k * 280, id: 'card.deal', pan: n > 1 ? (k % 2 ? 0.25 : -0.25) : 0 }, { at: k * 280 + 300, id: 'card.flip' });
     } else if (game === 'horse') {
       out.push({ at: 0, id: 'race.start' }, { at: 300, id: 'race.gallop', params: { dur: +((settle - 300) / 1000).toFixed(1) } }, { at: Math.max(0, settle - 250), id: 'race.finish' });
     } else if (game === 'rps') { // rps-pump 박자 13.2% · 35.3% · 57.4% of 1.9s

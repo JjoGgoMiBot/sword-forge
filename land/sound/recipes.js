@@ -211,7 +211,7 @@ export const SFX = {
 
   // 카드
   'card.flip': hit('card.flip', { lufs: -26, transient: [click(0, 3000, 0, 0.008)], body: [swish(0, 0.07, 2200, 900, -2, 1.5)], tail: [{ at: 0.03, dur: 0.12, src: { type: 'noise', color: 'pink' }, env: { a: 0.002, d: 0.1, s: 0, r: 0.05 }, filter: { type: 'lowpass', freq: 1400 }, gain: -12 }] }),
-  'card.deal': hit('card.deal', { lufs: -24.5, transient: [{ ...click(0.17, 1500, 0, 0.015), pan: 0.25 }], body: [{ ...swish(0, 0.18, 600, 2600, -4, 1), pan: [[0, -0.35], [0.18, 0.25]] }, thud(0.17, 180, -10, 0.05, 4)], tail: [{ at: 0.18, dur: 0.08, src: { type: 'noise', color: 'pink' }, env: { a: 0.001, d: 0.07, s: 0, r: 0.04 }, filter: { type: 'lowpass', freq: 1800 }, gain: -14 }] }),
+  'card.deal': hit('card.deal', { lufs: -23, transient: [{ ...click(0, 3800, -2, 0.006), pan: -0.3 }, { ...click(0.085, 3200, -5, 0.006), pan: 0.25 }], body: [{ ...swish(0, 0.075, 3600, 1500, 0, 0.9), pan: -0.3 }, { ...swish(0.085, 0.085, 3000, 1300, -2, 0.9), pan: 0.25 }], tail: [{ at: 0.17, dur: 0.05, src: { type: 'noise', color: 'pink' }, env: { a: 0.001, d: 0.045, s: 0, r: 0.03 }, filter: { type: 'lowpass', freq: 1600 }, gain: -16 }] }),
 
   // 룰렛: 감속에 따라 틱 간격이 벌어진다. params.dur(초)
   'roulette.spin': { id: 'roulette.spin', lufs: -19, variants: 1, build(p = {}) {

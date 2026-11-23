@@ -206,6 +206,7 @@
 @media (prefers-reduced-motion: reduce){.pk-seat{transition:none}}
 /* 소리 조절(land/sound/ui.js): 아이콘 하나가 요약, 누르면 패널 */
 .sound-control{position:relative;display:flex}
+.sound-control{display:flex;align-items:center;gap:2px}.sound-control .music-toggle{min-width:44px;min-height:44px;padding:0;display:grid;place-items:center;color:var(--ink)}.sound-control .music-toggle svg{width:22px;height:22px}.sound-control .music-toggle.muted{color:var(--muted)}
 .sound-control .sound-toggle{min-width:44px;min-height:44px;padding:0;display:grid;place-items:center;color:var(--ink)}
 .sound-control .sound-toggle svg{width:22px;height:22px}
 .sound-control .sound-toggle.muted{color:var(--muted)}
