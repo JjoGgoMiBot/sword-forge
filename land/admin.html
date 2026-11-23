@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src https://sword-forge-api.aicore-sj-relay.workers.dev http://127.0.0.1:8907 http://127.0.0.1:8917; base-uri 'none'; form-action 'none'">
+<meta name="robots" content="noindex,nofollow"><meta name="color-scheme" content="light dark">
+<title>쪼꼬미랜드 관리</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="stylesheet" href="admin.css?v=1">
+</head>
+<body>
+<header class="bar"><h1>쪼꼬미랜드 관리</h1><p id="who" class="muted"></p></header>
+<main>
+<section id="gate" hidden aria-live="polite">
+  <p id="gateMsg"></p>
+  <form id="loginForm" autocomplete="on" hidden>
+    <label>주민 이름<input id="loginName" name="username" autocomplete="username" required maxlength="12"></label>
+    <label>비밀번호<input id="loginPin" name="password" type="password" autocomplete="current-password" inputmode="numeric" required maxlength="8"></label>
+    <button class="primary" type="submit">로그인</button>
+  </form>
+</section>
+
+<div id="panel" hidden>
+  <section class="summary" aria-label="요약">
+    <div><span class="num" id="sCount">—</span><span class="cap">24시간 조작 건수</span></div>
+    <div><span class="num" id="sGrant">—</span><span class="cap">지급 합계</span></div>
+    <div><span class="num" id="sRevoke">—</span><span class="cap">회수 합계</span></div>
+  </section>
+
+  <section class="card" aria-labelledby="hFind">
+    <h2 id="hFind">주민 찾기</h2>
+    <form id="searchForm" class="row"><label class="grow"><span class="cap">이름 또는 디스코드 ID</span><input id="q" maxlength="40" autocomplete="off" required></label><button class="primary" type="submit">검색</button></form>
+    <p id="searchMsg" class="muted" role="status"></p>
+    <ul id="results" class="results"></ul>
+  </section>
+
+  <section id="target" class="card" aria-labelledby="hAdj" hidden>
+    <h2 id="hAdj">초코 지급·회수</h2>
+    <div class="who-row"><img src="assets/choco-coin.png" alt="" width="44" height="44"><div><strong id="tName"></strong><span class="cap" id="tLink"></span></div><div class="bal"><span class="num" id="tBal">—</span><span class="cap">현재 잔액(초코)</span></div></div>
+    <form id="adjForm">
+      <fieldset><legend class="cap">종류</legend>
+        <label class="seg"><input type="radio" name="kind" value="grant" checked><span>지급</span></label>
+        <label class="seg"><input type="radio" name="kind" value="revoke"><span>회수</span></label>
+      </fieldset>
+      <div class="row"><label class="grow"><span class="cap">금액(초코, 1 이상 정수)</span><input id="amount" type="number" inputmode="numeric" min="1" max="10000000" step="1" required></label>
+      <label class="grow2"><span class="cap">사유(80자 이내, 기록에 남아요)</span><input id="reason" maxlength="80" required autocomplete="off"></label></div>
+      <p id="adjNote" class="muted" role="status"></p>
+      <div id="confirmRow" class="row" hidden><button type="button" id="confirmBtn" class="warn"></button><button type="button" id="cancelBtn">취소</button></div>
+      <button id="adjSubmit" class="primary" type="submit">지급하기</button>
+    </form>
+    <details><summary>이 주민의 최근 초코 장부</summary><ul id="ledger" class="ledger"></ul></details>
+  </section>
+
+  <section class="card" aria-labelledby="hLog">
+    <div class="row between"><h2 id="hLog">조작 기록</h2><button id="reload" type="button">새로고침</button></div>
+    <div class="table" role="table" aria-label="조작 기록">
+      <div class="tr th" role="row"><span role="columnheader">시각</span><span role="columnheader">관리자 → 대상</span><span role="columnheader" class="r">증감</span><span role="columnheader" class="r">잔액</span><span role="columnheader">사유</span></div>
+      <div id="logBody"></div>
+    </div>
+    <p id="logEmpty" class="muted" hidden>아직 조작 기록이 없어요.</p>
+  </section>
+</div>
+</main>
+<div id="toast" role="status" aria-live="polite" hidden></div>
+<script src="admin.js?v=1"></script>
+</body>
+</html>

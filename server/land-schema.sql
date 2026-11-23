@@ -22,3 +22,15 @@ CREATE TABLE IF NOT EXISTS land_choco_rank (
   updated INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS land_choco_rank_balance ON land_choco_rank(balance DESC);
+CREATE TABLE IF NOT EXISTS land_admin_log (
+  id TEXT PRIMARY KEY,
+  admin_key TEXT NOT NULL,
+  admin_name TEXT NOT NULL,
+  target_key TEXT NOT NULL,
+  target_name TEXT NOT NULL,
+  delta INTEGER NOT NULL,
+  balance_after INTEGER NOT NULL,
+  reason TEXT NOT NULL,
+  created INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS land_admin_log_created ON land_admin_log(created DESC);
