@@ -22,7 +22,7 @@ const RECIPES = {
 const ORIGIN = {
   slots: { sel: '.slot-cabinet', scale: 1.15 },
   dice: { sel: '.dice-scene', scale: 1 },
-  blackjack: { sel: '.blackjack-table-art, .bj-hands, .playing-card', scale: 1 },
+  blackjack: { sel: '.bj-table', scale: 1 },
   horse: { sel: '.race-heading img', scale: 1.05 },
   quiz: { sel: '.quiz-board-art', scale: 0.95 },
   rps: { sel: '.rps-arena', scale: 0.95 },
@@ -103,7 +103,7 @@ const SETTLE = {
   horse: { base: RACE.settle, step: 0, sel: '.horse-runner' }, // 경주 대본(race-script)의 판정 끝 시각
   dice: { base: 1760, step: 0 }, // 통을 들어 올려 두 번째 주사위가 자리 잡는 때(1.9s 의 ~92%)
   rps: { base: 1260, step: 0 }, // '보!' 뒤 승패 반응이 시작될 때(1.9s 의 ~66%)
-  blackjack: { base: 520, step: 85, sel: '.playing-card' },
+  blackjack: { base: 630, step: 300, sel: '.bj-anim' }, // app.js bjTable: 동작 k는 k*300ms에 시작, 날기 330ms + 뒤집기 300ms
 };
 export function settleMs(game, count = 1) {
   const s = SETTLE[game];
