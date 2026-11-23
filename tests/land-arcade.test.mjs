@@ -336,7 +336,7 @@ test('지갑: 구걸은 잔액이 적을 때만, 10분에 한 번', async () => 
   const w = wallet();
   assert.equal((await call(w.env, 'g', 'beg')).status, 400, '1,000초코면 거절');
   await call(w.env, 'g', 'play', {game: 'luckybox', choice: 'gold', bet: 1});   // 5,000 > 잔액 → 거절
-  for (let i = 0; i < 9 && await balance(w.env, 'g') >= 300; i++) { const r = await call(w.env, 'g', 'arcadeStart', {game: 'roulette', bet: 100}); assert.equal(r.status, 200); w.players.get('g').sql.exec("UPDATE player SET data=json_set(data,'$.nextPlay',0,'$.arcade.done',json('true'))"); }
+  for (let i = 0; i < 60 && await balance(w.env, 'g') >= 300; i++) { const r = await call(w.env, 'g', 'arcadeStart', {game: 'roulette', bet: 100}); assert.equal(r.status, 200); w.players.get('g').sql.exec("UPDATE player SET data=json_set(data,'$.nextPlay',0,'$.arcade.done',json('true'))"); }
   const first = await call(w.env, 'g', 'beg');
   assert.equal(first.status, 200); assert.equal(first.data.result.game, 'beg');
   const second = await call(w.env, 'g', 'beg');
