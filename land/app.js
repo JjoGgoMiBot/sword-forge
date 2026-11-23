@@ -1,5 +1,5 @@
 import {WORLD,BUILDINGS,BOUNDARY,OFFSET,SHIRTS,SKINS,avatar,move,near} from './world.js?v=4';
-import {drawResident} from './resident-art.js?v=1';
+import {drawResident,drawResidentFast} from './resident-art.js?v=3';
 import {isActivity,connectDiscordVoice} from './discord-voice.js';
 import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=12';
 import {raceMarkup,playRace,RACE} from './race-script.js?v=1';
@@ -243,7 +243,7 @@ function house(b){
   const nameSize=Math.max(14,12/zoom);ctx.font='600 '+nameSize+'px "Noto Sans KR",sans-serif';const w=ctx.measureText(b.name).width+30;round(x-w/2,y+12,w,30,9,'#fffaf0',near(position)?.id===b.id?'#80604b':'#ddcdb3');label(b.name,x,y+33,'#4b392e',nameSize);
 }
 function tree(x,y,scale=1){ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);ellipse(0,3,20,7,'#51453112');round(-4,-27,8,29,3,'#947556');ellipse(0,-44,23,31,'#9cb48a');ellipse(-8,-48,13,23,'#b0c299');ctx.restore();}
-function resident(p,mine=false){const x=mine?position.x:p.drawX,y=mine?position.y:p.drawY,a=avatar(mine?profile?.resident.avatar||selectedAvatar:p.avatar),shirt=SHIRTS[a.shirt];ctx.save();ctx.translate(x,y);ellipse(0,1,14,5,'#51453125');ctx.save();ctx.scale(.8,.8);drawResident(ctx,a);ctx.restore();const text=mine?(account?.name||'둘러보는 주민'):p.name;ctx.font='500 '+Math.max(11,11/zoom)+'px "Noto Sans KR",sans-serif';const textWidth=ctx.measureText(text).width+14;round(-textWidth/2,8,textWidth,21,6,mine?'#f3e3c8':'#fffbf3');label(text,0,23,'#544037',11);if(p.bubble&&p.bubbleUntil>performance.now()){const t=p.bubble.slice(0,27)+(p.bubble.length>27?'…':'');ctx.font='500 '+Math.max(12,11/zoom)+'px "Noto Sans KR",sans-serif';const w=Math.min(300,ctx.measureText(t).width+20);round(-w/2,-100,w,29,9,'#fffaf0','#e1d4bd');label(t,0,-80,'#5c493c',12);}ctx.restore();}
+function resident(p,mine=false){const x=mine?position.x:p.drawX,y=mine?position.y:p.drawY,a=avatar(mine?profile?.resident.avatar||selectedAvatar:p.avatar),shirt=SHIRTS[a.shirt];ctx.save();ctx.translate(x,y);ctx.save();ctx.scale(.8,.8);drawResidentFast(ctx,a,0,0,ctx.getTransform().a);ctx.restore();const text=mine?(account?.name||'둘러보는 주민'):p.name;ctx.font='500 '+Math.max(11,11/zoom)+'px "Noto Sans KR",sans-serif';const textWidth=ctx.measureText(text).width+14;round(-textWidth/2,8,textWidth,21,6,mine?'#f3e3c8':'#fffbf3');label(text,0,23,'#544037',11);if(p.bubble&&p.bubbleUntil>performance.now()){const t=p.bubble.slice(0,27)+(p.bubble.length>27?'…':'');ctx.font='500 '+Math.max(12,11/zoom)+'px "Noto Sans KR",sans-serif';const w=Math.min(300,ctx.measureText(t).width+20);round(-w/2,-100,w,29,9,'#fffaf0','#e1d4bd');label(t,0,-80,'#5c493c',12);}ctx.restore();}
 function drawGround(){
   ctx.fillStyle='#8fa772';ctx.fillRect(0,0,WORLD.width,WORLD.height);path(BOUNDARY,'#c7d9ae');ctx.save();ctx.translate(OFFSET.x,OFFSET.y);
   path([{x:290,y:555},{x:330,y:530},{x:800,y:800},{x:1280,y:530},{x:1320,y:555},{x:800,y:861}],'#e6d2ae');
@@ -257,7 +257,7 @@ function drawGround(){
 }
 const minimap=$('minimap'),mini=minimap.getContext('2d');
 let townView=null;
-import('./scene-illustrated.js?v=5').then(module=>module.createIllustratedTown($('stage'))).then(view=>{townView=view;$('world').style.opacity='0';}).catch(error=>{console.warn('Illustrated renderer unavailable:',error.message);toast('일러스트를 불러오지 못해 간단한 마을로 표시해요. 이동과 게임은 이용할 수 있어요.');});
+import('./scene-illustrated.js?v=7').then(module=>module.createIllustratedTown($('stage'))).then(view=>{townView=view;$('world').style.opacity='0';}).catch(error=>{console.warn('Illustrated renderer unavailable:',error.message);toast('일러스트를 불러오지 못해 간단한 마을로 표시해요. 이동과 게임은 이용할 수 있어요.');});
 // 미니맵: 땅 전체(숲 포함)를 그리고, 걸을 수 있는 초원을 밝게, 실제 화면 카메라 범위를 사각형으로 보여 준다.
 function drawMinimap(){const W=minimap.width,H=minimap.height,sx=W/WORLD.width,sy=H/WORLD.height,view=townView?.camera||{x:camera.x,y:camera.y,w:width/zoom,h:height/zoom};mini.clearRect(0,0,W,H);mini.fillStyle='#3f5233';mini.fillRect(0,0,W,H);mini.beginPath();BOUNDARY.forEach((p,i)=>i?mini.lineTo(p.x*sx,p.y*sy):mini.moveTo(p.x*sx,p.y*sy));mini.closePath();mini.fillStyle='#c7d9ae';mini.fill();mini.font='600 10px "Noto Sans KR",sans-serif';for(const b of BUILDINGS){const x=b.x*sx,y=b.y*sy,side=b.x<WORLD.width/2-100?-1:b.x>WORLD.width/2+100?1:0;mini.fillStyle=b.roof;mini.fillRect(x-5,y-7,10,7);
   // 건물이 가까워 이름이 겹치므로 왼쪽 건물은 왼쪽으로, 오른쪽 건물은 오른쪽으로, 가운데는 위로 붙인다.
