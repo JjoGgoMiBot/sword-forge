@@ -22,6 +22,11 @@ export const INST = {
   kung: { src: { type: 'osc', wave: 'sine' }, freq: 105, bend: [[0, 5], [0.05, 0]], env: { a: 0.001, d: 0.45, s: 0, r: 0.15 } },
   deok: { src: { type: 'noise', color: 'white' }, env: { a: 0.0005, d: 0.035, s: 0, r: 0.03 }, filter: { type: 'bandpass', freq: 2800, q: 1.5 } },
   buk: { src: { type: 'osc', wave: 'sine' }, freq: 88, bend: [[0, 4], [0.05, 0]], env: { a: 0.001, d: 0.5, s: 0, r: 0.15 } },
+  // 은은한 배경용: 뜯는 소리·톱니파 없이 사인·삼각파에 낮은 필터. 어택을 길게 둬서 소리가 "깔린다".
+  softpad: { src: { type: 'osc', wave: 'triangle', unison: 3, spread: 7 }, env: { a: 2.4, d: 0.8, s: 0.9, r: 2.6, curve: 'lin' }, filter: { type: 'lowpass', freq: 850, q: 0.4 } },
+  drone: { src: { type: 'osc', partials: [1, 0.22, 0.05] }, env: { a: 3, d: 0.8, s: 0.9, r: 3, curve: 'lin' }, filter: { type: 'lowpass', freq: 520, q: 0.3 } },
+  epiano: { src: { type: 'osc', partials: [1, 0.2, 0.05] }, env: { a: 0.012, d: 1.4, s: 0, r: 0.7 }, filter: { type: 'lowpass', freq: 1900, q: 0.4 } },
+  bowl: { src: { type: 'fm', ratio: 2, index: [[0, 1.1], [2.2, 0.08]] }, env: { a: 0.09, d: 3.4, s: 0, r: 1.4 }, filter: { type: 'lowpass', freq: 2600, q: 0.4 } },
   bass: { src: { type: 'pluck', bright: 0.3, decay: 0.9985 }, env: { a: 0.002, d: 2.6, s: 0, r: 0.6 } },
 };
 
@@ -97,12 +102,34 @@ const FANTASY_BGM = {
   ],
 };
 
+// 도박 라운지: 박자·뜯는 소리 없이 따뜻한 패드가 깔리고 부드러운 건반이 드문드문. 24초, 4화음(C·Am·F·G) 6초씩.
+const LOUNGE_BGM = {
+  id: 'bgm.lounge', kind: 'bgm', loop: true, dur: 24, lufs: -19,
+  tracks: [
+    tr('패드 저음', [{ seq: 'C3 A2 F2 G2', step: 6, gate: 1, tpl: { ...INST.softpad, gain: -6 } }], { fx: { reverb: 0.5 } }),
+    tr('패드 화음', [{ seq: 'E4 C4 A3 B3', step: 6, gate: 1, tpl: { ...INST.softpad, gain: -9 } }, { seq: 'G4 E4 C4 D4', step: 6, gate: 1, tpl: { ...INST.softpad, gain: -12 } }], { pan: 0.1, fx: { reverb: 0.6 } }),
+    tr('건반', [{ seq: 'E5 . . . G5 . . . D5 . . . . . C5 .', step: 1.5, gate: 1, tpl: { ...INST.epiano, gain: -13 } }], { pan: -0.15, fx: { reverb: 0.55, delay: { time: 0.75, feedback: 0.25, mix: 0.15, tone: 2500 } } }),
+  ],
+};
+
+// 운세 안개: 박자 없이 낮은 드론 위에 울림 긴 그릇 소리가 두 번. 24초.
+const MIST_BGM = {
+  id: 'bgm.mist', kind: 'bgm', loop: true, dur: 24, lufs: -21,
+  tracks: [
+    tr('드론', [{ seq: 'D3 A2', step: 12, gate: 1, tpl: { ...INST.drone, gain: -5 } }], { fx: { reverb: 0.45 } }),
+    tr('패드', [{ seq: 'A3 F#3', step: 12, gate: 1, tpl: { ...INST.softpad, gain: -10 } }, { seq: 'F#4 D4', step: 12, gate: 1, tpl: { ...INST.softpad, gain: -14 } }], { pan: 0.1, fx: { reverb: 0.65 } }),
+    tr('그릇', [{ seq: 'A4 . . . . . . . D5 . . . . . . .', step: 1.5, gate: 1, tpl: { ...INST.bowl, gain: -14 } }], { pan: 0.2, fx: { reverb: 0.7, delay: { time: 1.1, feedback: 0.3, mix: 0.15, tone: 2200 } } }),
+  ],
+};
+
 // ── 컨셉 ─────────────────────────────────────────────────
 // lead: 승리 가락 악기, bell: 맑은 종소리, drum: 결과 북, scale: 아래에서 위로 6음
 export const CONCEPTS = {
   oriental: { id: 'oriental', name: '동양풍', desc: '가야금·대금', space: SPACES.hall, scale: ['D4', 'E4', 'F#4', 'A4', 'B4', 'D5', 'E5', 'F#5', 'A5'], lead: INST.gayageum, bell: INST.gong, drum: INST.buk, bgm: ORIENTAL_BGM },
   japanese: { id: 'japanese', name: '일본풍', desc: '코토·샤쿠하치·태고', space: SPACES.wood, scale: ['D4', 'Eb4', 'G4', 'A4', 'Bb4', 'D5', 'Eb5', 'G5', 'A5'], lead: INST.koto, bell: { ...INST.bell, src: { type: 'fm', ratio: 2.76, index: [[0, 2], [1, 0.2]] } }, drum: INST.taiko, bgm: JAPANESE_BGM },
   korean: { id: 'korean', name: '한국풍', desc: '장구·꽹과리·해금', space: SPACES.madang, scale: ['E4', 'G4', 'A4', 'B4', 'D5', 'E5', 'G5', 'A5', 'B5'], lead: { ...INST.gayageum, src: { type: 'pluck', bright: 0.6, decay: 0.997 } }, bell: INST.kkwaenggwari, drum: INST.kung, bgm: KOREAN_BGM },
+  lounge: { id: 'lounge', name: '라운지', desc: '패드·건반(은은하게)', space: SPACES.cathedral, scale: ['C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'D5', 'E5', 'G5'], lead: INST.epiano, bell: INST.bowl, drum: INST.buk, bgm: LOUNGE_BGM },
+  mist: { id: 'mist', name: '안개', desc: '드론·그릇(박자 없음)', space: SPACES.hall, scale: ['D4', 'E4', 'F#4', 'A4', 'B4', 'D5', 'E5', 'F#5', 'A5'], lead: INST.epiano, bell: INST.bowl, drum: INST.buk, bgm: MIST_BGM },
   fantasy: { id: 'fantasy', name: '판타지', desc: '벨·패드·스파클', space: SPACES.cathedral, scale: ['C4', 'E4', 'G4', 'B4', 'D5', 'E5', 'F#5', 'G5', 'B5'], lead: INST.harp, bell: INST.bell, drum: INST.buk, bgm: FANTASY_BGM },
 };
 export const DEFAULT_CONCEPT = 'fantasy';
