@@ -36,7 +36,7 @@ test('결과 연출은 움직임이 끝난 뒤에: 릴·말 수만큼 늦춘다'
  assert.equal(settleMs('slots',3),1050+320*2);
  assert.ok(settleMs('horse',5)>=8000&&settleMs('horse',5)<=12000&&settleMs('horse',5)===settleMs('horse',8));
  assert.equal(settleMs('dice'),1760);
- assert.equal(settleMs('rps'),2200);
+ assert.equal(settleMs('rps'),1260);
  assert.equal(settleMs('quiz'),0);
 });
 
