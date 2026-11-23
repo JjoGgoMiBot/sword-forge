@@ -1,3 +1,4 @@
+import {chips} from './chips.js?v=1';
 import {baccaratRoad} from './baccarat-road.js?v=1';
 import {turnCylinder} from './roulette-motion.js?v=1';
 import {dealCards,playLandVfx} from './vfx.js?v=1';
@@ -51,7 +52,7 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
   }
   const field = (id, label, value, attrs = '') => '<label>' + label + '<input id="' + id + '" type="number" inputmode="numeric" value="' + h(String(value)) + '" ' + attrs + '></label>';
   const select = (id, label, opts, value) => '<label>' + label + '<select id="' + id + '">' + Object.entries(opts).map(([k, v]) => '<option value="' + k + '"' + (k === value ? ' selected' : '') + '>' + v + '</option>').join('') + '</select></label>';
-  const summary = cells => '<div class="ac-summary">' + cells.map(([k, v, cls]) => '<div' + (cls ? ' class="' + cls + '"' : '') + '><small>' + k + '</small><strong>' + v + '</strong></div>').join('') + '</div>';
+  const summary = cells => '<div class="ac-summary">' + cells.map(([k, v, cls]) => '<div' + (cls ? ' class="' + cls + '"' : '') + '><small>' + k + '</small><strong>' + v + '</strong>'+((k.includes('베팅')||k.includes('돈'))?chips(Number(String(v).replace(/[^0-9]/g,''))):'')+'</div>').join('') + '</div>';
   const banner = (text, kind = '') => '<p class="ac-result ' + kind + '" role="status">' + text + '</p>';
 
   // ── 단계형: 러시안 룰렛·하이로우·마인즈 ──

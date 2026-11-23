@@ -1,11 +1,12 @@
+import {chips,chipLegend} from './chips.js?v=1';
 import {tarotPhoto} from './tarot-photo.js?v=1';
 import {WORLD,BUILDINGS,BOUNDARY,OFFSET,SHIRTS,SKINS,avatar,move,near} from './world.js?v=4';
 import {drawResident,drawResidentFast} from './resident-art.js?v=5';
 import {isActivity,connectDiscordVoice} from './discord-voice.js';
 import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=13';
 import {raceMarkup,playRace,RACE} from './race-script.js?v=2';
-import {createPoker} from './poker-ui.js?v=2';
-import {createArcade,ARCADE_TABS,ARCADE_RULES} from './arcade-ui.js?v=7';
+import {createPoker} from './poker-ui.js?v=3';
+import {createArcade,ARCADE_TABS,ARCADE_RULES} from './arcade-ui.js?v=8';
 import {getSound} from './sound/sound.js?v=2';
 import {casinoCues,fortuneCues,PREWARM} from './sound/cues.js?v=2';
 import {mountSoundControl} from './sound/ui.js?v=1';
@@ -221,7 +222,7 @@ function runCasinoFx(box,result,game){
   const count=game==='slots'?box.querySelectorAll('.slots-reels .reel').length||3:game==='blackjack'?box.querySelectorAll('.bj-anim').length:1;
   soundRun.cancel();soundRun=sound.cue(casinoCues(game,outcome,{count,reduced:reduceMotion()}));
 }
-function renderCasino(){const box=$('venueContent'),wallet=profile.wallet;let html='<div class="casino-wallet"><div><small>내 랜드 초코</small><strong>'+money(wallet.balance)+'</strong><span> C</span></div><div class="wallet-actions"><button data-action="daily" '+(wallet.daily?'disabled':'')+'>'+(wallet.daily?'출석 완료':'출석 +300')+'</button><button data-action="rescue" '+(wallet.rescue||wallet.balance>=100?'disabled':'')+'>응원 +300</button></div></div><p class="venue-intro">랜드 초코는 대장간 골드·기존 Discord 서버별 초코와 따로예요. 배당은 원금을 포함한 총 지급액입니다.</p>'+casinoTabs();
+function renderCasino(){const box=$('venueContent'),wallet=profile.wallet;let html='<div class="casino-wallet"><div>'+chips(wallet.balance)+'<small>내 랜드 초코</small><strong>'+money(wallet.balance)+'</strong><span> C</span></div><div class="wallet-actions"><button data-action="daily" '+(wallet.daily?'disabled':'')+'>'+(wallet.daily?'출석 완료':'출석 +300')+'</button><button data-action="rescue" '+(wallet.rescue||wallet.balance>=100?'disabled':'')+'>응원 +300</button></div></div><p class="venue-intro">랜드 초코는 대장간 골드·기존 Discord 서버별 초코와 따로예요. 배당은 원금을 포함한 총 지급액입니다.</p>'+chipLegend()+casinoTabs();
   const same=lastResult?.game===casinoTab?lastResult:null;
   if(casinoTab==='ledger')html+='<h3>최근 초코 이용 내역</h3><table class="ledger"><thead><tr><th>시각 / 내역</th><th>변동</th></tr></thead><tbody>'+profile.ledger.map(row=>'<tr><td>'+h(new Date(row.created).toLocaleString('ko-KR'))+'<br>'+h(row.reason)+'</td><td class="'+(row.delta>0?'positive':'')+'">'+(row.delta>0?'+':'')+money(row.delta)+' C<br><span class="muted">잔액 '+money(row.balance)+'</span></td></tr>').join('')+'</tbody></table>';
   else if(casinoTab==='quiz'){const q=profile.quiz,quizResult=lastResult&&'correct' in lastResult?lastResult:null;html+='<div class="'+casinoStageClass(quizResult,'quiz')+' quiz-stage">'+outcomeBanner(quizResult,'quiz')+'<img class="quiz-board-art" src="'+art('arcade-quiz-board-coin.png')+'" alt="질문표와 초코 코인"><div class="quiz-copy"><p>오늘 정답 '+wallet.quizWins+' / 25 · 정답 보상 40초코</p>'+(q?'<div class="quiz-initials">'+h(q.initials)+'</div><p>'+h(q.hint)+'</p><p class="status-note">남은 시간 <span id="quizTime">'+Math.max(0,Math.ceil((q.expires-Date.now())/1000))+'</span>초 · '+(3-q.tries)+'번 도전 가능</p>':'<p class="muted">초성을 보고 단어를 맞혀보세요.</p>')+'</div></div><div class="casino-controls">'+(q?'<label>답<input id="quizAnswer" class="quiz-answer" maxlength="30" autocomplete="off"></label><button class="primary" data-action="quizAnswer">정답 확인</button>':'<button class="primary" data-action="quiz">문제 받기</button>')+'</div><p class="game-result">'+h(lastResult?.message||'')+'</p>';}
