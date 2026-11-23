@@ -1,7 +1,7 @@
 import {WORLD,BUILDINGS,BOUNDARY,OFFSET,SHIRTS,SKINS,avatar,move,near} from './world.js?v=4';
 import {drawResident} from './resident-art.js?v=1';
 import {isActivity,connectDiscordVoice} from './discord-voice.js';
-import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=11';
+import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=12';
 import {raceMarkup,playRace,RACE} from './race-script.js?v=1';
 const $=id=>document.getElementById(id),local=['localhost','127.0.0.1'].includes(location.hostname);
 const API=local?'http://127.0.0.1:8907':'https://sword-forge-api.aicore-sj-relay.workers.dev';
@@ -160,7 +160,7 @@ function diceScene(dice){const show=dice||[3,5],die=(n,i,cls)=>'<img class="'+cl
 const RPS_CHANT=['가위','바위','보!'];
 function rpsScene(r){const o=r?classifyOutcome(r,'rps'):'idle',fate=me=>o==='draw'||o==='idle'?'':(o==='win')===me?' won':' lost';
   const hand=(me,shape)=>'<div class="rps-hand '+(me?'mine':'bot')+fate(me)+'"><span class="rps-pump"><img class="fist" src="'+art('arcade-hand-rock.png')+'?v=2" alt=""><img class="shape" src="'+art('arcade-hand-'+shape+'.png')+'?v=2" alt=""></span><small>'+(me?'나':'쪼꼬미')+(r?' · '+h(RPS[shape]):'')+'</small></div>';
-  return '<div class="rps-arena'+(r?' played':'')+'" role="img" aria-label="'+(r?'나 '+h(RPS[r.choice])+', 쪼꼬미 '+h(RPS[r.opponent]):'가위바위보')+'">'+hand(true,r?.choice||'rock')+'<div class="rps-chant" aria-hidden="true">'+(r?RPS_CHANT.map((w,i)=>'<b style="--i:'+i+'">'+w+'</b>').join(''):'<b class="still">가위바위보</b>')+'</div>'+hand(false,r?.opponent||'rock')+'</div>';}
+  return '<div class="rps-arena'+(r?' played':'')+(o==='draw'?' tie':'')+'" role="img" aria-label="'+(r?'나 '+h(RPS[r.choice])+', 쪼꼬미 '+h(RPS[r.opponent]):'가위바위보')+'">'+hand(true,r?.choice||'rock')+'<div class="rps-chant" aria-hidden="true">'+(r?RPS_CHANT.map((w,i)=>'<b style="--i:'+i+'">'+w+'</b>').join('')+(o==='draw'?'<b class="again">비겼다, 한 번 더!</b>':''):'<b class="still">가위바위보</b>')+'</div>'+hand(false,r?.opponent||'rock')+'</div>';}
 // 블랙잭 테이블: GPT 실사 테이블 위에 카드가 슈에서 날아와 뒤집힌다. 순서는 실제처럼 나·딜러·나·딜러(히든), 결과가 나면 히든을 뒤집고 딜러 추가 카드.
 // 단위는 테이블 폭 기준 cqw. 각 동작 k는 k*BJ_GAP에 시작해 BJ_DUR 뒤에 끝난다(casino-fx SETTLE.blackjack 과 같은 값).
 const BJ_GAP=300,BJ_FLY=330,BJ_W=8,BJ_STEP=5.6,BJ_SHOE=[84,8],BJ_ROW={dealer:16,player:34.6};let bjPrev=null,bjEnd=0;
@@ -196,7 +196,7 @@ function renderCasino(){const box=$('venueContent'),wallet=profile.wallet;let ht
     const b=profile.blackjack,bjResult=same||b?{game:'blackjack',round:b}:null;const bjHtml=bjTable(b,!!same);html+='<div class="'+casinoStageClass(same,'blackjack')+' blackjack-stage" style="--bj-end:'+bjEnd+'ms">'+outcomeBanner(same,'blackjack')+bjHtml+(b?'<p class="bj-info"><span>베팅 '+money(b.bet)+' C</span><b class="game-result">'+h(resultText(bjResult))+'</b></p>':'')+'</div>';
     if(b&&!b.done)html+='<div class="inline-actions"><button class="primary" data-action="bj" data-choice="hit">한 장 더</button><button data-action="bj" data-choice="stand">멈추기</button><button data-action="bj" data-choice="double" '+(!b.canDouble||wallet.balance<b.bet?'disabled':'')+'>더블</button></div><p class="status-note">5분 뒤에도 미완료라면 자동으로 멈추기 처리돼요. 나가도 베팅은 취소되지 않아요.</p>';else html+=betControls();
   }else{
-    html+='<div class="'+casinoStageClass(same,casinoTab)+'"'+(casinoTab==='slots'?' style="--settle:'+settleMs('slots',3)+'ms"':casinoTab==='horse'?' style="--settle:'+RACE.settle+'ms"':'')+'>'+outcomeBanner(same,casinoTab);
+    html+='<div class="'+casinoStageClass(same,casinoTab)+'"'+(casinoTab==='slots'?' style="--settle:'+settleMs('slots',3)+'ms"':casinoTab==='horse'?' style="--settle:'+RACE.settle+'ms"':casinoTab==='rps'?' style="--settle:'+settleMs('rps')+'ms"':'')+'>'+outcomeBanner(same,casinoTab);
     if(casinoTab==='slots'){const reels=same?.reels||['🍒','⭐','7️⃣'],spin=!!same&&!reduceMotion();html+='<div class="slot-cabinet"><div class="slot-machine"><img class="slot-machine-art" src="'+art('arcade-slot-machine.png')+'" alt="슬롯머신"><span class="slot-windows" aria-hidden="true">'+reels.map((symbol,i)=>reelBox('slot-window',symbol,i,spin)).join('')+'</span></div><div class="slots-reels">'+reels.map((symbol,i)=>reelBox('reel',symbol,i,spin,symbol)).join('')+'</div></div>';}
     if(casinoTab==='dice')html+=diceScene(same?.dice)+'<p>'+(same?'주사위 합계 '+same.dice.reduce((a,b)=>a+b,0):'두 주사위 합계의 홀·짝을 골라요.')+'</p>';
     if(casinoTab==='rps')html+=rpsScene(same);
