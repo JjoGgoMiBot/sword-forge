@@ -75,7 +75,7 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
   const stepEnd = g => ({bang: '탕! 총알이 나왔어요.', miss: '아쉽게 틀렸어요.', boom: '지뢰를 밟았어요.', cash: '멈추고 ' + money(g.payout) + '초코를 받았어요.', max: '끝까지 버텨 ' + money(g.payout) + '초코를 받았어요!'})[g.outcome] || '';
   function rouletteScene(g) {
     const shots = g?.shots || 0, boom = g?.done && g.outcome === 'bang';
-    return '<div class="ac-cylinder' + (boom ? ' boom' : '') + '" role="img" aria-label="6칸 중 ' + shots + '칸 당김">' + pic('cylinder', 'ac-cyl') + (boom ? pic('blast', 'ac-boom') : '') + '<b>' + (g ? shots + ' / 5' : '6칸') + '</b></div>';
+    return '<div class="ac-cylinder' + (boom ? ' boom' : '') + '" role="img" aria-label="6칸 중 ' + shots + '칸 당김">' + '<span class="ac-cylwrap" style="transform:rotate(' + shots * 60 + 'deg)">' + pic('cylinder', 'ac-cyl') + '</span>' + (boom ? pic('blast', 'ac-boom') : '') + '<b>' + (g ? shots + ' / 5' : '6칸') + '</b></div>';
   }
   function hiloScene(g) {
     if (!g) return '<p class="ac-empty">카드 한 장을 받고, 다음 카드가 높을지 낮을지 골라요.</p>';

@@ -269,3 +269,5 @@
 @media(prefers-reduced-motion:reduce){.ac-wheel-img.spin,.ac-boom,.ac-prize .ac-pic,.ac-grid button.hit:before{animation:none}}
 .ac-stage .ac-summary{color:var(--ink)}.ac-stage .ac-summary strong{color:inherit}.ac-stage .ac-summary .win strong{color:var(--green)}
 .ac-stage .ac-shoot:not(.go){color:var(--ink)}
+.ac-cylwrap{display:block;transition:transform .5s cubic-bezier(.3,1.4,.5,1)}
+@media(prefers-reduced-motion:reduce){.ac-cylwrap{transition:none}}
