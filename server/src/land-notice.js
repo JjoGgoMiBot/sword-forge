@@ -14,7 +14,8 @@ export const NOTICE = Object.freeze({
   rankingCacheMs: 15000,
 });
 
-export const GAME_NAMES = Object.freeze({slots: '슬롯', blackjack: '블랙잭', horse: '경마', dice: '주사위', rps: '가위바위보', poker: '포커'});
+export const GAME_NAMES = Object.freeze({slots: '슬롯', blackjack: '블랙잭', horse: '경마', dice: '주사위', rps: '가위바위보', poker: '포커',
+  roulette: '러시안 룰렛', hilo: '하이로우', mines: '마인즈', baccarat: '바카라', luckybox: '럭키박스', wheel: '룰렛', crash: '크래시', party: '총쏘기 서바이벌', duel: '총잡이 결투'});
 
 const cleanName = name => String(name || '주민').replace(/[\u0000-\u001f@<>]/g, '').slice(0, 24) || '주민';
 
