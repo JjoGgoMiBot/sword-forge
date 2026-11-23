@@ -29,7 +29,7 @@ npm run test:api
 npm run test:land
 ```
 
-The API tests must never target production. SQLite fixture writes only access local `.wrangler/state`.
+`tests/land-api.test.mjs` needs a **fresh disposable Worker** (`wrangler dev -c server/wrangler.toml --persist-to <빈 폴더>` after applying the four schema files); a preview mock or a reused dev state on 8907 fails it on purpose. The API tests must never target production. SQLite fixture writes only access local `.wrangler/state`.
 
 ## Deployment
 
