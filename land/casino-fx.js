@@ -25,7 +25,7 @@ const ORIGIN = {
   blackjack: { sel: '.bj-table', scale: 1 },
   horse: { sel: '.race-heading img', scale: 1.05 },
   quiz: { sel: '.quiz-board-art', scale: 0.95 },
-  rps: { sel: '.rps-arena', scale: 0.95 },
+  rps: { sel: ['.rps-hand.won .rps-pump', '.rps-arena'], scale: 0.95 }, // 이긴 손에서 터진다(졌거나 비기면 가운데)
 };
 
 export function casinoOutcome(result, game) {
@@ -73,7 +73,8 @@ const running = new WeakMap();
 
 function originOf(stage, game) {
   const box = stage.getBoundingClientRect();
-  const hit = (ORIGIN[game] && stage.querySelector(ORIGIN[game].sel)) || null;
+  const sels = [].concat(ORIGIN[game]?.sel || []);
+  const hit = sels.reduce((found, sel) => found || stage.querySelector(sel), null);
   if (!hit) return { x: box.width / 2, y: box.height * 0.5 };
   const r = hit.getBoundingClientRect();
   return { x: r.left - box.left + r.width / 2, y: r.top - box.top + r.height / 2 };
