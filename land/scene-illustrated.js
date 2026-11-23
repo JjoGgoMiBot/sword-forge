@@ -1,4 +1,5 @@
 import {WORLD,BUILDINGS,BOUNDARY,OFFSET,POND,FOUNTAIN,SHIRTS,SKINS,avatar,canStand} from './world.js?v=4';
+import {drawResident} from './resident-art.js?v=1';
 const O=OFFSET;
 const TREES=[[250,590,1],[360,680,.8],[1250,650,1],[1100,760,.82],[1020,350,.9],[580,390,.85],[660,930,.9],[930,950,.85],[350,520,.72],[1190,500,.8],[800,180,.95]];
 // 넓힌 초원에 더한 나무(옛 좌표계 밖, v3 좌표 그대로).
@@ -34,7 +35,7 @@ export async function createIllustratedTown(container){
  const tone=[sprites[3],crop(sprites[3],0,444,444,444,'#1420184a'),crop(sprites[3],0,444,444,444,'#0b140e80')];
  const bush=[crop(sprites[3],28,250,444,220,'#1a2a1418'),crop(sprites[3],28,250,444,220,'#0f1d1048')];
  const canvas=document.createElement('canvas');let g=canvas.getContext('2d');canvas.className='town-illustrated';canvas.setAttribute('aria-hidden','true');container.append(canvas);
- const variants=new Map(),actors=new Map(),terrain=document.createElement('canvas');terrain.width=WORLD.width;terrain.height=WORLD.height;let grassFill='#55663a';const t=terrain.getContext('2d',{willReadFrequently:true});
+ const actors=new Map(),terrain=document.createElement('canvas');terrain.width=WORLD.width;terrain.height=WORLD.height;let grassFill='#55663a';const t=terrain.getContext('2d',{willReadFrequently:true});
  let seed=9329;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
  function polygon(ctx,points){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();}
  // 경계 밖 숲 바닥: 그늘을 깔고, 경계 안쪽은 넓게 번진 그림자 모양으로 지워 선이 보이지 않게 한다(shadowBlur는 사파리에서도 된다).
@@ -77,10 +78,6 @@ grassFill='#cad2a6';t.fillStyle=grassFill;t.fillRect(0,0,WORLD.width,WORLD.heigh
  const ground=document.createElement('canvas');ground.width=WORLD.width;ground.height=WORLD.height;ground.className='town-ground';ground.setAttribute('aria-hidden','true');
  {const gc=ground.getContext('2d');gc.drawImage(terrain,0,0);const keep=g;g=gc;[...BAKED].sort((a,b)=>a.y-b.y).forEach(p=>image(p.id,p.x,p.y,p.w,p.h,p));g=keep;}terrain.width=terrain.height=1;
  container.style.backgroundColor=photo?'#4b5b33':'#cad2a6';canvas.before(ground);
- function variant(value){const a=avatar(value),key=a.shirt+':'+a.skin;if(variants.has(key))return variants.get(key);const c=document.createElement('canvas');c.width=c.height=444;const ctx=c.getContext('2d');ctx.drawImage(sprites[7],0,0);const data=ctx.getImageData(0,0,444,444),targetShirt=hex(SHIRTS[a.shirt]),targetSkin=hex(SKINS[a.skin]);
-  for(let y=0;y<444;y++)for(let x=0;x<444;x++){const i=(y*444+x)*4,r=data.data[i],gr=data.data[i+1],b=data.data[i+2];if(data.data[i+3]<8)continue;const shirt=y>280&&y<365&&r>gr*1.13&&gr>b*1.1,skin=y>115&&y<282&&r>gr&&gr>b&&gr>140&&r>200;if(!shirt&&!skin)continue;const target=shirt?targetShirt:targetSkin,base=shirt?[204,128,71]:[245,218,171];for(let k=0;k<3;k++)data.data[i+k]=Math.min(255,data.data[i+k]*target[k]/base[k]);}
-  ctx.putImageData(data,0,0);variants.set(key,c);return c;
- }
  let width=1,height=1,zoom=1,camera={x:0,y:0},last=performance.now(),initialized=false;
  const resize=()=>{const r=container.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,1.5);width=r.width;height=r.height;canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);g.setTransform(dpr,0,0,dpr,0,0);zoom=width>=700?.74:.7;};new ResizeObserver(resize).observe(container);resize();container.dataset.renderer='painted-2d';
  function image(index,x,y,w,h,{flip=false,tone:shade=0}={}){const bushy=index==='bush';if(photo&&(bushy||index>=3&&index<=6)){g.fillStyle='#14100a40';g.beginPath();g.ellipse(x+w*.06,y-h*.03,w*(bushy?.46:.36),w*.09,0,0,Math.PI*2);g.fill();}
@@ -89,9 +86,7 @@ grassFill='#cad2a6';t.fillStyle=grassFill;t.fillRect(0,0,WORLD.width,WORLD.heigh
  function interpolate(track,t){if(!track||track.length<2)return null;for(let i=track.length-1;i>0;i--){const a=track[i-1],b=track[i];if(t>=a.t){if(t>=b.t)return i===track.length-1?{x:b.x,y:b.y}:null;const k=(t-a.t)/Math.max(1,b.t-a.t);return {x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k};}}const f=track[0];return {x:f.x,y:f.y};}
  function person(p,dt,now){const a=avatar(p.avatar),old=actors.get(p.id)||{x:p.x,y:p.y,phase:0,weight:0},before={x:old.x,y:old.y};// 다른 주민은 서버가 10번/초 보내는 위치를 120ms 늦게 이어 그린다(받은 두 점 사이 보간, 끊김 대신 일정한 걸음).
   const at=interpolate(p.track,now-120);if(p.mine){old.x=p.x;old.y=p.y;}else if(at){old.x=at.x;old.y=at.y;}else{const k=1-Math.exp(-dt*15);old.x+=(p.x-old.x)*k;old.y+=(p.y-old.y)*k;}const speed=Math.hypot(old.x-before.x,old.y-before.y)/Math.max(.001,dt);old.weight+=(Math.min(1,speed/130)-old.weight)*(1-Math.exp(-dt*14));old.phase+=dt*10*Math.min(1,speed/30);actors.set(p.id,old);
-  return {y:old.y,draw(){const x=old.x,y=old.y;g.save();g.translate(x,y);g.fillStyle='#68513620';g.beginPath();g.ellipse(0,-1,18,5,0,0,Math.PI*2);g.fill();g.rotate(Math.sin(old.phase)*.025*old.weight);g.drawImage(variant(a),-40,-80,80,80);g.restore();
-   // Wardrobe layers stay independently selectable over the painted resident.
-   g.save();g.translate(x,y);g.strokeStyle='#674a32';g.lineWidth=1.4;g.fillStyle=SHIRTS[a.shirt];if(a.hat===1){g.beginPath();g.ellipse(0,-66,23,7,-.1,0,Math.PI*2);g.fill();g.stroke();g.beginPath();g.moveTo(2,-72);g.lineTo(3,-78);g.stroke();}if(a.hat===2){for(const side of [-1,1]){g.beginPath();g.moveTo(side*22,-57);g.lineTo(side*24,-81);g.lineTo(side*8,-68);g.closePath();g.fill();g.stroke();}}if(a.hat===3){g.fillStyle='#e4bf67';g.beginPath();g.moveTo(-20,-65);g.lineTo(-23,-81);g.lineTo(-10,-73);g.lineTo(0,-85);g.lineTo(10,-73);g.lineTo(23,-81);g.lineTo(20,-65);g.closePath();g.fill();g.stroke();}if(a.accessory===1){for(const side of [-1,1]){g.beginPath();g.arc(side*11,-48,8,0,Math.PI*2);g.stroke();}g.beginPath();g.moveTo(-3,-48);g.lineTo(3,-48);g.stroke();}if(a.accessory===2){g.strokeStyle='#7f6a91';g.lineWidth=4;g.beginPath();g.arc(0,-48,24,Math.PI,0);g.stroke();for(const side of [-1,1]){g.beginPath();g.ellipse(side*24,-47,4,9,0,0,Math.PI*2);g.fillStyle='#9b84a9';g.fill();}}if(a.accessory===3){g.strokeStyle='#bc775c';g.lineWidth=6;g.beginPath();g.moveTo(-18,-29);g.quadraticCurveTo(0,-25,18,-29);g.lineTo(13,-13);g.stroke();}g.restore();
+  return {y:old.y,draw(){const x=old.x,y=old.y;g.save();g.translate(x,y);g.fillStyle='#68513620';g.beginPath();g.ellipse(0,-1,18,5,0,0,Math.PI*2);g.fill();g.rotate(Math.sin(old.phase)*.025*old.weight);drawResident(g,a,old.phase,old.weight);g.restore();
    if(p.name)plaque(p.name,x,y+17);if((p.speakingUntil||0)>Date.now()){g.fillStyle='#668759';for(let i=0;i<3;i++){const h=6+Math.abs(Math.sin(now/170+i))*9;g.fillRect(x-10+i*8,y-94-h,4,h);}}if(p.bubble&&p.bubbleUntil>now)plaque(p.bubble.slice(0,26)+(p.bubble.length>26?'…':''),x,y-105,{bubble:true});}};
  }
  return {get camera(){return {x:camera.x,y:camera.y,w:width/zoom,h:height/zoom};},preview(target,value){const original=g;g=target.getContext('2d');g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,target.width,target.height);g.save();g.translate(target.width/2,target.height*.82);g.scale(2.5,2.5);person({id:'preview',name:'',avatar:value,x:0,y:0},0,performance.now()).draw();g.restore();g=original;actors.delete('preview');},update({position,self,name,avatar:appearance,peers}){if(document.hidden)return;const now=performance.now(),dt=Math.min(.08,(now-last)/1000);last=now;
