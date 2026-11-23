@@ -1,10 +1,11 @@
+import {playLandVfx} from './vfx.js?v=1';
 // 쪼꼬미랜드 오락관 결과 이펙트 모듈.
 // 서버가 판정한 결과를 받은 뒤 "보여주기만" 한다. 돈·확률·판정은 여기서 건드리지 않는다.
 // 바깥에 내놓는 것: casinoOutcome(결과 분류) · fxPlanFor(상황별 연출표) · playCasinoFx(재생)
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const COIN_SRC = ['assets/photo/choco-coin.webp', 'assets/choco-coin.png'];
-import { RACE } from './race-script.js?v=1';
+import { RACE } from './race-script.js?v=2';
 const HOLD_MS = 55; // 임팩트 순간 정지감(몇 프레임 멈춘 듯 보이게)
 const HOLD_SCALE = 0.12;
 
@@ -116,6 +117,7 @@ export function playCasinoFx(stage, { outcome, game, rand = Math.random, reduced
   if (!stage || !plan) return { cancel() {}, done: Promise.resolve() };
   running.get(stage)?.cancel();
   if (reduced) { const soft = softGlow(stage, plan); running.set(stage, soft); return soft; }
+  if(typeof window!=='undefined'&&typeof document!=='undefined')return playLandVfx(stage,outcome,{delay:delay??settleMs(game),scale:outcome==='jackpot'?1.5:1});
   const sel = SETTLE[game]?.sel;
   const wait = delay ?? settleMs(game, sel && stage.querySelectorAll ? stage.querySelectorAll(sel).length : 1);
   if (!(wait > 0)) return burst(stage, plan, rand);

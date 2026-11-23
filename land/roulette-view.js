@@ -7,7 +7,7 @@ export function rouletteDisplay(round) {
   const states = Array.from({length: 6}, (_, i) => reveal
     ? i === round.bullet ? bang ? 'fired' : 'bullet' : 'empty'
     : i < safe ? 'empty' : 'unknown');
-  return {safe, bang, reveal, states, angle: -safe * 60,
+  return {safe, bang, reveal, states, angle: -(bang ? safe : Math.max(0,safe-1)) * 60,
     label: round ? `생존 ${safe} / 5` : '6칸 · 총알 1발',
     note: reveal ? '판 종료 · 총알 위치 공개' : '총알 1발 · 남은 약실은 비공개'};
 }

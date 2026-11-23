@@ -6,13 +6,13 @@ import {SHIRTS,SKINS} from './world.js?v=4';
 const INK='#1d1a17',WHITE='#fbfaf6',SHADE='#dcd8cf',TAU=Math.PI*2;
 const HEAD={y:-49,r:21};
 const photos={};
-if(typeof Image==='function')for(const [key,file] of Object.entries({body:'resident-photo-atlas.png',props:'resident-props-photo.png'})){
+if(typeof Image==='function')for(const [key,file] of Object.entries({body:'resident-photo-atlas.png'})){
   const image=new Image();image.onload=()=>{photos[key]=image;sheets.clear();};image.src=new URL('./assets/photo/'+file,import.meta.url).href;
 }
 // 원본 PNG는 보존하고 실행 중 필요한 셀만 읽는다. 각 소품의 투명 여백은 별도 좌표로 제외한다.
 const PROP_RECTS=[[30,209,363,324],[446,203,355,338],[855,224,362,275],[17,826,385,152],[435,685,369,367],[861,751,350,337]];
 function photoResident(g,a,phase,weight,look){
-  if(!photos.body||!photos.props)return false;
+  if(!photos.body)return false;
   const profile=Math.abs(look)>.4,step=weight>.35?Math.sin(phase):0;
   const frame=profile?(step>.05?7:6):step>.3?1:step<-.3?2:0;
   const cellW=photos.body.width/4,cellH=photos.body.height/2;
@@ -42,6 +42,7 @@ function bodyPath(g){g.beginPath();g.moveTo(-8.5,-33);g.bezierCurveTo(-12,-27,-1
 // a: avatar(...) 결과, phase: 걸음 위상(라디안), weight: 0(서 있음)~1(걷기)
 // look: -1(왼쪽)~1(오른쪽) 가는 쪽을 보는 눈·입 위치
 export function drawResident(g,a,phase=0,weight=0,look=0){
+  a={...a,hat:0,accessory:0}; // 악세사리는 잠시 비활성화. 저장된 선택은 보존한다.
   if(photoResident(g,a,phase,weight,look))return;
   const s=Math.sin(phase)*weight,bob=-Math.abs(Math.cos(phase))*2.2*weight,lift=v=>Math.max(0,v)*-3.2;
   g.save();g.lineCap='round';g.lineJoin='round';

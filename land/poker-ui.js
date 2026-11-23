@@ -1,3 +1,4 @@
+import {dealCards,playLandVfx} from './vfx.js?v=1';
 // 포커 테이블 화면. 서버가 보낸 view(내 패·공개된 패만 담김)를 그리고, 누른 행동을 send()로 돌려보낸다.
 // 상태는 서버만 정한다. 여기서는 그리기와 입력값(레이즈·바이인) 기억만 한다.
 const SUIT = {s: '♠', h: '♥', d: '♦', c: '♣'};
@@ -12,7 +13,7 @@ export function card(c, size = '') {
   return '<span class="pk-card ' + size + (red ? ' red' : '') + '" aria-label="' + (RANK[c[0]] || c[0]) + SUIT[c[1]] + '"><b>' + (RANK[c[0]] || c[0]) + '</b><i>' + SUIT[c[1]] + '</i></span>';
 }
 
-export function createPoker({money, h, send, toast, balance}) {
+export function createPoker({money, h, send, toast, balance, sound}) {
   let st = null, at = 0, raise = null, buyIn = null, box = null;
   const remain = ms => ms == null ? null : Math.max(0, ms - (performance.now() - at));
 
@@ -128,12 +129,14 @@ export function createPoker({money, h, send, toast, balance}) {
       paint();
     },
     update(state) {
+      const previous=st,oldBoard=st?.board?.length||0,newHand=st&&st.hand!==state.hand;
       const handChanged = !st || st.hand !== state.hand || st.toAct !== state.toAct;
       st = state; at = performance.now();
       if (handChanged) raise = null;
       // 바이인 입력 중이면 숫자 칸을 다시 그리지 않도록 포커스를 지킨다
       const focused = document.activeElement?.id;
       paint();
+      if(previous&&box?.isConnected){const cards=newHand?box.querySelectorAll('.pk-seat .pk-card'):state.board.length>oldBoard?[...box.querySelectorAll('.pk-board .pk-card')].slice(oldBoard,state.board.length):[];dealCards(cards,sound,{spacing:100});if(state.phase==='showdown'&&previous.phase!=='showdown')playLandVfx(box.querySelector('.pk-table'),'win');}
       if (focused === 'pkBuyIn' || focused === 'pkRaise') box?.querySelector('#' + focused)?.focus();
     },
     tick: tickTimers,

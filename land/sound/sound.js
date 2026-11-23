@@ -6,7 +6,7 @@
 // 약속: 첫 사용자 입력 전에는 AudioContext 를 만들지 않는다. 소리 쪽 오류는 게임을 막지 않는다.
 import { compileRecipe, renderToChannels, sampleUrls } from './engine.js';
 import { humanize, dbToGain, clamp } from './dsp.js';
-import { recipeFor, CONCEPTS, DEFAULT_CONCEPT } from './recipes.js';
+import { recipeFor, CONCEPTS, DEFAULT_CONCEPT } from './recipes.js?v=2';
 
 export const STORAGE_KEY = 'land.sound.v1';
 export const DEFAULTS = Object.freeze({ muted: false, master: 0.9, bgm: 0.55, sfx: 0.9, concept: 'auto' });
@@ -174,7 +174,7 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
       let offset = 0;
       if (opts.when != null && late > 0.03) {
         if (buffer.duration > 1.2) offset = Math.min(late, buffer.duration - 0.1);
-        else if (late > 0.12) { stats.dropped++; return; }
+        else if (late > (id==='card.deal'?.4:.12)) { stats.dropped++; return; }
       }
       const when = Math.max(now, want);
       const hz = humanize(meta.random);

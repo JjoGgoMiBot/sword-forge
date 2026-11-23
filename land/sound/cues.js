@@ -1,6 +1,6 @@
 // 오락관·운세 화면의 "순간" → 소리 시간표. 순수 함수라 노드에서 시험한다.
 // 시각(ms)은 casino-fx.js·style.css 애니메이션과 같은 기준(결과가 그려진 순간 = 0)이다.
-import { settleMs, reelStopMs } from '../casino-fx.js?v=12';
+import { settleMs, reelStopMs } from '../casino-fx.js?v=13';
 
 // 결과 분류(casino-fx 의 outcome) → 결과음
 const OUTCOME = { jackpot: ['jackpot', 'vfx.explosion'], blackjack: ['win', 'vfx.sparkle'], win: ['win'], draw: ['draw'], loss: ['lose'] };
@@ -38,4 +38,4 @@ export function fortuneCues(moment, { cards = 1 } = {}) {
 }
 
 // 첫 입력 뒤 미리 그려 둘 소리
-export const PREWARM = ['ui.tap', 'chip.place', 'card.deal', 'card.flip', 'slot.stop', 'dice.slam', 'win', 'lose', 'draw', 'rps.beat', 'dice.reveal'];
+export const PREWARM = ['ui.tap', 'chip.place', 'card.deal', 'card.flip', 'slot.stop', 'dice.slam', 'win', 'lose', 'draw', 'rps.beat', 'dice.reveal','cylinder.step','cylinder.lock','gun.empty','gun.bang'];

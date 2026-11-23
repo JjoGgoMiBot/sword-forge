@@ -152,8 +152,12 @@ export const SFX = {
   'chip.place': hit('chip.place', { lufs: -20, transient: [click(0, 3500, 0, 0.005)], body: [{ at: 0.002, dur: 0.12, src: { type: 'fm', ratio: 2.3, index: [[0, 1.5], [0.1, 0.2]] }, freq: 2100, env: { a: 0.001, d: 0.1, s: 0, r: 0.05 }, gain: -6 }], tail: [rattle(0.03, -10, 2600), rattle(0.055, -16, 2400)] }),
 
   // 카드
+  'cylinder.step': hit('cylinder.step', {lufs:-21, transient:[click(0,3100,0,.008),click(.072,4800,-4,.005)],body:[thud(.012,420,-5,.065,3)],tail:[rattle(.042,-12,2200)]}),
+  'cylinder.lock': hit('cylinder.lock', {lufs:-20,transient:[click(0,2400,0,.015)],body:[thud(.012,220,-2,.11,3)],tail:[rattle(.045,-10,1900)]}),
+  'gun.empty': hit('gun.empty', {lufs:-22,transient:[click(0,2800,0,.01),click(.05,3600,-4,.008)],body:[thud(.01,360,-5,.07,3)],tail:[]}),
+  'gun.bang': hit('gun.bang', {lufs:-17,transient:[click(0,1800,0,.015)],body:[{at:0,dur:.14,src:{type:'noise',color:'pink'},env:{a:.001,d:.12,s:0,r:.07},filter:{type:'lowpass',freq:4200},gain:-2},thud(.005,92,-2,.2,4)],tail:[{at:.08,dur:.32,src:{type:'noise',color:'brown'},env:{a:.002,d:.26,s:0,r:.12},filter:{type:'lowpass',freq:700},gain:-13}]}),
   'card.flip': hit('card.flip', { lufs: -26, transient: [click(0, 3000, 0, 0.008)], body: [swish(0, 0.07, 2200, 900, -2, 1.5)], tail: [{ at: 0.03, dur: 0.12, src: { type: 'noise', color: 'pink' }, env: { a: 0.002, d: 0.1, s: 0, r: 0.05 }, filter: { type: 'lowpass', freq: 1400 }, gain: -12 }] }),
-  'card.deal': hit('card.deal', { lufs: -24.5, transient: [{ ...click(0.17, 1500, 0, 0.015), pan: 0.25 }], body: [{ ...swish(0, 0.18, 600, 2600, -4, 1), pan: [[0, -0.35], [0.18, 0.25]] }, thud(0.17, 180, -10, 0.05, 4)], tail: [{ at: 0.18, dur: 0.08, src: { type: 'noise', color: 'pink' }, env: { a: 0.001, d: 0.07, s: 0, r: 0.04 }, filter: { type: 'lowpass', freq: 1800 }, gain: -14 }] }),
+  'card.deal': hit('card.deal', { lufs: -20.5, transient: [{ ...click(0.17, 1500, -6, 0.015), pan: 0.25 }], body: [{ ...swish(0, 0.18, 600, 2600, 0, 1), pan: [[0, -0.35], [0.18, 0.25]] }, thud(0.17, 180, -10, 0.05, 4)], tail: [{ at: 0.18, dur: 0.08, src: { type: 'noise', color: 'pink' }, env: { a: 0.001, d: 0.07, s: 0, r: 0.04 }, filter: { type: 'lowpass', freq: 1800 }, gain: -14 }] }),
 
   // 룰렛: 감속에 따라 틱 간격이 벌어진다. params.dur(초)
   'roulette.spin': { id: 'roulette.spin', lufs: -19, variants: 1, build(p = {}) {

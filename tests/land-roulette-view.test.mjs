@@ -9,7 +9,7 @@ test('live rounds hide all untested chambers, even if a private bullet field is 
     assert.equal(v.states.filter(s=>s==='empty').length,shots);
     assert.equal(v.states.filter(s=>s==='unknown').length,6-shots);
     assert.equal(v.states.includes('bullet'),false);
-    assert.equal(v.angle+shots*60,0,'next untested chamber stays under the stationary pointer');
+    assert.equal(v.angle+Math.max(0,shots-1)*60,0,'last tested chamber stays under the stationary pointer');
     assert.equal(v.label,`생존 ${shots} / 5`);
   }
 });
@@ -44,5 +44,5 @@ test('renderer has six independent states and no baked-in five-bullet photograph
   assert.ok(html.includes('rr-photo'));
   assert.equal(html.includes('ac-cylinder.webp'),false);
   assert.equal(html.includes('${'),false,'all state transforms must be resolved');
-  assert.ok(html.includes('transform:rotate(-60deg)'),'state-driven rotor remains under the stationary pointer');
+  assert.ok(html.includes('transform:rotate(0deg)'),'state-driven rotor remains under the stationary pointer');
 });

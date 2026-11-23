@@ -1,3 +1,4 @@
+import {newRace,checkRaceBet,raceBet,raceTick,raceDue,raceView} from './land-race.js';
 import {WORLD,move,avatar,canStand} from '../../land/world.js';
 export {LandPlayer} from './land-player.js';
 import {NOTICE,winNotice,joinNotice,leaveNotice} from './land-notice.js';
@@ -41,7 +42,7 @@ const later=(ctx,work)=>{const p=Promise.resolve().then(work).catch(e=>console.e
 export async function handleLand(req,env,ctx,h){
   const url=new URL(req.url),path=url.pathname;
   try{
-    if(path==='/land/health')return h.J(req,{ok:true,version:1,discord:!!env.LAND_BRIDGE_SECRET});
+    if(path==='/land/health')return h.J(req,{ok:true,version:2,discord:!!env.LAND_BRIDGE_SECRET,features:{sharedRace:true,sharedRaceLobbyMs:60000,hiloEqual:true,baccaratHistory:true}});
     if(path==='/land/ws'){
       if(req.headers.get('Upgrade')?.toLowerCase()!=='websocket')return h.E(req,'upgrade','WebSocket 연결이 필요해요.',426);
       const ticket=await verify(env,url.searchParams.get('ticket')||'');if(!ticket)return h.E(req,'auth','접속권이 만료됐어요. 다시 연결해주세요.',401);
@@ -115,7 +116,7 @@ export async function handleLand(req,env,ctx,h){
 }
 export const giftNet=amount=>Math.floor(amount*(100-GIFT.feePercent)/100);
 export class LandRoom{
-  constructor(ctx,env){this.ctx=ctx;this.env=env;this.sql=ctx.storage.sql;this.sql.exec('CREATE TABLE IF NOT EXISTS presence (id TEXT PRIMARY KEY,name TEXT NOT NULL,joined INTEGER NOT NULL DEFAULT 0,leave_due INTEGER)');this.noticeIds=new Set();this.sql.exec('CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT,client_id TEXT UNIQUE,uid TEXT NOT NULL,name TEXT NOT NULL,text TEXT NOT NULL,source TEXT NOT NULL,created INTEGER NOT NULL,discord_id TEXT,pending INTEGER NOT NULL DEFAULT 0)');this.sql.exec('CREATE TABLE IF NOT EXISTS poker (id INTEGER PRIMARY KEY CHECK(id=1),data TEXT NOT NULL)');this.sql.exec('CREATE TABLE IF NOT EXISTS poker_payouts (id TEXT PRIMARY KEY,key TEXT NOT NULL,name TEXT NOT NULL,amount INTEGER NOT NULL,created INTEGER NOT NULL,due INTEGER NOT NULL,tries INTEGER NOT NULL DEFAULT 0)');for(const col of ['op TEXT','extra TEXT'])try{this.sql.exec('ALTER TABLE poker_payouts ADD COLUMN '+col);}catch{}this.sql.exec('CREATE TABLE IF NOT EXISTS arcade (game TEXT PRIMARY KEY,data TEXT NOT NULL)');this.arcadeS={};if(ctx.setWebSocketAutoResponse)ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping','pong'));}
+  constructor(ctx,env){this.ctx=ctx;this.env=env;this.sql=ctx.storage.sql;this.sql.exec('CREATE TABLE IF NOT EXISTS presence (id TEXT PRIMARY KEY,name TEXT NOT NULL,joined INTEGER NOT NULL DEFAULT 0,leave_due INTEGER)');this.noticeIds=new Set();this.sql.exec('CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT,client_id TEXT UNIQUE,uid TEXT NOT NULL,name TEXT NOT NULL,text TEXT NOT NULL,source TEXT NOT NULL,created INTEGER NOT NULL,discord_id TEXT,pending INTEGER NOT NULL DEFAULT 0)');this.sql.exec('CREATE TABLE IF NOT EXISTS poker (id INTEGER PRIMARY KEY CHECK(id=1),data TEXT NOT NULL)');this.sql.exec('CREATE TABLE IF NOT EXISTS poker_payouts (id TEXT PRIMARY KEY,key TEXT NOT NULL,name TEXT NOT NULL,amount INTEGER NOT NULL,created INTEGER NOT NULL,due INTEGER NOT NULL,tries INTEGER NOT NULL DEFAULT 0)');for(const col of ['op TEXT','extra TEXT'])try{this.sql.exec('ALTER TABLE poker_payouts ADD COLUMN '+col);}catch{}this.sql.exec('CREATE TABLE IF NOT EXISTS arcade (game TEXT PRIMARY KEY,data TEXT NOT NULL)');this.sql.exec('CREATE TABLE IF NOT EXISTS race_requests (id TEXT PRIMARY KEY,key TEXT NOT NULL,data TEXT NOT NULL,state TEXT NOT NULL,due INTEGER,created INTEGER NOT NULL)');this.arcadeS={};if(ctx.blockConcurrencyWhile&&this.sql.exec("SELECT id FROM race_requests WHERE state='pending' LIMIT 1").toArray().length)ctx.blockConcurrencyWhile(()=>this.schedule());if(ctx.setWebSocketAutoResponse)ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping','pong'));}
   sockets(){return this.ctx.getWebSockets().filter(ws=>ws.readyState===1);}
   users(){const users=new Map();for(const ws of this.sockets()){const a=ws.deserializeAttachment();if(!a.bridge&&!a.chatOnly)users.set(a.id,{id:a.id,name:a.name,avatar:a.avatar,x:a.x,y:a.y});}return [...users.values()];}
   send(ws,value){try{ws.send(JSON.stringify(value));}catch{}}
@@ -193,10 +194,10 @@ export class LandRoom{
   // 퇴장: 마지막 창이 닫히면 leaveDelayMs 뒤에 아직 없을 때만 알린다
   depart(a){if(!a||a.bridge||a.chatOnly||this.users().some(u=>u.id===a.id))return;const due=Date.now()+NOTICE.leaveDelayMs;this.sql.exec('UPDATE presence SET leave_due=? WHERE id=?',due,a.id);this.schedule().catch(e=>console.error("land alarm",e.message));}
   // 알람 하나로 퇴장 공지·포커 차례·포커 정산 재시도를 모두 깨운다
-  async schedule(){const leave=this.sql.exec('SELECT MIN(leave_due) AS due FROM presence WHERE leave_due IS NOT NULL').toArray()[0]?.due,pay=this.sql.exec('SELECT MIN(due) AS due FROM poker_payouts').toArray()[0]?.due;const next=Math.min(...[leave,nextDue(this.pokerState()),pay,crashDue(this.arcadeState('crash')),partyDue(this.arcadeState('party'),Date.now()),duelDue(this.arcadeState('duel'))].filter(x=>x!=null));if(Number.isFinite(next)&&this.ctx.storage.setAlarm)await this.ctx.storage.setAlarm(next);}
+  async schedule(){const leave=this.sql.exec('SELECT MIN(leave_due) AS due FROM presence WHERE leave_due IS NOT NULL').toArray()[0]?.due,pay=this.sql.exec('SELECT MIN(due) AS due FROM poker_payouts').toArray()[0]?.due;const next=Math.min(...[leave,nextDue(this.pokerState()),pay,crashDue(this.arcadeState('crash')),partyDue(this.arcadeState('party'),Date.now()),duelDue(this.arcadeState('duel')),raceDue(this.arcadeState('horse'),Date.now()),this.sql.exec("SELECT MIN(due) AS due FROM race_requests WHERE state='pending'").toArray()[0]?.due].filter(x=>x!=null));if(Number.isFinite(next)&&this.ctx.storage.setAlarm)await this.ctx.storage.setAlarm(next);}
   async alarm(){const now=Date.now(),online=new Set(this.users().map(u=>u.id));
     for(const row of this.sql.exec('SELECT * FROM presence WHERE leave_due IS NOT NULL AND leave_due<=?',now).toArray()){this.sql.exec('UPDATE presence SET leave_due=NULL WHERE id=?',row.id);if(!online.has(row.id))this.notice(leaveNotice(row.name));}
-    this.sql.exec('DELETE FROM presence WHERE leave_due IS NULL AND joined<?',now-86400000);await this.pokerAlarm();await this.arcadeAlarm();await this.schedule();}
+    this.sql.exec('DELETE FROM presence WHERE leave_due IS NULL AND joined<?',now-86400000);await this.pokerAlarm();await this.raceRecover();await this.arcadeAlarm();await this.schedule();}
   // ── 포커: 방마다 테이블 하나. 덱·남의 패는 이 DO 안에만 있고 손님에게는 각자 view()만 보낸다 ──
   pokerState(){if(!this.pokerT){const row=this.sql.exec('SELECT data FROM poker WHERE id=1').toArray()[0];this.pokerT=row?JSON.parse(row.data):newTable();}return this.pokerT;}
   pokerSave(){this.sql.exec('INSERT INTO poker(id,data) VALUES(1,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data',JSON.stringify(this.pokerT));}
@@ -227,24 +228,25 @@ export class LandRoom{
   async pokerWallet(key,name,op,id,amount,extra={}){
     if(!key||!this.env.LAND_PLAYERS)return {ok:false,msg:'지갑에 연결할 수 없어요. 잠시 후 다시 해주세요.'};
     try{const r=await player(this.env,key).fetch(new Request('https://player/',{method:'POST',body:JSON.stringify({key,name,op,internal:true,id,issued:Date.now(),payload:{...extra,amount}})}));const data=await r.json();
-      if(!r.ok)return {ok:false,msg:data.msg||'지갑 처리에 실패했어요.'};
+      if(!r.ok)return {ok:false,status:r.status,msg:data.msg||'지갑 처리에 실패했어요.'};
       const balance=data.wallet?.balance;if(Number.isSafeInteger(balance)){for(const ws of this.sockets()){const a=ws.deserializeAttachment();if(a.key===key&&!a.bridge)this.send(ws,{type:'wallet',balance});}Promise.resolve().then(()=>saveRank(this.env,key,data.resident?.name||name,balance)).catch(e=>console.error('poker rank',e.message));}
       return {ok:true,balance};
     }catch{return {ok:false,msg:'지갑에 연결할 수 없어요. 잠시 후 다시 해주세요.'};}
   }
   async pokerAlarm(){const run=async()=>{const now=Date.now(),t=this.pokerState(),due=nextDue(t);if(due!=null&&due<=now)await this.pokerCommit(pokerTick(t,now),now);else await this.pokerPay();};return this.ctx.blockConcurrencyWhile?this.ctx.blockConcurrencyWhile(run):run();}
   // ── 🚀 크래시 · 🔫 총쏘기 서바이벌 · 🎁 초코 선물: 포커와 같은 길(상태 표 → 정산 표 → 지갑 → 화면 → 알람) ──
-  arcadeState(game){if(!this.arcadeS[game]){const row=this.sql.exec('SELECT data FROM arcade WHERE game=?',game).toArray()[0];this.arcadeS[game]=row?JSON.parse(row.data):game==='crash'?newCrash():game==='duel'?newDuel():newParty();}return this.arcadeS[game];}
+  arcadeState(game){if(!this.arcadeS[game]){const row=this.sql.exec('SELECT data FROM arcade WHERE game=?',game).toArray()[0];this.arcadeS[game]=row?JSON.parse(row.data):game==='crash'?newCrash():game==='duel'?newDuel():game==='horse'?newRace():newParty();if(game==='horse')this.arcadeSave(game);}return this.arcadeS[game];}
   arcadeSave(game){this.sql.exec('INSERT INTO arcade(game,data) VALUES(?,?) ON CONFLICT(game) DO UPDATE SET data=excluded.data',game,JSON.stringify(this.arcadeS[game]));}
-  arcadeView(game,id,now){const s=this.arcadeState(game);return game==='crash'?crashView(s,id,now):game==='duel'?duelView(s,id,now):partyView(s,id,now);}
+  arcadeView(game,id,now){const s=this.arcadeState(game);return game==='crash'?crashView(s,id,now):game==='duel'?duelView(s,id,now):game==='horse'?raceView(s,id,now):partyView(s,id,now);}
   arcadePush(game,now=Date.now()){for(const ws of this.sockets()){const a=ws.deserializeAttachment();if(a.arcade===game&&!a.bridge)this.send(ws,{type:'arcade',game,view:this.arcadeView(game,a.id,now)});}}
   payout(c,now,op='roomCashOut',extra=null){this.sql.exec('INSERT INTO poker_payouts(id,key,name,amount,created,due,op,extra) VALUES(?,?,?,?,?,?,?,?)',crypto.randomUUID(),c.key,c.name,c.amount,now,now,op,JSON.stringify(extra||{game:c.game,reason:c.reason}));}
   winBroadcast(n,id){this.notice(n,id);const here=this.roomKey,others=NOTICE.winRooms.filter(k=>k!==here);if(this.env.LAND_ROOMS&&others.length)Promise.all(others.map(k=>room(this.env,k).fetch(new Request('https://room/notice',{method:'POST',body:JSON.stringify({notice:n,id})})))).catch(e=>console.error('arcade notice',e.message));}
   async arcadeMessage(ws,a,m,now){
-    if(a.chatOnly||typeof m.op!=='string'||!['crash','party','duel','gift'].includes(m.game))return;
+    if(a.chatOnly||typeof m.op!=='string'||!['crash','party','duel','gift','horse'].includes(m.game))return;
     if(a.room)this.roomKey=a.room;
     const err=msg=>this.send(ws,{type:'arcadeError',game:m.game,msg});
     if(m.game==='gift'){if(m.op==='send')await this.giftMessage(ws,a,m,now,err);return;}
+    if(m.game==='horse'&&m.op==='bet'){await this.raceMessage(ws,a,m,now,err);return;}
     const game=m.game,s=this.arcadeState(game),who={id:a.id,key:a.key,name:a.name};let ev={cashOuts:[],wins:[]};
     try{
       if(m.op==='watch'){a.arcade=m.on===false?null:game;ws.serializeAttachment(a);if(a.arcade)this.send(ws,{type:'arcade',game,view:this.arcadeView(game,a.id,now)});return;}
@@ -270,10 +272,33 @@ export class LandRoom{
     }catch(e){if(!e.arcade)throw e;err(e.message);return;}
     await this.arcadeCommit(game,ev);
   }
-  async arcadeCommit(game,ev,now=Date.now()){this.arcadeSave(game);for(const c of ev.cashOuts)this.payout(c,now);
+  async arcadeCommit(game,ev,now=Date.now()){const commit=()=>{this.arcadeSave(game);for(const c of ev.cashOuts)this.payout(c,now);};if(this.ctx.storage.transactionSync)this.ctx.storage.transactionSync(commit);else commit();
     for(const w of ev.wins){const n=winNotice(w.name,{game:w.game,bet:w.bet,payout:w.payout});if(n)this.winBroadcast(n,(this.roomKey||'')+':'+w.noticeId);}
     this.arcadePush(game,now);await this.pokerPay();await this.schedule();}
-  async arcadeAlarm(){const run=async()=>{for(const game of ['crash','party','duel']){const now=Date.now(),s=this.arcadeState(game),due=game==='crash'?crashDue(s):game==='duel'?duelDue(s):partyDue(s,now);if(due==null||due>now)continue;const ev=game==='crash'?crashTick(s,now):game==='duel'?duelTick(s,now):partyTick(s,now);await this.arcadeCommit(game,ev,now);}};return this.ctx.blockConcurrencyWhile?this.ctx.blockConcurrencyWhile(run):run();}
+  async arcadeAlarm(){const run=async()=>{for(const game of ['crash','party','duel','horse']){const now=Date.now(),s=this.arcadeState(game),due=game==='crash'?crashDue(s):game==='duel'?duelDue(s):game==='horse'?raceDue(s,now):partyDue(s,now);if(due==null||due>now)continue;const ev=game==='crash'?crashTick(s,now):game==='duel'?duelTick(s,now):game==='horse'?raceTick(s,now):partyTick(s,now);await this.arcadeCommit(game,ev,now);}};return this.ctx.blockConcurrencyWhile?this.ctx.blockConcurrencyWhile(run):run();}
+  // 경마 참가 요청을 지갑 호출 전에 기록한다. 응답 유실/DO 재시작에도 같은 지갑 요청 번호로 복구한다.
+  async raceMessage(ws,a,m,now,err){
+    if(!/^[0-9a-f-]{36}$/i.test(m.requestId||'')||!Number.isSafeInteger(m.issued)||Math.abs(now-m.issued)>300000){err('요청 시간이 지났어요. 새로고침 후 참가해주세요.');return;}
+    const old=this.sql.exec('SELECT * FROM race_requests WHERE id=?',m.requestId).toArray()[0];
+    if(old){const p=JSON.parse(old.data);if(old.key!==a.key||p.bet!==m.bet||p.choice!==m.choice||p.clientRound!==m.round||p.raceId!==m.raceId){err('같은 요청 번호의 내용이 달라요.');return;}if(old.state==='pending')await this.raceRecoverOne(old);this.send(ws,{type:'arcade',game:'horse',view:this.arcadeView('horse',a.id,Date.now())});return;}
+    const s=this.arcadeState('horse');
+    try{if(m.round!==s.round||m.raceId!==s.id)throw Object.assign(Error('새 경주표를 확인한 뒤 참가해주세요.'),{arcade:true});checkRaceBet(s,a,m.bet,m.choice,now);}catch(e){err(e.message);return;}
+    const p={id:m.requestId,key:a.key,name:a.name,resident:a.id,bet:m.bet,choice:m.choice,clientRound:m.round,raceId:s.id,round:s.round+(s.phase==='idle'?1:0)};
+    this.sql.exec('INSERT INTO race_requests VALUES(?,?,?,?,?,?)',p.id,a.key,JSON.stringify(p),'pending',now,now);
+    a.arcade='horse';ws.serializeAttachment(a);await this.schedule();
+    const ok=await this.raceRecoverOne({id:p.id,data:JSON.stringify(p)});if(!ok)err('참가 결제를 확인하고 있어요. 같은 판에 다시 걸지 않아도 자동으로 확인해요.');
+    await this.schedule();
+  }
+  async raceRecoverOne(row){
+    const p=JSON.parse(row.data),now=Date.now(),paid=await this.pokerWallet(p.key,p.name,'roomBuyIn',p.id,p.bet,{game:'horse'});
+    if(!paid.ok){if(paid.status>=400&&paid.status<500){this.sql.exec("UPDATE race_requests SET state='failed',due=NULL WHERE id=?",p.id);for(const ws of this.sockets())if(ws.deserializeAttachment().key===p.key)this.send(ws,{type:'arcadeError',game:'horse',msg:paid.msg});return true;}this.sql.exec('UPDATE race_requests SET due=? WHERE id=?',now+5000,p.id);return false;}
+    const s=this.arcadeState('horse'),who={id:p.resident,key:p.key,name:p.name,requestId:p.id},refund=[];
+    try{if(s.id!==p.raceId||s.round+(s.phase==='idle'?1:0)!==p.round)throw Error('지난 경주');raceBet(s,who,p.bet,p.choice,now);}catch{if(!s.bets.some(b=>b.requestId===p.id))refund.push({...who,amount:p.bet,game:'horse',reason:'refund'});}
+    const commit=()=>{this.arcadeSave('horse');for(const c of refund)this.payout(c,now);this.sql.exec("UPDATE race_requests SET state='done',due=NULL WHERE id=?",p.id);};
+    if(this.ctx.storage.transactionSync)this.ctx.storage.transactionSync(commit);else commit();
+    this.arcadePush('horse',now);await this.pokerPay();return true;
+  }
+  async raceRecover(){const run=async()=>{for(const row of this.sql.exec("SELECT * FROM race_requests WHERE state='pending' AND due<=? LIMIT 20",Date.now()).toArray())await this.raceRecoverOne(row);this.sql.exec("DELETE FROM race_requests WHERE state<>'pending' AND created<?",Date.now()-7*86400000);};return this.ctx.blockConcurrencyWhile?this.ctx.blockConcurrencyWhile(run):run();}
   // 선물: 같은 광장에 지금 있는 주민에게만. 보내는 사람 지갑에서 먼저 빼고, 받는 사람 몫(수수료 뺀 값)은 정산 표로 넘겨 재시도한다
   async giftMessage(ws,a,m,now,err){
     const amount=Number(m.amount);if(!Number.isSafeInteger(amount)||amount<GIFT.min||amount>GIFT.max){err('선물은 '+GIFT.min+'~'+GIFT.max.toLocaleString('ko-KR')+'초코로 보낼 수 있어요.');return;}

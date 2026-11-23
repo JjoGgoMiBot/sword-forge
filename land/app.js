@@ -1,13 +1,13 @@
 import {tarotPhoto} from './tarot-photo.js?v=1';
 import {WORLD,BUILDINGS,BOUNDARY,OFFSET,SHIRTS,SKINS,avatar,move,near} from './world.js?v=4';
-import {drawResident,drawResidentFast} from './resident-art.js?v=4';
+import {drawResident,drawResidentFast} from './resident-art.js?v=5';
 import {isActivity,connectDiscordVoice} from './discord-voice.js';
-import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=12';
-import {raceMarkup,playRace,RACE} from './race-script.js?v=1';
-import {createPoker} from './poker-ui.js?v=1';
-import {createArcade,ARCADE_TABS,ARCADE_RULES} from './arcade-ui.js?v=6';
-import {getSound} from './sound/sound.js?v=1';
-import {casinoCues,fortuneCues,PREWARM} from './sound/cues.js?v=1';
+import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=13';
+import {raceMarkup,playRace,RACE} from './race-script.js?v=2';
+import {createPoker} from './poker-ui.js?v=2';
+import {createArcade,ARCADE_TABS,ARCADE_RULES} from './arcade-ui.js?v=7';
+import {getSound} from './sound/sound.js?v=2';
+import {casinoCues,fortuneCues,PREWARM} from './sound/cues.js?v=2';
 import {mountSoundControl} from './sound/ui.js?v=1';
 // 소리: 첫 입력 전에는 AudioContext 를 만들지 않는다(sound.js). 첫 입력 뒤 자주 쓰는 소리를 미리 그린다.
 const sound=getSound();let soundRun={cancel(){}};
@@ -19,15 +19,15 @@ const money=n=>Number(n||0).toLocaleString('ko-KR'),h=s=>String(s??'').replace(/
 const store={get:(k,session=false)=>{try{return JSON.parse((session?sessionStorage:localStorage).getItem(k));}catch{return null;}},set:(k,v,session=false)=>{try{const s=session?sessionStorage:localStorage;v===null?s.removeItem(k):s.setItem(k,JSON.stringify(v));}catch{}}};
 let account=store.get('swordforge-acc'),profile=null,forge=null,socket=null,self=null,peers=new Map(),messages=[],chatPending=new Map(),epoch=0,reconnectTimer=null,reconnectCount=0,manualDisconnect=false,activeRoom='public:1',authMode='login',busy=false,venue=null,fortuneTab='daily',casinoTab='slots',lastResult=null,lastBet=100,casinoFx=null,selectedAvatar={shirt:0,hat:0},deck=null,linkCommand='',linkTimer=null,toastTimer=null;
 const position={...WORLD.spawn},held=new Set(),movingKeys=new Map([['KeyW',[0,-1]],['ArrowUp',[0,-1]],['KeyS',[0,1]],['ArrowDown',[0,1]],['KeyA',[-1,0]],['ArrowLeft',[-1,0]],['KeyD',[1,0]],['ArrowRight',[1,0]]]);
-const GAME_NAMES={slots:'슬롯',blackjack:'블랙잭',dice:'홀짝',horse:'개인 경마',rps:'가위바위보',poker:'포커',quiz:'초성퀴즈',ledger:'이용 기록',...ARCADE_TABS};
+const GAME_NAMES={slots:'슬롯',blackjack:'블랙잭',dice:'홀짝',horse:'경마',rps:'가위바위보',poker:'포커',quiz:'초성퀴즈',ledger:'이용 기록',...ARCADE_TABS};
 // 탭이 많아 묶음(혼자·함께·그 밖)을 먼저 고르고 그 안의 게임을 고른다
-const GAME_GROUPS={solo:['혼자 하기',['slots','blackjack','dice','rps','horse','roulette','hilo','mines','baccarat','wheel','luckybox']],live:['함께 하기',['crash','party','duel','poker']],etc:['그 밖',['gift','beg','quiz','ledger']]};
+const GAME_GROUPS={solo:['혼자 하기',['slots','blackjack','dice','rps','roulette','hilo','mines','baccarat','wheel','luckybox']],live:['함께 하기',['horse','crash','party','duel','poker']],etc:['그 밖',['gift','beg','quiz','ledger']]};
 // 포커는 방(LandRoom)이 판을 돌리고 소켓으로 상태를 보낸다. 탭을 열면 구경(watch)을 켜고 닫으면 끈다.
-const poker=createPoker({money,h,toast,balance:()=>profile?.wallet?.balance||0,send:m=>{if(socket?.readyState===1)socket.send(JSON.stringify({type:'poker',...m}));else toast('마을 연결이 끊겼어요. 잠시 뒤 다시 해주세요.');}});
+const poker=createPoker({money,h,toast,sound,balance:()=>profile?.wallet?.balance||0,send:m=>{if(socket?.readyState===1)socket.send(JSON.stringify({type:'poker',...m}));else toast('마을 연결이 끊겼어요. 잠시 뒤 다시 해주세요.');}});
 let pokerWatching=false;
 function pokerWatch(on){if(pokerWatching===on)return;pokerWatching=on;if(socket?.readyState===1)socket.send(JSON.stringify({type:'poker',op:'watch',on}));}
 setInterval(()=>{if(pokerWatching)poker.tick();},250);
-const arcade=createArcade({money,h,toast,act,fx:(stage,outcome,game)=>{playCasinoFx(stage,{outcome,game});soundRun.cancel();soundRun=sound.cue(casinoCues(game,outcome,{reduced:reduceMotion()}));},balance:()=>profile?.wallet?.balance||0,wallet:()=>profile?.wallet||{},round:()=>profile?.arcade||null,
+const arcade=createArcade({money,h,toast,act,sound,history:()=>profile?.baccaratHistory||[],fx:(stage,outcome,game,delay=0)=>{playCasinoFx(stage,{outcome,game,delay});soundRun.cancel();soundRun=sound.cue(casinoCues(game,outcome,{reduced:reduceMotion()}).map(c=>({...c,at:c.at+delay})));},balance:()=>profile?.wallet?.balance||0,wallet:()=>profile?.wallet||{},round:()=>profile?.arcade||null,
   peers:()=>[...peers.values()].filter(p=>p.id!==self&&p.name).map(p=>({id:p.id,name:p.name})),
   send:m=>{if(socket?.readyState===1)socket.send(JSON.stringify({type:'arcade',...m}));else if(m.op!=='watch')toast('마을 연결이 끊겼어요. 잠시 뒤 다시 해주세요.');},
   refresh:tab=>{if(tab)casinoTab=tab;if(venue==='casino'&&profile)renderCasino();}});
@@ -133,13 +133,13 @@ $('roomSelect').onchange=()=>account?joinRoom($('roomSelect').value):(toast('로
 setInterval(()=>{if(socket?.readyState===1)socket.send('ping');if(sidebarSocket?.readyState===1)sidebarSocket.send('ping');},25000);
 $('voiceButton').onclick=()=>{if(activeRoom.startsWith('d:')){const [,guild,channel]=activeRoom.split(':');window.open('https://discord.com/channels/'+guild+'/'+channel,'_blank','noopener,noreferrer');}else{toast('프로필에서 Discord를 연결하고 음성방 광장을 선택해주세요.');if(account)showProfile();else showAuth();}};
 function showProfile(){if(!profile){refresh().then(showProfile).catch(e=>toast(e.message));return;}$('profileName').textContent=account.name+' 주민';$('residentId').textContent='주민번호 '+profile.resident.id.slice(0,8)+' · 외형이 바뀌어도 기록은 그대로';selectedAvatar=avatar(profile.resident.avatar);renderAvatarChoices();renderExtraAvatar();renderDiscord();open($('profileDialog'));}
-function renderAvatarChoices(){const shirts=$('shirtChoices');shirts.replaceChildren();SHIRTS.forEach((color,index)=>{const button=document.createElement('button');button.className='swatch';button.style.setProperty('--swatch',color);button.setAttribute('aria-label',['벽돌','파랑','풀','분홍','모래','청록','보라','먹색'][index]+' 옷');button.setAttribute('aria-pressed',String(index===selectedAvatar.shirt));button.onclick=()=>{selectedAvatar.shirt=index;renderAvatarChoices();renderExtraAvatar();};shirts.append(button);});const hats=$('hatChoices');hats.replaceChildren();['모자 없이','베레모','고양이 귀','작은 왕관'].forEach((name,index)=>{const button=document.createElement('button');button.textContent=name;button.setAttribute('aria-pressed',String(index===selectedAvatar.hat));button.onclick=()=>{selectedAvatar.hat=index;renderAvatarChoices();renderExtraAvatar();};hats.append(button);});}
+function renderAvatarChoices(){const shirts=$('shirtChoices');shirts.replaceChildren();SHIRTS.forEach((color,index)=>{const button=document.createElement('button');button.className='swatch';button.style.setProperty('--swatch',color);button.setAttribute('aria-label',['벽돌','파랑','풀','분홍','모래','청록','보라','먹색'][index]+' 옷');button.setAttribute('aria-pressed',String(index===selectedAvatar.shirt));button.onclick=()=>{selectedAvatar.shirt=index;renderAvatarChoices();renderExtraAvatar();};shirts.append(button);});$('hatChoices').replaceChildren();$('hatChoices').hidden=true;}
 const avatarExtras=document.createElement('section');
-avatarExtras.innerHTML='<div class="avatar-preview-row"><canvas id="avatarPreview" width="240" height="300" aria-label="선택한 주민 모습 미리보기"></canvas><div><strong>나만의 작은 주민</strong><p class="muted">옷·모자·볼 색·소품을<br>골라보고 저장해요.</p></div></div><h3>볼 색</h3><div class="swatches" id="skinChoices"></div><h3>소품</h3><div class="hat-choices" id="accessoryChoices"></div>';
+avatarExtras.innerHTML='<div class="avatar-preview-row"><canvas id="avatarPreview" width="240" height="300" aria-label="선택한 주민 모습 미리보기"></canvas><div><strong>나만의 작은 주민</strong><p class="muted">옷과 볼 색을<br>골라보고 저장해요.</p></div></div><h3>볼 색</h3><div class="swatches" id="skinChoices"></div>';
 $('saveAvatar').before(avatarExtras);
 function renderExtraAvatar(){
  const skin=$('skinChoices');skin.replaceChildren();SKINS.forEach((color,index)=>{const b=document.createElement('button');b.className='swatch';b.style.setProperty('--swatch',color);b.setAttribute('aria-label','피부 톤 '+(index+1));b.setAttribute('aria-pressed',String(index===selectedAvatar.skin));b.onclick=()=>{selectedAvatar.skin=index;renderExtraAvatar();};skin.append(b);});
- const accessories=$('accessoryChoices');accessories.replaceChildren();['소품 없이','동그란 안경','헤드폰','목도리'].forEach((name,index)=>{const b=document.createElement('button');b.textContent=name;b.setAttribute('aria-pressed',String(index===selectedAvatar.accessory));b.onclick=()=>{selectedAvatar.accessory=index;renderExtraAvatar();};accessories.append(b);});
+
  if(townView?.preview){townView.preview($('avatarPreview'),selectedAvatar);return;}
  const c=$('avatarPreview').getContext('2d'),a=avatar(selectedAvatar);c.setTransform(2,0,0,2,0,0);c.clearRect(0,0,120,150);c.fillStyle='#e6ddcb';c.beginPath();c.ellipse(60,124,25,7,0,0,Math.PI*2);c.fill();c.translate(60,124);c.scale(1.45,1.45);drawResident(c,a);c.setTransform(1,0,0,1,0,0);
 }
@@ -260,7 +260,7 @@ function renderCasino(){const box=$('venueContent'),wallet=profile.wallet;let ht
 }
 function casinoTabs(){const group=Object.keys(GAME_GROUPS).find(k=>GAME_GROUPS[k][1].includes(casinoTab))||'solo';return '<div class="venue-groups" role="group" aria-label="게임 묶음">'+Object.entries(GAME_GROUPS).map(([id,[name,list]])=>'<button data-casino-tab="'+(id===group?casinoTab:list[0])+'" aria-pressed="'+(id===group)+'">'+name+' <small>'+list.length+'</small></button>').join('')+'</div><div class="venue-tabs">'+GAME_GROUPS[group][1].map(id=>'<button data-casino-tab="'+id+'" aria-pressed="'+(id===casinoTab)+'">'+GAME_NAMES[id]+'</button>').join('')+'</div>';}
 function betControls(){let choice='';if(casinoTab==='dice')choice='<label>내 선택<select id="gameChoice"><option value="odd">홀수</option><option value="even">짝수</option></select></label>';if(casinoTab==='rps')choice='<label>내 선택<select id="gameChoice">'+Object.entries(RPS).map(([id,name])=>'<option value="'+id+'">'+name+'</option>').join('')+'</select></label>';if(casinoTab==='horse')choice='<label>응원할 말<select id="gameChoice">'+profile.race.horses.map((horse,i)=>'<option value="'+i+'">'+h(horse.name)+' · '+(horse.rate/10).toFixed(1)+'배</option>').join('')+'</select></label>';return '<div class="casino-controls"><label>베팅 초코<input id="betInput" type="number" inputmode="numeric" min="10" max="5000" step="1" value="'+Math.min(5000,Math.max(10,lastBet||100))+'"></label>'+choice+'<button class="primary" data-action="play">'+(casinoTab==='blackjack'?'카드 받기':'한 판 시작')+'</button></div><p class="status-note">10~5,000초코 · 확정하면 베팅금이 차감돼요. 자동 연속 베팅은 없어요.</p>';}
-function casinoRules(game){const rules={poker:'텍사스 홀덤 노리밋, 블라인드 10/20, 최대 6명. 서버가 매 판 52장을 새로 섞어 나눠 주고, 다른 사람 패는 쇼다운 전까지 누구에게도 보내지 않아요. 사람이 앉으면 빈자리는 봇이 채워요(봇도 자기 패와 보드만 봐요). 내 차례는 20초, 넘기면 체크할 수 있으면 체크·아니면 폴드되고, 두 번 연속이면 판이 끝날 때 자리에서 일어나요. 일어나면 남은 칩이 바로 지갑으로 돌아와요.',slots:'세 그림 일치: 체리 4배, 레몬 6배, 포도 10배, 종 20배, 별 50배, 다이아 120배, 7은 777배. 두 그림 일치: 체리 1.5배, 나머지 1.2배. 그림 가중치는 순서대로 30·24·18·13·8·5·2입니다.',dice:'두 개의 공정한 주사위를 굴려 합계를 맞혀요. 맞히면 1.9배, 틀리면 0. 지급액의 소수점은 버립니다.',blackjack:'4덱을 매 판 새로 섞어요. 딜러는 소프트 17에서도 멈춰요. 일반 승리 2배, 내추럴 블랙잭 2.5배, 무승부 원금 반환. 첫 선택에서만 더블할 수 있어요. 보험·스플릿은 없습니다.',horse:'각 말의 승률은 경주표 생성 시 정해지며, 배당은 0.92/승률을 소수 첫째 자리에서 내린 값입니다. 다른 이용자와 결과를 공유하지 않는 개인 경주예요.',rps:'봇은 가위·바위·보를 같은 확률로 선택해요. 이기면 2배, 비기면 원금 반환, 지면 0입니다.',quiz:'정답은 서버에서 확인해요. 한 문제 세 번까지, 제한 시간 90초. 정답마다 40초코, 하루 25번까지 보상해요. 다음 문제까지 10초 쉬어요.',ledger:'재시작·새로고침 뒤에도 서버의 잔액과 정산 기록이 유지돼요. 결과 확인이 안 된 요청은 같은 번호로 다시 조회합니다.'};return '<details class="rules"><summary>규칙과 지급 기준</summary><p>'+h(rules[game]||ARCADE_RULES[game]||'')+'</p><p>랜드 초코는 현금 가치·환전·대장간 골드 교환이 없어요. 출석 300초코, 잔액 100 미만이면 하루 한 번 응원 300초코를 받을 수 있어요.</p></details>';}
+function casinoRules(game){const rules={poker:'텍사스 홀덤 노리밋, 블라인드 10/20, 최대 6명. 서버가 매 판 52장을 새로 섞어 나눠 주고, 다른 사람 패는 쇼다운 전까지 누구에게도 보내지 않아요. 사람이 앉으면 빈자리는 봇이 채워요(봇도 자기 패와 보드만 봐요). 내 차례는 20초, 넘기면 체크할 수 있으면 체크·아니면 폴드되고, 두 번 연속이면 판이 끝날 때 자리에서 일어나요. 일어나면 남은 칩이 바로 지갑으로 돌아와요.',slots:'세 그림 일치: 체리 4배, 레몬 6배, 포도 10배, 종 20배, 별 50배, 다이아 120배, 7은 777배. 두 그림 일치: 체리 1.5배, 나머지 1.2배. 그림 가중치는 순서대로 30·24·18·13·8·5·2입니다.',dice:'두 개의 공정한 주사위를 굴려 합계를 맞혀요. 맞히면 1.9배, 틀리면 0. 지급액의 소수점은 버립니다.',blackjack:'4덱을 매 판 새로 섞어요. 딜러는 소프트 17에서도 멈춰요. 일반 승리 2배, 내추럴 블랙잭 2.5배, 무승부 원금 반환. 첫 선택에서만 더블할 수 있어요. 보험·스플릿은 없습니다.',horse:'각 말의 승률은 경주표 생성 시 정해지며, 배당은 0.92/승률을 소수 첫째 자리에서 내린 값입니다. 첫 참가 후 60초 동안 같은 광장에서 참가를 받고 출발해요. 혼자여도 출발하며 모두 같은 경주를 봐요.',rps:'봇은 가위·바위·보를 같은 확률로 선택해요. 이기면 2배, 비기면 원금 반환, 지면 0입니다.',quiz:'정답은 서버에서 확인해요. 한 문제 세 번까지, 제한 시간 90초. 정답마다 40초코, 하루 25번까지 보상해요. 다음 문제까지 10초 쉬어요.',ledger:'재시작·새로고침 뒤에도 서버의 잔액과 정산 기록이 유지돼요. 결과 확인이 안 된 요청은 같은 번호로 다시 조회합니다.'};return '<details class="rules"><summary>규칙과 지급 기준</summary><p>'+h(rules[game]||ARCADE_RULES[game]||'')+'</p><p>랜드 초코는 현금 가치·환전·대장간 골드 교환이 없어요. 출석 300초코, 잔액 100 미만이면 하루 한 번 응원 300초코를 받을 수 있어요.</p></details>';}
 setInterval(()=>{if(venue==='casino'&&profile?.quiz&&$('quizTime'))$('quizTime').textContent=Math.max(0,Math.ceil((profile.quiz.expires-Date.now())/1000));},1000);
 // Native canvas art: an isometric floor, tiny houses and customizable residents.
 const canvas=$('world'),ctx=canvas.getContext('2d');let width=0,height=0,zoom=1,camera={x:0,y:0};
@@ -295,7 +295,7 @@ function drawGround(){
 }
 const minimap=$('minimap'),mini=minimap.getContext('2d');
 let townView=null;
-import('./scene-illustrated.js?v=8').then(module=>module.createIllustratedTown($('stage'))).then(view=>{townView=view;$('world').style.opacity='0';}).catch(error=>{console.warn('Illustrated renderer unavailable:',error.message);toast('일러스트를 불러오지 못해 간단한 마을로 표시해요. 이동과 게임은 이용할 수 있어요.');});
+import('./scene-illustrated.js?v=9').then(module=>module.createIllustratedTown($('stage'))).then(view=>{townView=view;$('world').style.opacity='0';}).catch(error=>{console.warn('Illustrated renderer unavailable:',error.message);toast('일러스트를 불러오지 못해 간단한 마을로 표시해요. 이동과 게임은 이용할 수 있어요.');});
 // 미니맵: 땅 전체(숲 포함)를 그리고, 걸을 수 있는 초원을 밝게, 실제 화면 카메라 범위를 사각형으로 보여 준다.
 function drawMinimap(){const W=minimap.width,H=minimap.height,sx=W/WORLD.width,sy=H/WORLD.height,view=townView?.camera||{x:camera.x,y:camera.y,w:width/zoom,h:height/zoom};mini.clearRect(0,0,W,H);mini.fillStyle='#3f5233';mini.fillRect(0,0,W,H);mini.beginPath();BOUNDARY.forEach((p,i)=>i?mini.lineTo(p.x*sx,p.y*sy):mini.moveTo(p.x*sx,p.y*sy));mini.closePath();mini.fillStyle='#c7d9ae';mini.fill();mini.font='600 10px "Noto Sans KR",sans-serif';for(const b of BUILDINGS){const x=b.x*sx,y=b.y*sy,side=b.x<WORLD.width/2-100?-1:b.x>WORLD.width/2+100?1:0;mini.fillStyle=b.roof;mini.fillRect(x-5,y-7,10,7);
   // 건물이 가까워 이름이 겹치므로 왼쪽 건물은 왼쪽으로, 오른쪽 건물은 오른쪽으로, 가운데는 위로 붙인다.

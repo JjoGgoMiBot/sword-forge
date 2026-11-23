@@ -303,3 +303,53 @@
 .tarot-card.is-reversed .tarot-photo{transform:rotate(180deg)}
 .deck-item .tarot-photo{width:32px;height:32px}
 .card-back,.card-back:hover{background:#274536 url(assets/photo/arcade-card-back.webp) center/100% 100%;border:0}
+
+/* Claude VFX adapter and physical card/table materials. */
+.ac-stage,.pk-table,.casino-stage{position:relative;isolation:isolate}
+.land-native-vfx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:8}
+.rr-unknown{background-position:0 100%}.rr-empty{box-shadow:inset 0 0 0 1px #99b9a36e}
+.rr-photo{filter:drop-shadow(0 8px 3px #040807aa) drop-shadow(0 2px 0 #718188);transform-style:preserve-3d}
+.ac-cylinder{perspective:900px}
+.ac-cylinder:after{content:'';position:absolute;inset:24px 16px 34px;border-radius:50%;background:linear-gradient(120deg,#fff7d621,transparent 43%,#00040b29);pointer-events:none;mix-blend-mode:screen}
+.pk-table{background:url(assets/photo/poker-table-photo.png) center/100% 100% no-repeat;filter:drop-shadow(0 8px 5px #20160f3d)}
+.pk-felt{background:transparent;border:0;border-radius:0;padding:24px;inset:7%}
+.pk-card:not(.slot){background:#efe3c4 url(assets/photo/ac-card-face.webp) center/100% 100%;box-shadow:0 2px 4px #0005}
+.pk-card.back{background:#254537 url(assets/photo/arcade-card-back.webp) center/100% 100%}
+.pk-card.slot{border-color:#dbd2b768;border-style:dashed}
+.bacc-history{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:12px;margin:12px 0}
+.bacc-history>header{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:13px}.bacc-history>header>span{font-size:11px;color:var(--muted)}
+.bacc-legend{display:flex;gap:12px;font-size:12px;margin:7px 0}.bacc-legend .player{color:#2869b1}.bacc-legend .banker{color:#b54842}.bacc-legend .tie{color:#398452}
+.bacc-history summary{font-size:12px;cursor:pointer;padding:6px 0}.bacc-road-scroll{overflow:auto;overscroll-behavior-x:contain}
+.bacc-road{display:grid;grid-template-columns:repeat(var(--columns),24px);grid-template-rows:repeat(6,24px);width:max-content;min-width:100%;background:repeating-linear-gradient(0deg,#e8e2d8 0 1px,transparent 1px 24px),repeating-linear-gradient(90deg,#e8e2d8 0 1px,transparent 1px 24px);padding:1px}
+.bacc-dot{display:grid;place-items:center;width:19px;height:19px;border-radius:50%;margin:2px;color:#fff;background:#2869b1;font:700 10px/1 sans-serif;position:relative}.bacc-dot.banker{background:#b54842}.bacc-dot.tie{background:#398452}
+.bacc-dot.hollow{background:transparent;border:2px solid #2869b1}.bacc-dot.banker.hollow{border-color:#b54842}.bacc-dot.tie.hollow{border-color:#398452}
+.bacc-dot i{font-style:normal;color:#237a42;background:#f8fff8;border-radius:50%;font-size:9px;position:absolute;right:-4px;bottom:-2px;padding:1px 2px}
+.shared-race{display:block;background:#f1e8d5 url(assets/photo/arcade-racetrack.webp) center/cover;color:#392d24;padding:16px 8px}
+.shared-race-heading{display:flex;gap:8px;justify-content:space-between;padding:5px 8px;background:#fff8e9e8;border-radius:8px;font-size:12px;margin-bottom:10px}
+.shared-race .race-field{background:#fff9e8d9;border-radius:10px;padding:8px 4px;overflow:hidden}.shared-race .horse-pos{transition:transform .38s linear}
+.shared-race .horse-lane{animation:none!important}.shared-race.is-running .horse-runner{animation:shared-gallop .22s infinite alternate ease-in-out}
+.shared-race.is-running .gate-door{transform:rotateY(85deg)}.shared-race .ac-result{background:#fff9e9ed;color:#49372f;border-radius:8px;padding:8px;margin:10px 0 0}
+.shared-race .status-note{color:#49372f;background:#fff9e9e8;padding:5px;border-radius:6px}
+.shared-race-people{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}.shared-race-people span{font-size:11px;background:var(--soft);border-radius:8px;padding:3px 7px}
+@keyframes shared-gallop{from{translate:0 -2px;rotate:-2deg}to{translate:0 1px;rotate:2deg}}
+@media(max-width:600px){.pk-felt{padding:8px;inset:8%}.pk-table{aspect-ratio:1/1.2}}
+@media(prefers-reduced-motion:reduce){.shared-race .horse-pos{transition:none}.shared-race.is-running .horse-runner{animation:none}}
+
+/* 닫힌 캡 대신 깊은 약실을 보이며, 총알은 판 종료 때만 공개한다. */
+.rr-body{background-position:100% 0}
+.rr-body:after{content:'';position:absolute;inset:40%;border-radius:50%;background:url(assets/photo/roulette-states-photo.png) 21% 21%/720% 720%;box-shadow:0 1px 2px #000a}
+
+.shared-race{background:#234631 url(assets/photo/ac-felt.webp) center/250px}
+.shared-race-heading{width:100%}
+.shared-race .race-field{width:100%;min-width:0;justify-self:stretch;background:#385c2e url(assets/photo/ground-grass.webp) center/240px;padding:12px 10px}
+.shared-race .horse-lane{color:#fff8e8}
+.shared-race .horse-track{background:#aa8054 url(assets/photo/ground-path.webp) center/180px;border-top:2px solid #fffae9;border-bottom:1px solid #674a2a}
+
+.shared-race .race-field .horse-track{height:44px}
+.shared-race .race-field .horse-runner{width:64px;height:64px;top:calc(50% - 43px)}
+.shared-race .ac-result.win{color:#5c4218;background:#fff2d0}
+@media(max-width:420px){.shared-race .race-field .horse-track{height:36px}.shared-race .race-field .horse-runner{width:52px;height:52px;top:calc(50% - 35px)}}
+
+.bacc-dot.hollow.has-ties:after{content:'';position:absolute;width:19px;height:2px;left:-2px;top:6px;rotate:-45deg;background:#32824d;border-radius:1px}
+.bacc-dot.hollow.tie{border:0}
+.bacc-dot i{z-index:1}
