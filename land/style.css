@@ -119,3 +119,34 @@
 .race-photo{opacity:0}
 @media(max-width:420px){.race-field{padding:7px 7px 8px}.race-field .horse-lane{display:grid;grid-template-columns:1fr auto;grid-template-areas:"n o" "t t";row-gap:1px;font-size:11px}.race-field .horse-name{grid-area:n;width:auto}.race-field .horse-odds{grid-area:o;width:auto}.race-field .horse-track{grid-area:t;height:30px}.gate-stall{width:52px}.race-field .horse-runner{width:44px;height:44px;top:calc(50% - 23px)}.saddle.cloth{right:calc(100% + 16px);width:11px;height:11px;font-size:7.5px}.horse-pos:before{width:32px}.race-call{font-size:11.5px}.race-photo{min-width:170px;padding:8px 12px}}
 @media(prefers-reduced-motion:reduce){.fx-race .horse-lane.won:before{animation:none!important}}
+.blackjack-stage{min-height:0;padding:10px}.photo-ok .blackjack-stage{isolation:isolate}
+.bj-wrap{position:relative;overflow:hidden;border-radius:12px;background:#000;box-shadow:inset 0 0 0 1px #ffffff14}
+.bj-table{position:relative;container-type:inline-size;width:max(100%,440px);aspect-ratio:1000/603;left:50%;transform:translateX(-50%)}
+.bj-felt-art,.bj-print{position:absolute;inset:0;width:100%;height:100%;display:block}
+.bj-print{pointer-events:none}.bj-pays{font:700 27px Georgia,serif;letter-spacing:3px;fill:#e8c766}.bj-rule{font:600 15px Georgia,serif;letter-spacing:2.2px;fill:#f3ead2;opacity:.75}
+.bj-slot{position:absolute;width:8cqw;height:11.3cqw;will-change:transform,opacity}
+.bj-table .playing-card{position:absolute;inset:0;width:auto;height:auto;border:1px solid #0002;border-radius:.8cqw;background:#fdfcf8;box-shadow:0 .4cqw .9cqw #0007;color:#1b1b1b;overflow:hidden;font-weight:700;animation:none}
+.bj-table .playing-card:after{display:none}
+.bj-table .playing-card>span{position:absolute;left:.6cqw;top:.4cqw;display:flex;flex-direction:column;align-items:center;font:700 2.6cqw/1 Georgia,serif}
+.bj-table .playing-card>span i{font-style:normal;font-size:2.1cqw;margin-top:.2cqw}
+.bj-table .playing-card em{position:absolute;left:50%;top:55%;transform:translate(-50%,-50%);font:normal 5cqw/1 Georgia,serif}
+.bj-table .playing-card.red{color:#c0262d}
+.bj-table .playing-card.card-hidden{background:url('assets/photo/arcade-card-back.webp') center/100% 100%;border-color:#fff8}
+.fx-cards .bj-table .playing-card{animation:none}
+.fx-cards .bj-slot.deal{animation:bj-deal .33s cubic-bezier(.2,.75,.3,1) both;animation-delay:var(--dd)}
+@keyframes bj-deal{0%{opacity:0;transform:translate(var(--fx),var(--fy)) rotate(-90deg) scale(.85)}15%{opacity:1}100%{opacity:1;transform:none}}
+.fx-cards .bj-table .playing-card.flip{animation:bj-flip .3s both;animation-delay:var(--fd)}
+.fx-cards .bj-table .playing-card.flip:before{content:'';position:absolute;inset:0;z-index:3;background:url('assets/photo/arcade-card-back.webp') center/100% 100%;animation:bj-back .3s step-end both;animation-delay:var(--fd)}
+.bj-table .playing-card.flip:before{content:none}
+@keyframes bj-flip{0%{transform:scaleX(1);animation-timing-function:cubic-bezier(.5,0,.9,.6)}50%{transform:scaleX(.02);animation-timing-function:cubic-bezier(.1,.4,.5,1)}100%{transform:scaleX(1)}}
+@keyframes bj-back{0%{opacity:1}50%,100%{opacity:0}}
+.bj-total{position:absolute;z-index:20;transform:translateY(-50%);padding:.3cqw 1.2cqw;border:1px solid #e8c76688;border-radius:999px;background:#000b;color:#f3d88e;font:700 max(11px,2.3cqw)/1.2 Georgia,serif;white-space:nowrap}
+.fx-cards .bj-total,.fx-cards .bj-info .game-result{animation:bj-fade .3s ease-out both;animation-delay:var(--bj-end)}
+.fx-cards .outcome-banner{animation-delay:var(--bj-end)}
+@keyframes bj-fade{from{opacity:0}to{opacity:1}}
+.bj-bet{position:absolute;left:50%;top:49cqw;width:6cqw;height:6cqw;transform:translate(-50%,-50%)}
+.bj-bet img{position:absolute;left:0;top:calc(var(--i)*-.7cqw);width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 .3cqw .3cqw #0008)}
+.bj-empty{position:absolute;left:0;right:0;top:37.5cqw;margin:0;text-align:center;color:#f6ecd2;font-size:max(12px,2.4cqw);text-shadow:0 1px 3px #000}
+.bj-info{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 0}
+.photo-ok .blackjack-stage .bj-info .game-result,.bj-info .game-result{margin:0}
+@media(prefers-reduced-motion:reduce){.fx-cards .bj-slot,.fx-cards .bj-table .playing-card,.fx-cards .bj-table .playing-card:before,.fx-cards .bj-total,.fx-cards .bj-info .game-result{animation:none!important}.fx-cards .bj-table .playing-card.flip:before{display:none}}
