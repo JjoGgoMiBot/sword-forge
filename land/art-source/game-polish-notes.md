@@ -18,6 +18,8 @@
 
 ## 동작 및 검증 범위
 
+추가 실사 소재 `land/assets/photo/chips-photo.png`: built-in image_gen, transparent 3×2 atlas of six real clay chips, white/red/blue/green/black/purple, identical diameter, near-overhead camera, tactile ceramic grain, contrasting edge inlays, soft upper-left light, no printed text/numbers/labels/cards/hands/grid. 실행 시 액면가 1/5/10/25/100/500을 별도 텍스트로 표시한다. 칩 분해 합계는 0~9,999까지 전수 확인했다. 포커 팟·베팅 및 오락관 금액에 사용하며 색상/가치 안내와 간단 포커 규칙을 클릭해 펼칠 수 있다.
+
 - 모자·소품의 선택/표시만 비활성화하고 저장 값은 보존한다.
 - 바카라 최근 120판의 실제 개인 결과를 서버에 저장한다. 구슬판과 빅로드는 이 기록만 읽으며 과거 결과를 생성하지 않는다.
   빅로드의 6행·동일 결과 연속·막힌 열의 가로 꼬리·타이 겹쳐 표시 방식은 [운영사 규칙 문서](https://assets.lotoquebec.com/ressources/assets/v3/assets/blt8296e79a7001648c/bltacc37bad98da3666/69cbe029bf93fc4ab335956a/Big_Road_Baccarat_rules_en.pdf)와 대조했다.
