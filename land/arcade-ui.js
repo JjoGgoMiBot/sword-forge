@@ -27,7 +27,9 @@ const card = (c, h) => c ? '<span class="ac-card' + (c.suit === 1 || c.suit === 
 const x2 = m => '×' + (Math.floor(m * 100) / 100).toFixed(2);
 const secs = ms => Math.max(0, Math.ceil(ms / 1000));
 
-export function createArcade({money, h, toast, act, send, balance, wallet, round, peers, refresh}) {
+export function createArcade({money, h, toast, act, send, balance, wallet, round, peers, refresh, fx = () => {}}) {
+  let fxSeq = 0, fxKey = null; // 마지막으로 연출한 결과 문구. 탭을 막 연 때의 지난 결과는 다시 터뜨리지 않는다
+
   let box = null, game = null, watching = null, last = {}, at = 0, raf = 0;
   const views = {}, input = {bet: 100, auto: '', stake: 100, mines: 3, choice: {}, gift: 100, to: ''};
 
@@ -203,11 +205,14 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
     const focused = document.activeElement?.id;
     const html = STEP.includes(game) ? stepHtml() : ONE.includes(game) ? oneHtml() : game === 'beg' ? begHtml() : game === 'gift' ? giftHtml() : game === 'crash' ? crashHtml() : game === 'party' ? partyHtml() : duelHtml();
     box.innerHTML = html;
+    const res = box.querySelector('.ac-result'), key = res ? game + '|' + fxSeq + '|' + res.textContent : game;
+    if (fxKey !== null && key !== fxKey && res && (res.classList.contains('win') || res.classList.contains('loss'))) fx(box.querySelector('.ac-stage') || box, res.classList.contains('win') ? 'win' : 'loss', game);
+    fxKey = key;
     if (focused && box.querySelector('#' + focused)) box.querySelector('#' + focused).focus();
     if (game === 'crash') { drawCrash(); crashLoop(); }
   }
   async function run(op, payload, keep) {
-    try { const data = await act(op, payload); if (keep) last[game] = {...data.result}; refresh(); return data; } catch (e) { toast(e.message); refresh(); }
+    try { const data = await act(op, payload); if (keep) { last[game] = {...data.result}; fxSeq++; } refresh(); return data; } catch (e) { toast(e.message); refresh(); }
   }
   function onInput(e) {
     const id = e.target.id, n = Number(e.target.value);
@@ -246,6 +251,7 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
 
   return {
     mount(el, next) {
+      if (next !== game) fxKey = null;
       box = el; game = next;
       el.addEventListener('click', onClick);
       el.addEventListener('input', onInput);
