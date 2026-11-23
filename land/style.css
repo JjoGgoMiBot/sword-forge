@@ -271,3 +271,6 @@
 .ac-stage .ac-shoot:not(.go){color:var(--ink)}
 .ac-cylwrap{display:block;transition:transform .5s cubic-bezier(.3,1.4,.5,1)}
 @media(prefers-reduced-motion:reduce){.ac-cylwrap{transition:none}}
+
+.ac-slot{display:inline-block;width:46px;height:64px;border:1.5px dashed #d9b56a99;border-radius:7px;background:#0006}.ac-bacc.idle small{color:#f6d27a}.ac-pill{padding:3px 14px;border-radius:999px;background:#000a}
+.ac-baccarat{align-content:center;gap:14px}

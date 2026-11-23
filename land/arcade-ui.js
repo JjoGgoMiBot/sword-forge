@@ -33,7 +33,7 @@ const secs = ms => Math.max(0, Math.ceil(ms / 1000));
 export function createArcade({money, h, toast, act, send, balance, wallet, round, peers, refresh, fx = () => {}}) {
   let fxSeq = 0, fxKey = null; // 마지막으로 연출한 결과 문구. 탭을 막 연 때의 지난 결과는 다시 터뜨리지 않는다
 
-  let box = null, game = null, watching = null, last = {}, at = 0, raf = 0;
+  let box = null, game = null, watching = null, last = {}, at = 0, raf = 0, resetT = 0, doneId = {}, cylAt = {id: 0, deg: 0};
   const views = {}, input = {bet: 100, auto: '', stake: 100, mines: 3, choice: {}, gift: 100, to: ''};
 
   // ── 소켓 구독: 한 번에 한 게임만 본다 ──
@@ -50,7 +50,7 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
 
   // ── 단계형: 러시안 룰렛·하이로우·마인즈 ──
   function stepHtml() {
-    const r = round(), mine = r && r.game === game ? r : null, other = r && !r.done && r.game !== game;
+    const r = round(), mine = r && r.game === game && doneId[game] !== r.id ? r : null, other = r && !r.done && r.game !== game;
     if (other) return banner('진행 중인 ' + ARCADE_TABS[r.game] + ' 판이 있어요. 먼저 마쳐주세요.') + '<div class="inline-actions"><button class="primary" data-ac="goto" data-game="' + r.game + '">' + ARCADE_TABS[r.game] + ' 판으로 가기</button></div>';
     const live = mine && !mine.done;
     let html = '<div class="ac-stage ac-' + game + '">';
@@ -75,7 +75,7 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
   const stepEnd = g => ({bang: '탕! 총알이 나왔어요.', miss: '아쉽게 틀렸어요.', boom: '지뢰를 밟았어요.', cash: '멈추고 ' + money(g.payout) + '초코를 받았어요.', max: '끝까지 버텨 ' + money(g.payout) + '초코를 받았어요!'})[g.outcome] || '';
   function rouletteScene(g) {
     const shots = g?.shots || 0, boom = g?.done && g.outcome === 'bang';
-    return '<div class="ac-cylinder' + (boom ? ' boom' : '') + '" role="img" aria-label="6칸 중 ' + shots + '칸 당김">' + '<span class="ac-cylwrap" style="transform:rotate(' + shots * 60 + 'deg)">' + pic('cylinder', 'ac-cyl') + '</span>' + (boom ? pic('blast', 'ac-boom') : '') + '<b>' + (g ? shots + ' / 5' : '6칸') + '</b></div>';
+    return '<div class="ac-cylinder' + (boom ? ' boom' : '') + '" role="img" aria-label="6칸 중 ' + shots + '칸 당김">' + '<span class="ac-cylwrap" data-deg="' + shots * 60 + '" data-id="' + (g?.id || 0) + '" style="transform:rotate(' + (g && cylAt.id === String(g.id) ? cylAt.deg : shots * 60) + 'deg)">' + pic('cylinder', 'ac-cyl') + '</span>' + (boom ? pic('blast', 'ac-boom') : '') + '<b>' + (g ? shots + ' / 5' : '6칸') + '</b></div>';
   }
   function hiloScene(g) {
     if (!g) return '<p class="ac-empty">카드 한 장을 받고, 다음 카드가 높을지 낮을지 골라요.</p>';
@@ -94,7 +94,7 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
     const r = last[game];
     let html = '<div class="ac-stage ac-' + game + '">';
     if (r) html += summary([['베팅', money(r.bet) + ' C'], ['받은 돈', money(r.payout) + ' C', r.payout > r.bet ? 'win' : '']]);
-    if (game === 'baccarat') html += r ? '<div class="ac-bacc"><div><small>플레이어 ' + r.playerTotal + '</small><div class="ac-cards">' + r.player.map(c => card(c, h)).join('') + '</div></div><div><small>뱅커 ' + r.bankerTotal + '</small><div class="ac-cards">' + r.banker.map(c => card(c, h)).join('') + '</div></div></div>' + banner(({player: '플레이어', banker: '뱅커', tie: '타이'})[r.winner] + ' 승 · ' + (r.payout > r.bet ? '당첨!' : r.payout === r.bet ? '원금 반환' : '아쉬워요'), r.payout > r.bet ? 'win' : '') : '<p class="ac-empty">플레이어·뱅커 중 9에 가까운 쪽을 맞혀요.</p>';
+    if (game === 'baccarat') html += r ? '<div class="ac-bacc"><div><small>플레이어 ' + r.playerTotal + '</small><div class="ac-cards">' + r.player.map(c => card(c, h)).join('') + '</div></div><div><small>뱅커 ' + r.bankerTotal + '</small><div class="ac-cards">' + r.banker.map(c => card(c, h)).join('') + '</div></div></div>' + banner(({player: '플레이어', banker: '뱅커', tie: '타이'})[r.winner] + ' 승 · ' + (r.payout > r.bet ? '당첨!' : r.payout === r.bet ? '원금 반환' : '아쉬워요'), r.payout > r.bet ? 'win' : '') : '<div class="ac-bacc idle"><div><small>플레이어 1.9배</small><div class="ac-cards"><span class="ac-slot"></span><span class="ac-slot"></span></div></div><div><small>뱅커 1.88배</small><div class="ac-cards"><span class="ac-slot"></span><span class="ac-slot"></span></div></div></div><p class="ac-empty ac-pill">타이 10배 · 9에 가까운 쪽을 맞혀요.</p>';
     if (game === 'wheel') html += r ? '<div class="ac-wheelbox">' + pic('wheel', 'ac-wheel-img spin') + '<div class="ac-ball ' + r.color + '">' + r.number + '</div></div>' + banner(r.payout ? money(r.payout) + '초코 당첨!' : '이번엔 빗나갔어요.', r.payout ? 'win' : '') : '<div class="ac-wheelbox">' + pic('wheel', 'ac-wheel-img') + '</div><p class="ac-empty">0~36 중 공이 멈출 곳에 걸어요.</p>';
     if (game === 'luckybox') html += r ? '<div class="ac-prize tier' + r.tier + '">' + pic('prize-' + r.tier) + '<b>' + h(r.prize) + '</b><span>' + x2(r.mult) + '</span></div>' + banner(money(r.payout) + '초코를 받았어요.', r.payout > r.bet ? 'win' : '') : '<div class="ac-boxrow">' + Object.keys(BOXES).map(k => pic('box-' + k)).join('') + '</div><p class="ac-empty">상자를 골라 열어요. 가격이 곧 베팅이에요.</p>';
     html += '</div><div class="casino-controls">';
@@ -217,6 +217,13 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
     const res = box.querySelector('.ac-result'), key = res ? game + '|' + fxSeq + '|' + res.textContent : game;
     if (fxKey !== null && key !== fxKey && res && (res.classList.contains('win') || res.classList.contains('loss'))) fx(box.querySelector('.ac-stage') || box, res.classList.contains('win') ? 'win' : 'loss', game);
     fxKey = key;
+    const cw = box.querySelector('.ac-cylwrap'); // 새로 그려도 직전 각도에서 돌아가게 한다
+    if (cw) { const deg = Number(cw.dataset.deg), id = cw.dataset.id; cylAt = {id, deg}; if (String(cw.style.transform) !== 'rotate(' + deg + 'deg)') { void cw.offsetWidth; cw.style.transform = 'rotate(' + deg + 'deg)'; } }
+    clearTimeout(resetT);
+    if (res && game !== 'crash' && game !== 'party' && game !== 'duel' && game !== 'gift') { // 결과를 잠깐 보여 준 뒤 첫 화면으로
+      const g = game, r = round();
+      resetT = setTimeout(() => { if (game !== g || !box) return; if (STEP.includes(g)) { if (r?.done) doneId[g] = r.id; } else delete last[g]; paint(); }, 4800);
+    }
     if (focused && box.querySelector('#' + focused)) box.querySelector('#' + focused).focus();
     if (game === 'crash') { drawCrash(); crashLoop(); }
   }

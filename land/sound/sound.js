@@ -1,7 +1,7 @@
 // 쪼꼬미랜드 사운드 매니저 — 게임 코드가 쓰는 유일한 입구.
 //   sound.play('card.flip')            효과음 한 번
 //   sound.cue([{at:ms,id,params}])     시간표대로 여러 소리(취소 가능)
-//   sound.setScene('casino'|'fortune'|null)  장면 BGM(컨셉 '자동'일 때 장면별 컨셉)
+//   sound.setScene('town'|'forge'|'casino'|'fortune'|null)  장면 BGM(컨셉 '자동'일 때 장면별 컨셉)
 //   sound.set({muted, master, bgm, sfx, concept})  설정(localStorage 저장)
 // 약속: 첫 사용자 입력 전에는 AudioContext 를 만들지 않는다. 소리 쪽 오류는 게임을 막지 않는다.
 import { compileRecipe, renderToChannels, sampleUrls } from './engine.js';
@@ -10,7 +10,7 @@ import { recipeFor, CONCEPTS, DEFAULT_CONCEPT } from './recipes.js';
 
 export const STORAGE_KEY = 'land.sound.v1';
 export const DEFAULTS = Object.freeze({ muted: false, master: 0.9, bgm: 0.55, sfx: 0.9, concept: 'auto' });
-export const SCENE_CONCEPT = { casino: 'lounge', fortune: 'mist' };
+export const SCENE_CONCEPT = { town: 'sunny', forge: 'grand', casino: 'urgent', fortune: 'mist' };
 const CACHE_LIMIT = 8e6; // 캐시 표본 수 상한(≈32MB float). BGM 은 고정, 나머지는 오래 안 쓴 것부터 버린다.
 const NOOP = Object.freeze({ stop() {}, cancel() {}, done: Promise.resolve() });
 
