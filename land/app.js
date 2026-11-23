@@ -4,7 +4,7 @@ import {isActivity,connectDiscordVoice} from './discord-voice.js';
 import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=12';
 import {raceMarkup,playRace,RACE} from './race-script.js?v=1';
 import {createPoker} from './poker-ui.js?v=1';
-import {createArcade,ARCADE_TABS,ARCADE_RULES} from './arcade-ui.js?v=1';
+import {createArcade,ARCADE_TABS,ARCADE_RULES} from './arcade-ui.js?v=2';
 import {getSound} from './sound/sound.js?v=1';
 import {casinoCues,fortuneCues,PREWARM} from './sound/cues.js?v=1';
 import {mountSoundControl} from './sound/ui.js?v=1';
@@ -26,7 +26,7 @@ const poker=createPoker({money,h,toast,balance:()=>profile?.wallet?.balance||0,s
 let pokerWatching=false;
 function pokerWatch(on){if(pokerWatching===on)return;pokerWatching=on;if(socket?.readyState===1)socket.send(JSON.stringify({type:'poker',op:'watch',on}));}
 setInterval(()=>{if(pokerWatching)poker.tick();},250);
-const arcade=createArcade({money,h,toast,act,balance:()=>profile?.wallet?.balance||0,wallet:()=>profile?.wallet||{},round:()=>profile?.arcade||null,
+const arcade=createArcade({money,h,toast,act,fx:(stage,outcome,game)=>{playCasinoFx(stage,{outcome,game});soundRun.cancel();soundRun=sound.cue(casinoCues(game,outcome,{reduced:reduceMotion()}));},balance:()=>profile?.wallet?.balance||0,wallet:()=>profile?.wallet||{},round:()=>profile?.arcade||null,
   peers:()=>[...peers.values()].filter(p=>p.id!==self&&p.name).map(p=>({id:p.id,name:p.name})),
   send:m=>{if(socket?.readyState===1)socket.send(JSON.stringify({type:'arcade',...m}));else if(m.op!=='watch')toast('마을 연결이 끊겼어요. 잠시 뒤 다시 해주세요.');},
   refresh:tab=>{if(tab)casinoTab=tab;if(venue==='casino'&&profile)renderCasino();}});
