@@ -20,25 +20,25 @@ export class LandPlayer{
       if(s.name!==b.name)s.name=b.name;s.avatar=avatar(s.avatar);
       if(s.bj&&!s.bj.done&&s.bj.expires<=now){stand(s.bj);if(s.bj.payout)this.entry(s,s.bj.payout,'블랙잭 시간 만료 · '+s.bj.outcome,now);s.rev++;}
       if(s.quizDay!==today){s.quizDay=today;s.quizWins=0;}
-      let result=null;const p=b.payload||{};
+      let result=null,settled=null;const p=b.payload||{};
       if(b.op==='avatar'){s.avatar=avatar(p);result={message:'주민의 모습을 저장했어요.'};}
       else if(b.op==='daily'){if(s.dailyClaim===today)fail('오늘의 출석 초코는 이미 받았어요.');s.dailyClaim=today;this.entry(s,300,'매일 출석',now);result={message:'출석 선물 300초코를 받았어요.'};}
       else if(b.op==='rescue'){if(s.balance>=100)fail('초코가 100 미만일 때 받을 수 있어요.');if(s.rescueClaim===today)fail('오늘의 응원 초코는 이미 받았어요.');s.rescueClaim=today;this.entry(s,300,'다시 시작 응원',now);result={message:'응원 초코 300을 받았어요.'};}
       else if(b.op==='play'){
         if(s.bj&&!s.bj.done)fail('진행 중인 블랙잭을 먼저 마쳐주세요.');
         this.bet(s,p.bet,now);s.nextPlay=now+1200;
-        if(p.game==='blackjack'){s.bj=deal(p.bet,now);this.entry(s,-p.bet,'블랙잭 베팅',now);if(s.bj.done&&s.bj.payout)this.entry(s,s.bj.payout,'블랙잭 '+s.bj.outcome,now);result={game:'blackjack',round:bjView(s.bj)};}
+        if(p.game==='blackjack'){s.bj=deal(p.bet,now);this.entry(s,-p.bet,'블랙잭 베팅',now);if(s.bj.done&&s.bj.payout)this.entry(s,s.bj.payout,'블랙잭 '+s.bj.outcome,now);result={game:'blackjack',round:bjView(s.bj)};if(s.bj.done)settled={game:'blackjack',bet:s.bj.bet,payout:s.bj.payout||0};}
         else if(p.game==='horse'){
           if(!s.race||s.race.id!==p.raceId||s.race.expires<now)fail('경주표를 새로 받아주세요.');if(!Number.isInteger(p.choice)||p.choice<0||p.choice>4)fail('응원할 말을 골라주세요.');
-          const race=s.race,winner=weighted(race.horses.map(h=>h.chance)),payout=winner===p.choice?Math.floor(p.bet*race.horses[p.choice].rate/10):0;this.entry(s,-p.bet,'개인 경마 베팅',now);if(payout)this.entry(s,payout,'개인 경마 당첨',now);result={game:'horse',winner,choice:p.choice,horses:race.horses,payout,bet:p.bet};s.race=null;
-        }else{try{result=oneShot(p.game,p.bet,p.choice);}catch(e){fail(e.message);}this.entry(s,-p.bet,'베팅 · '+p.game,now);if(result.payout)this.entry(s,result.payout,'당첨 · '+p.game,now);result.bet=p.bet;}
+          const race=s.race,winner=weighted(race.horses.map(h=>h.chance)),payout=winner===p.choice?Math.floor(p.bet*race.horses[p.choice].rate/10):0;this.entry(s,-p.bet,'개인 경마 베팅',now);if(payout)this.entry(s,payout,'개인 경마 당첨',now);result={game:'horse',winner,choice:p.choice,horses:race.horses,payout,bet:p.bet};settled={game:'horse',bet:p.bet,payout};s.race=null;
+        }else{try{result=oneShot(p.game,p.bet,p.choice);}catch(e){fail(e.message);}this.entry(s,-p.bet,'베팅 · '+p.game,now);if(result.payout)this.entry(s,result.payout,'당첨 · '+p.game,now);result.bet=p.bet;settled={game:p.game,bet:p.bet,payout:result.payout||0};}
       }
       else if(b.op==='blackjack'){
         const bj=s.bj;if(!bj||bj.done||p.roundId!==bj.id)fail('이미 끝났거나 다른 블랙잭이에요.',409);
         if(!['hit','stand','double'].includes(p.choice))fail('잘못된 선택이에요.');
         if(p.choice==='double'){if(bj.player.length!==2)fail('첫 선택에서만 더블할 수 있어요.');if(s.balance<bj.bet)fail('더블에 필요한 초코가 부족해요.');this.entry(s,-bj.bet,'블랙잭 더블',now);bj.bet*=2;bj.player.push(bj.deck.pop());stand(bj);}
         else if(p.choice==='stand')stand(bj);else{bj.player.push(bj.deck.pop());if(value(bj.player)>21)finish(bj);else if(value(bj.player)===21)stand(bj);}
-        if(bj.done&&bj.payout)this.entry(s,bj.payout,'블랙잭 '+bj.outcome,now);result={game:'blackjack',round:bjView(bj)};
+        if(bj.done&&bj.payout)this.entry(s,bj.payout,'블랙잭 '+bj.outcome,now);result={game:'blackjack',round:bjView(bj)};if(bj.done)settled={game:'blackjack',bet:bj.bet,payout:bj.payout||0};
       }
       else if(b.op==='race'){if(!s.race||s.race.expires<now)s.race={id:crypto.randomUUID(),horses:horses(),expires:now+900000};result={message:'이번 개인 경주표예요.'};}
       else if(b.op==='quiz'){
@@ -64,7 +64,7 @@ export class LandPlayer{
       if(b.op!=='get')s.rev++;
       if(s.balance<0||!Number.isSafeInteger(s.balance)||s.balance>1e12)fail('잔액을 확인할 수 없어요. 지원을 요청해주세요.',409);
       this.sql.exec('INSERT INTO player(id,data) VALUES(1,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data',JSON.stringify(s));
-      const output={...this.view(s,today),result};
+      const output={...this.view(s,today),result,settled};
       if(b.op!=='get')this.sql.exec('INSERT INTO actions VALUES(?,?,?)',b.id,fingerprint,JSON.stringify(output));
       return Response.json(output);
     });}catch(e){return Response.json({error:'land_action',msg:e.message},{status:e.status||400});}

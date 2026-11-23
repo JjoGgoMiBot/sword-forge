@@ -156,3 +156,19 @@
 .bj-info{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 0}
 .photo-ok .blackjack-stage .bj-info .game-result,.bj-info .game-result{margin:0}
 @media(prefers-reduced-motion:reduce){.fx-cards .bj-slot,.fx-cards .bj-table .playing-card,.fx-cards .bj-table .playing-card:before,.fx-cards .bj-total,.fx-cards .bj-info .game-result{animation:none!important}.fx-cards .bj-table .playing-card.flip:before{display:none}}
+/* 마을 공지 띠(당첨·입장·퇴장)와 초코 랭킹 */
+:root{--gold:#8a5a12;--gold-bg:#fff4d6;--gold-line:#e8c77d}
+.notice-banner{position:absolute;z-index:10;top:40px;left:12px;right:12px;width:fit-content;margin:0 auto;padding:8px 16px;border-radius:12px;font-size:13px;line-height:1.4;text-align:center;pointer-events:none;animation:notice-in .24s cubic-bezier(.2,0,0,1)}
+.notice-banner.quiet{background:#49372fcc;color:var(--card)}
+.notice-banner.win{background:var(--gold-bg);color:var(--gold);border:1px solid var(--gold-line);font-weight:700;font-size:14px}
+@keyframes notice-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.chat-system.notice-line{margin:4px 0;padding:6px 10px;border-radius:8px;background:var(--gold-bg);color:var(--gold);font-size:12px;font-weight:600}
+.rank-dialog{width:min(420px,calc(100vw - 32px))}
+.rank-list{list-style:none;margin:12px 0;padding:0;display:grid;gap:4px}
+.rank-list li{display:grid;grid-template-columns:32px 1fr auto;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:var(--soft)}
+.rank-list li.mine{outline:2px solid var(--clay)}
+.rank-list .rank-no{font-weight:700;color:var(--ink);text-align:center}
+.rank-list li:nth-child(-n+3) .rank-no{color:var(--gold)}
+.rank-list .rank-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank-list .rank-empty{display:block;background:none;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.notice-banner{animation:none}}
