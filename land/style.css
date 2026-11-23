@@ -189,3 +189,35 @@
 .rank-list .rank-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rank-list .rank-empty{display:block;background:none;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){.notice-banner{animation:none}}
+/* 포커: 내 자리가 아래 가운데. 펠트 위 보드·팟, 둘레에 6자리. 움직임은 차례 표시 테두리 색 전환만 */
+:root{--pk-felt:#3f6650;--pk-felt-line:#2f4f3d;--pk-card:#fffdf7;--pk-red:#b23a32;--pk-gold:#c99a3b;--pk-gap:8px}
+.poker-box{display:grid;gap:12px;margin-top:12px}
+.pk-summary{display:flex;flex-wrap:wrap;gap:12px;align-items:baseline;font-size:13px;color:var(--muted)}.pk-summary b{font-size:20px;color:var(--ink)}
+.pk-table{position:relative;aspect-ratio:16/10;margin:28px 52px 40px}
+.pk-felt{position:absolute;inset:0;border-radius:50%;background:var(--pk-felt);border:8px solid var(--pk-felt-line);display:grid;place-content:center;gap:8px;text-align:center;padding:12px}
+.pk-board{display:flex;gap:4px;justify-content:center}
+.pk-status{color:#f4efe4;font-size:13px;max-width:30ch;margin:0 auto}.pk-status b{color:#fff}
+.pk-card{display:inline-grid;place-items:center;align-content:center;width:34px;height:48px;border-radius:5px;background:var(--pk-card);border:1px solid #d9cdb8;color:#2b2420;line-height:1;font-style:normal}
+.pk-card b{font-size:15px}.pk-card i{font-style:normal;font-size:14px}.pk-card.red{color:var(--pk-red)}
+.pk-card.back{background:repeating-linear-gradient(45deg,#ad6951 0 4px,#9a5a44 4px 8px);border-color:#7d4836}
+.pk-card.slot{background:transparent;border:1px dashed rgba(255,255,255,.35)}
+.pk-card.sm{width:24px;height:34px;border-radius:4px}.pk-card.sm b{font-size:12px}.pk-card.sm i{font-size:11px}
+.pk-card.lg{width:48px;height:68px;border-radius:7px}.pk-card.lg b{font-size:21px}.pk-card.lg i{font-size:19px}
+.pk-seat{position:absolute;transform:translate(-50%,-50%);z-index:1;width:112px;display:grid;justify-items:center;gap:2px;padding:6px 8px;border-radius:10px;background:var(--card);border:2px solid var(--line);font-size:12px;text-align:center;transition:border-color .15s ease-out}
+.pk-seat strong{font-size:12px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-seat.me{border-color:var(--clay)}.pk-seat.turn{border-color:var(--pk-gold);box-shadow:0 0 0 3px rgba(201,154,59,.3)}.pk-seat.folded{opacity:.55}.pk-seat.won{border-color:var(--green)}
+.pk-seat.empty{background:transparent;border:0;padding:0}.pk-seat.empty button{min-height:48px;width:96px;font-size:13px;line-height:1.2;background:var(--card)}
+.pk-cards{display:flex;gap:2px;min-height:34px}
+.pk-stack{font-weight:700}.pk-won{color:var(--green);font-weight:700}.pk-last{color:var(--muted)}.pk-last.fold{color:var(--muted)}.pk-last.raise,.pk-last.allin{color:var(--clay);font-weight:700}.pk-hand-name{color:var(--ink);font-weight:700}
+.pk-bet{position:absolute;top:-12px;right:-8px;background:var(--pk-gold);color:#2b2420;border-radius:10px;padding:0 8px;font-weight:700;font-size:11px}
+.pk-dealer{position:absolute;top:-10px;left:-8px;width:22px;height:22px;border-radius:50%;background:#fff;border:1px solid #2b2420;color:#2b2420;font-style:normal;font-weight:700;font-size:11px;display:grid;place-items:center}
+.pk-timer,.pk-clock{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink)}.pk-timer.low,.pk-clock.low{color:var(--red)}
+.pos0{left:50%;top:100%}.pos1{left:2%;top:76%}.pos2{left:2%;top:24%}.pos3{left:50%;top:0}.pos4{left:98%;top:24%}.pos5{left:98%;top:76%}
+.pk-mine{display:flex;gap:8px;align-items:center}.pk-mine>div{display:grid;gap:0;margin-left:8px}.pk-mine strong{font-size:16px}.pk-clock{font-size:20px}
+.pk-actions{display:grid;grid-template-columns:1fr 1fr;gap:var(--pk-gap)}.pk-actions>button{min-height:48px}
+.pk-raise{grid-column:1/-1;display:grid;gap:var(--pk-gap)}.pk-quick{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}.pk-quick button{padding:8px 4px;min-height:44px}
+.pk-range{display:flex;gap:12px;align-items:center}.pk-range input{flex:1;padding:0}.pk-range span{min-width:64px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.pk-controls{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}.pk-controls label{display:flex;gap:8px;align-items:center}.pk-controls input{width:112px}.pk-controls .warn{color:var(--red);font-weight:700}
+@media(max-width:600px){.pk-table{aspect-ratio:1/1.45;margin:56px 36px 60px}.pos1,.pos5{top:84%}.pos2,.pos4{top:16%}.pk-seat{width:84px;padding:4px;font-size:11px}.pk-seat strong{font-size:11px}.pk-seat.empty button{width:72px;min-height:44px;font-size:12px}.pk-card{width:28px;height:40px}.pk-card b{font-size:13px}.pk-felt{border-width:6px;padding:8px}.pk-status{font-size:12px}.pos1,.pos2{left:6%}.pos4,.pos5{left:94%}}
+@media(max-width:360px){.pk-table{margin:56px 30px 60px}.pk-seat{width:74px}.pk-card{width:24px;height:34px}.pk-board{gap:2px}}
+@media (prefers-reduced-motion: reduce){.pk-seat{transition:none}}
