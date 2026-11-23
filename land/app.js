@@ -159,7 +159,7 @@ function diceScene(dice){const show=dice||[3,5],die=(n,i,cls)=>'<img class="'+cl
 // 가위바위보: 두 주먹이 마주 보고 "가위·바위·보!" 박자에 맞춰 위아래로 흔들다 '보!'에서 앞으로 내밀며 모양을 바꾼다.
 const RPS_CHANT=['가위','바위','보!'];
 function rpsScene(r){const o=r?classifyOutcome(r,'rps'):'idle',fate=me=>o==='draw'||o==='idle'?'':(o==='win')===me?' won':' lost';
-  const hand=(me,shape)=>'<div class="rps-hand '+(me?'mine':'bot')+fate(me)+'"><span class="rps-pump"><img class="fist" src="'+art('arcade-hand-rock.png')+'" alt=""><img class="shape" src="'+art('arcade-hand-'+shape+'.png')+'" alt=""></span><small>'+(me?'나':'쪼꼬미')+(r?' · '+h(RPS[shape]):'')+'</small></div>';
+  const hand=(me,shape)=>'<div class="rps-hand '+(me?'mine':'bot')+fate(me)+'"><span class="rps-pump"><img class="fist" src="'+art('arcade-hand-rock.png')+'?v=2" alt=""><img class="shape" src="'+art('arcade-hand-'+shape+'.png')+'?v=2" alt=""></span><small>'+(me?'나':'쪼꼬미')+(r?' · '+h(RPS[shape]):'')+'</small></div>';
   return '<div class="rps-arena'+(r?' played':'')+'" role="img" aria-label="'+(r?'나 '+h(RPS[r.choice])+', 쪼꼬미 '+h(RPS[r.opponent]):'가위바위보')+'">'+hand(true,r?.choice||'rock')+'<div class="rps-chant" aria-hidden="true">'+(r?RPS_CHANT.map((w,i)=>'<b style="--i:'+i+'">'+w+'</b>').join(''):'<b class="still">가위바위보</b>')+'</div>'+hand(false,r?.opponent||'rock')+'</div>';}
 // 블랙잭 테이블: GPT 실사 테이블 위에 카드가 슈에서 날아와 뒤집힌다. 순서는 실제처럼 나·딜러·나·딜러(히든), 결과가 나면 히든을 뒤집고 딜러 추가 카드.
 // 단위는 테이블 폭 기준 cqw. 각 동작 k는 k*BJ_GAP에 시작해 BJ_DUR 뒤에 끝난다(casino-fx SETTLE.blackjack 과 같은 값).
