@@ -10,7 +10,7 @@ import { recipeFor, CONCEPTS, DEFAULT_CONCEPT } from './recipes.js';
 
 export const STORAGE_KEY = 'land.sound.v1';
 export const DEFAULTS = Object.freeze({ muted: false, master: 0.9, bgm: 0.55, sfx: 0.9, concept: 'auto' });
-export const SCENE_CONCEPT = { casino: 'fantasy', fortune: 'oriental' };
+export const SCENE_CONCEPT = { casino: 'lounge', fortune: 'mist' };
 const CACHE_LIMIT = 8e6; // 캐시 표본 수 상한(≈32MB float). BGM 은 고정, 나머지는 오래 안 쓴 것부터 버린다.
 const NOOP = Object.freeze({ stop() {}, cancel() {}, done: Promise.resolve() });
 

@@ -177,9 +177,9 @@ test('no AudioContext before the first user gesture; mute stops everything', asy
   assert.equal(made, 1, 'unmuting after a gesture opens the context once');
   handlers.keydown();
   assert.equal(made, 1, 'single shared context');
-  assert.equal(sound.get().activeConcept, 'fantasy');
+  assert.equal(sound.get().activeConcept, 'lounge');
   sound.setScene('fortune');
-  assert.equal(sound.get().activeConcept, 'oriental');
+  assert.equal(sound.get().activeConcept, 'mist');
   sound.set({ concept: 'japanese' });
   assert.equal(sound.get().activeConcept, 'japanese', 'manual concept overrides scene');
 });
