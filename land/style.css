@@ -269,5 +269,5 @@
 @media(prefers-reduced-motion:reduce){.ac-wheel-img.spin,.ac-boom,.ac-prize .ac-pic,.ac-grid button.hit:before{animation:none}}
 .ac-stage .ac-summary{color:var(--ink)}.ac-stage .ac-summary strong{color:inherit}.ac-stage .ac-summary .win strong{color:var(--green)}
 .ac-stage .ac-shoot:not(.go){color:var(--ink)}
-.ac-cylwrap{display:block;transition:transform .5s cubic-bezier(.3,1.4,.5,1)}
+.ac-cylinder{width:216px;max-width:100%;padding:10px 0 24px;isolation:isolate}.ac-cylwrap{display:block;width:100%;aspect-ratio:1;transform-origin:50% 50%;filter:drop-shadow(0 7px 6px #0007)}.ac-cyl-diagram{display:block;width:100%;height:auto}.ac-cyl-pointer{position:absolute;left:50%;top:4px;translate:-50% 0;width:14px;height:14px;clip-path:polygon(0 0,100% 0,50% 100%);background:#e6c77d;z-index:1}.ac-cylinder b{bottom:0;font-size:14px;white-space:nowrap}.ac-cyl-note{margin:0;color:#d6cfb6;font-size:14px;text-align:center}
 @media(prefers-reduced-motion:reduce){.ac-cylwrap{transition:none}}

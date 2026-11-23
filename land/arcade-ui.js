@@ -1,5 +1,6 @@
 // 새 오락관 게임 화면. 혼자 하는 게임은 act()로 지갑 서버에, 함께 하는 게임(크래시·총쏘기·결투·선물)은 마을 소켓으로 보낸다.
 // 결과·시드·터지는 배율·발사 시각은 서버만 안다. 여기서는 서버가 보낸 view를 그리고 누른 것을 돌려보낼 뿐이다.
+import {rouletteScene} from './roulette-view.js?v=1';
 export const ARCADE_TABS = {roulette: '러시안 룰렛', hilo: '하이로우', mines: '마인즈', baccarat: '바카라', wheel: '룰렛 휠', luckybox: '럭키박스',
   crash: '크래시', party: '총쏘기 서바이벌', duel: '총잡이 결투', gift: '초코 선물', beg: '구걸하기'};
 export const ROOM_GAMES = ['crash', 'party', 'duel'];
@@ -73,10 +74,6 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
     return html;
   }
   const stepEnd = g => ({bang: '탕! 총알이 나왔어요.', miss: '아쉽게 틀렸어요.', boom: '지뢰를 밟았어요.', cash: '멈추고 ' + money(g.payout) + '초코를 받았어요.', max: '끝까지 버텨 ' + money(g.payout) + '초코를 받았어요!'})[g.outcome] || '';
-  function rouletteScene(g) {
-    const shots = g?.shots || 0, boom = g?.done && g.outcome === 'bang';
-    return '<div class="ac-cylinder' + (boom ? ' boom' : '') + '" role="img" aria-label="6칸 중 ' + shots + '칸 당김">' + '<span class="ac-cylwrap" style="transform:rotate(' + shots * 60 + 'deg)">' + pic('cylinder', 'ac-cyl') + '</span>' + (boom ? pic('blast', 'ac-boom') : '') + '<b>' + (g ? shots + ' / 5' : '6칸') + '</b></div>';
-  }
   function hiloScene(g) {
     if (!g) return '<p class="ac-empty">카드 한 장을 받고, 다음 카드가 높을지 낮을지 골라요.</p>';
     return '<div class="ac-cards">' + g.cards.map(c => card(c, h)).join('') + '</div><p class="ac-empty">맞힌 횟수 ' + g.steps + ' / 10</p>';
@@ -211,9 +208,15 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
 
   function paint() {
     if (!box) return;
+    const oldCylinder = box.querySelector('.ac-cylwrap');
+    const previousTurn = oldCylinder && {key: oldCylinder.dataset.round, transform: oldCylinder.style.transform};
     const focused = document.activeElement?.id;
     const html = STEP.includes(game) ? stepHtml() : ONE.includes(game) ? oneHtml() : game === 'beg' ? begHtml() : game === 'gift' ? giftHtml() : game === 'crash' ? crashHtml() : game === 'party' ? partyHtml() : duelHtml();
     box.innerHTML = html;
+    const cylinder = box.querySelector('.ac-cylwrap');
+    if (cylinder && previousTurn?.key === cylinder.dataset.round && previousTurn.transform !== cylinder.style.transform && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      cylinder.animate?.([{transform: previousTurn.transform}, {transform: cylinder.style.transform}], {duration: 420, easing: 'cubic-bezier(.2,.7,.3,1)'});
+    }
     const res = box.querySelector('.ac-result'), key = res ? game + '|' + fxSeq + '|' + res.textContent : game;
     if (fxKey !== null && key !== fxKey && res && (res.classList.contains('win') || res.classList.contains('loss'))) fx(box.querySelector('.ac-stage') || box, res.classList.contains('win') ? 'win' : 'loss', game);
     fxKey = key;
