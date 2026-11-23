@@ -271,3 +271,35 @@
 .ac-stage .ac-shoot:not(.go){color:var(--ink)}
 .ac-cylinder{width:216px;max-width:100%;padding:10px 0 24px;isolation:isolate}.ac-cylwrap{display:block;width:100%;aspect-ratio:1;transform-origin:50% 50%;filter:drop-shadow(0 7px 6px #0007)}.ac-cyl-diagram{display:block;width:100%;height:auto}.ac-cyl-pointer{position:absolute;left:50%;top:4px;translate:-50% 0;width:14px;height:14px;clip-path:polygon(0 0,100% 0,50% 100%);background:#e6c77d;z-index:1}.ac-cylinder b{bottom:0;font-size:14px;white-space:nowrap}.ac-cyl-note{margin:0;color:#d6cfb6;font-size:14px;text-align:center}
 @media(prefers-reduced-motion:reduce){.ac-cylwrap{transition:none}}
+
+/* 실사 테이블은 패 영역에만 배치해 집계/조작과 겹치지 않는다. */
+.ac-baccarat{background:#0e3326 url(assets/photo/ac-felt.webp) center/200px}
+.ac-bacc{box-sizing:border-box;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10%;padding:24px 18px 42px;background:url(assets/photo/ac-bacc-felt.webp) center/100% 100% no-repeat;border-radius:10px}
+.ac-bacc-hand{display:grid;min-width:0;justify-items:center;align-content:start;gap:9px}
+.ac-bacc-hand header{display:grid;justify-items:center;gap:3px;font-size:15px;font-weight:600}
+.ac-bacc-hand header strong{font-size:27px;line-height:1.1;color:#fff8e5}
+.ac-bacc-hand header small{font-size:12px;margin-left:3px;color:#d6cfb6}
+.ac-bacc .ac-cards{flex-wrap:nowrap;gap:4px;width:100%;min-height:64px;align-items:center}
+.ac-bacc .ac-card{flex:none;width:min(54px,calc((100% - 8px)/3));height:auto;aspect-ratio:5/7;font-size:clamp(14px,4vw,21px)}
+.ac-bacc .ac-card i{font-size:inherit}
+.ac-card.ac-card-back{background:#243f37 url(assets/photo/arcade-card-back.webp) center/100% 100%;border-color:#c2ac78}
+.ac-bacc-verdict{font-size:12px;line-height:1.5;color:#e0d9c4;padding:2px 9px;border-radius:10px;background:#061e16b3}
+.ac-bacc-hand.winner .ac-bacc-verdict{color:#1f2919;background:#f1d18a;font-weight:700}
+.ac-bacc-hand.winner header strong{color:#f6d27a}
+.ac-bacc-bet{margin:0;font-size:14px;color:#f4e8c5}
+.ac-baccarat .ac-result{margin:0;font-size:16px}
+@media(max-width:380px){.ac-bacc{padding:20px 8px 34px;gap:8%}.ac-bacc-hand header{font-size:13px}.ac-bacc .ac-cards{min-height:46px}.ac-bacc-hand{gap:7px}}
+.rr-photo{position:relative}
+.rr-body,.rr-chamber{display:block;position:absolute;background-image:url(assets/photo/roulette-states-photo.png);background-size:200% 200%;background-repeat:no-repeat}
+.rr-body{inset:0;background-position:0 0}
+.rr-chamber{width:23.2%;height:23.2%;translate:-50% -50%;border-radius:50%;background-position:100% 0}
+.rr-empty{background-position:0 100%}.rr-bullet,.rr-fired{background-position:100% 100%}
+.rr-fired{filter:drop-shadow(0 0 3px #f9a178)}
+
+.tarot-card{background:#e9dfc4 url(assets/photo/ac-card-face.webp) center/100% 100%;color:#49372f;border:0;outline:0;gap:8px;padding:16px 12px}
+.tarot-card:before{display:none}
+.tarot-photo{display:block;flex:none;width:100%;aspect-ratio:1;background-image:url(assets/photo/tarot-symbols-photo.png);background-size:600% 500%;background-repeat:no-repeat;filter:drop-shadow(0 3px 3px #33200930)}
+.tarot-card .tarot-photo{max-width:150px}
+.tarot-card.is-reversed .tarot-photo{transform:rotate(180deg)}
+.deck-item .tarot-photo{width:32px;height:32px}
+.card-back,.card-back:hover{background:#274536 url(assets/photo/arcade-card-back.webp) center/100% 100%;border:0}

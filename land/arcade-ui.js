@@ -1,6 +1,7 @@
 // 새 오락관 게임 화면. 혼자 하는 게임은 act()로 지갑 서버에, 함께 하는 게임(크래시·총쏘기·결투·선물)은 마을 소켓으로 보낸다.
 // 결과·시드·터지는 배율·발사 시각은 서버만 안다. 여기서는 서버가 보낸 view를 그리고 누른 것을 돌려보낼 뿐이다.
-import {rouletteScene} from './roulette-view.js?v=1';
+import {rouletteScene} from './roulette-view.js?v=2';
+import {baccaratScene,baccaratOutcome} from './baccarat-view.js?v=1';
 export const ARCADE_TABS = {roulette: '러시안 룰렛', hilo: '하이로우', mines: '마인즈', baccarat: '바카라', wheel: '룰렛 휠', luckybox: '럭키박스',
   crash: '크래시', party: '총쏘기 서바이벌', duel: '총잡이 결투', gift: '초코 선물', beg: '구걸하기'};
 export const ROOM_GAMES = ['crash', 'party', 'duel'];
@@ -91,7 +92,7 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
     const r = last[game];
     let html = '<div class="ac-stage ac-' + game + '">';
     if (r) html += summary([['베팅', money(r.bet) + ' C'], ['받은 돈', money(r.payout) + ' C', r.payout > r.bet ? 'win' : '']]);
-    if (game === 'baccarat') html += r ? '<div class="ac-bacc"><div><small>플레이어 ' + r.playerTotal + '</small><div class="ac-cards">' + r.player.map(c => card(c, h)).join('') + '</div></div><div><small>뱅커 ' + r.bankerTotal + '</small><div class="ac-cards">' + r.banker.map(c => card(c, h)).join('') + '</div></div></div>' + banner(({player: '플레이어', banker: '뱅커', tie: '타이'})[r.winner] + ' 승 · ' + (r.payout > r.bet ? '당첨!' : r.payout === r.bet ? '원금 반환' : '아쉬워요'), r.payout > r.bet ? 'win' : '') : '<p class="ac-empty">플레이어·뱅커 중 9에 가까운 쪽을 맞혀요.</p>';
+    if (game === 'baccarat') { html += baccaratScene(r); if(r){const outcome=baccaratOutcome(r);html+=banner(outcome.text,outcome.kind);} }
     if (game === 'wheel') html += r ? '<div class="ac-wheelbox">' + pic('wheel', 'ac-wheel-img spin') + '<div class="ac-ball ' + r.color + '">' + r.number + '</div></div>' + banner(r.payout ? money(r.payout) + '초코 당첨!' : '이번엔 빗나갔어요.', r.payout ? 'win' : '') : '<div class="ac-wheelbox">' + pic('wheel', 'ac-wheel-img') + '</div><p class="ac-empty">0~36 중 공이 멈출 곳에 걸어요.</p>';
     if (game === 'luckybox') html += r ? '<div class="ac-prize tier' + r.tier + '">' + pic('prize-' + r.tier) + '<b>' + h(r.prize) + '</b><span>' + x2(r.mult) + '</span></div>' + banner(money(r.payout) + '초코를 받았어요.', r.payout > r.bet ? 'win' : '') : '<div class="ac-boxrow">' + Object.keys(BOXES).map(k => pic('box-' + k)).join('') + '</div><p class="ac-empty">상자를 골라 열어요. 가격이 곧 베팅이에요.</p>';
     html += '</div><div class="casino-controls">';
@@ -224,7 +225,8 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
     if (game === 'crash') { drawCrash(); crashLoop(); }
   }
   async function run(op, payload, keep) {
-    try { const data = await act(op, payload); if (keep) { last[game] = {...data.result}; fxSeq++; } refresh(); return data; } catch (e) { toast(e.message); refresh(); }
+    const playedGame=game;
+    try { const data = await act(op, payload); if (keep) { last[playedGame] = {...data.result,choice:payload?.choice}; fxSeq++; } refresh(); return data; } catch (e) { toast(e.message); refresh(); }
   }
   function onInput(e) {
     const id = e.target.id, n = Number(e.target.value);
@@ -242,6 +244,7 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
     else if (kind === 'move') { b.disabled = true; await run('arcadeMove', {roundId: r.id, move: b.dataset.move}); }
     else if (kind === 'pick') { b.disabled = true; await run('arcadeMove', {roundId: r.id, move: 'pick', cell: Number(b.dataset.cell)}); }
     else if (kind === 'play') {
+      b.disabled = true;
       if (game === 'luckybox') await run('play', {game, bet: BOXES[b.dataset.choice][1], choice: b.dataset.choice}, true);
       else { const c = input.choice[game] || (game === 'baccarat' ? 'player' : 'red'); await run('play', {game, bet: input.bet, choice: c === 'num' ? 'n' + (input.choice.num ?? 7) : c}, true); }
     } else if (kind === 'beg') await run('beg', {}, true);

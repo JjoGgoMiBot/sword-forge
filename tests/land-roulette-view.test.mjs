@@ -41,8 +41,8 @@ test('renderer has six independent states and no baked-in five-bullet photograph
   assert.equal((html.match(/data-state="unknown"/g)||[]).length,5);
   assert.equal((html.match(/data-state="empty"/g)||[]).length,1);
   assert.ok(html.includes('생존 1 / 5'));
-  assert.ok(html.includes('viewBox="0 0 240 240"'));
+  assert.ok(html.includes('rr-photo'));
   assert.equal(html.includes('ac-cylinder.webp'),false);
   assert.equal(html.includes('${'),false,'all state transforms must be resolved');
-  assert.ok(html.includes('transform="rotate(60)"'),'unknown markers counter-rotate to stay upright');
+  assert.ok(html.includes('transform:rotate(-60deg)'),'state-driven rotor remains under the stationary pointer');
 });

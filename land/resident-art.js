@@ -1,10 +1,37 @@
-// 주민 그림: 흰 둥근 만화 사람(굵은 검은 테두리, 큰 동그란 머리, 끝이 둥근 짧은 팔다리, 얼굴은 눈 둘 + 작은 미소).
+// 사진 질감의 흰 비닐 피규어. 외형별 프레임은 캐시하여 매 프레임 사진을 다시 합성하지 않는다.
 // 발이 (0,0), 머리 꼭대기가 약 -71. 셔츠는 흰 몸 위에 입힌 옷, 피부 색은 옅은 볼 빛으로만 남겨 고른 값이 보이게 한다.
 // 마을에서는 drawResidentFast(미리 구운 프레임)를 쓴다. 걷기 24프레임 + 서 있기 1프레임을 주민 모양·배율마다 한 번만 굽는다.
 import {SHIRTS,SKINS} from './world.js?v=4';
 
 const INK='#1d1a17',WHITE='#fbfaf6',SHADE='#dcd8cf',TAU=Math.PI*2;
 const HEAD={y:-49,r:21};
+const photos={};
+if(typeof Image==='function')for(const [key,file] of Object.entries({body:'resident-photo-atlas.png',props:'resident-props-photo.png'})){
+  const image=new Image();image.onload=()=>{photos[key]=image;sheets.clear();};image.src=new URL('./assets/photo/'+file,import.meta.url).href;
+}
+// 원본 PNG는 보존하고 실행 중 필요한 셀만 읽는다. 각 소품의 투명 여백은 별도 좌표로 제외한다.
+const PROP_RECTS=[[30,209,363,324],[446,203,355,338],[855,224,362,275],[17,826,385,152],[435,685,369,367],[861,751,350,337]];
+function photoResident(g,a,phase,weight,look){
+  if(!photos.body||!photos.props)return false;
+  const profile=Math.abs(look)>.4,step=weight>.35?Math.sin(phase):0;
+  const frame=profile?(step>.05?7:6):step>.3?1:step<-.3?2:0;
+  const cellW=photos.body.width/4,cellH=photos.body.height/2;
+  g.save();if(look<-.4)g.scale(-1,1);g.translate(0,-Math.abs(Math.cos(phase))*weight*.8);
+  // 사진의 발 높이를 기존 이동·이름표 기준(0,0)에 맞춘다.
+  g.drawImage(photos.body,frame%4*cellW,Math.floor(frame/4)*cellH,cellW,cellH,-39.9,-75,79.8,79.8);
+  // 셔츠의 명암/직조를 보존하는 곱하기 색상. 사진 안쪽만 칠해 피규어 바깥으로 번지지 않는다.
+  g.save();g.globalCompositeOperation='multiply';g.fillStyle=SHIRTS[a.shirt]||SHIRTS[0];
+  g.beginPath();g.moveTo(-5,-35);g.quadraticCurveTo(-8,-36,-12,-32);g.lineTo(-10,-27);g.lineTo(-9,-20);g.quadraticCurveTo(0,-17,10,-20);g.lineTo(11,-28);g.lineTo(13,-32);g.quadraticCurveTo(8,-36,5,-35);g.quadraticCurveTo(0,-31,-5,-35);g.fill();g.restore();
+  if(!profile&&a.skin){g.save();g.globalAlpha=.18;g.fillStyle=SKINS[a.skin]||SKINS[0];for(const x of [-12,12]){g.beginPath();g.ellipse(x,-49,3,1.8,0,0,TAU);g.fill();}g.restore();}
+  const prop=(n,x,y,w,h)=>g.drawImage(photos.props,...PROP_RECTS[n],x,y,w,h);
+  if(a.hat===1)prop(0,-22,-88,44,32);
+  if(a.hat===2)prop(1,-24,-91,48,45);
+  if(a.hat===3)prop(2,-19,-90,38,29);
+  if(a.accessory===1)prop(3,-17,-58,34,13);
+  if(a.accessory===2)prop(4,-24,-77,48,48);
+  if(a.accessory===3)prop(5,-13,-39,26,25);
+  g.restore();return true;
+}
 
 function limb(g,x1,y1,x2,y2,x3,y3){
   for(const [w,c] of [[8.5,INK],[4.6,WHITE]]){g.strokeStyle=c;g.lineWidth=w;g.beginPath();g.moveTo(x1,y1);g.quadraticCurveTo(x2,y2,x3,y3);g.stroke();}
@@ -15,6 +42,7 @@ function bodyPath(g){g.beginPath();g.moveTo(-8.5,-33);g.bezierCurveTo(-12,-27,-1
 // a: avatar(...) 결과, phase: 걸음 위상(라디안), weight: 0(서 있음)~1(걷기)
 // look: -1(왼쪽)~1(오른쪽) 가는 쪽을 보는 눈·입 위치
 export function drawResident(g,a,phase=0,weight=0,look=0){
+  if(photoResident(g,a,phase,weight,look))return;
   const s=Math.sin(phase)*weight,bob=-Math.abs(Math.cos(phase))*2.2*weight,lift=v=>Math.max(0,v)*-3.2;
   g.save();g.lineCap='round';g.lineJoin='round';
   g.translate(0,bob);
