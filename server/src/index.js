@@ -10,7 +10,7 @@ export {LandPlayer,LandRoom} from './land.js';
 // POST /load     {token}          → {name,save,saved}
 // GET  /ranking                   → {top:[{rank,name,best}],at}  server-verified peak level
 // POST /myrank   {token}          → {rank,best}
-const ORIGINS = ["https://seungjaehh.github.io", "http://localhost:5188", "http://127.0.0.1:5188"];
+const ORIGINS = ["https://jjoggomibot.github.io", "https://seungjaehh.github.io", "http://localhost:5188", "http://127.0.0.1:5188"];
 const MAX_BODY=8192, TOKEN_TTL=30*86400000;
 const ROUTE_LIMITS={'/register':[20,3600000],'/login':[30,60000],'/action':[600,60000],'/load':[120,60000],'/logout':[60,60000],'/myrank':[30,60000]};
 const RANK_TTL=20000,RANK_SIZE=50;
@@ -90,7 +90,10 @@ async function handle(req, env, ctx) {
     if(origin&&(!ORIGINS.includes(origin)||!local&&/^http:\/\/(localhost|127\.0\.0\.1):/.test(origin)))return E(req,'origin','허용되지 않은 출처입니다.',403);
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(req) });
     const url = new URL(req.url);
-    if(url.pathname.startsWith('/land/'))return handleLand(req,env,ctx,{J,E,byToken,allowRequest,readBody});
+    if(url.pathname==='/land'||url.pathname.startsWith('/land/')){
+      if(env.LAND_ENABLED!=='true')return E(req,'land_disabled','쪼꼬미랜드는 개발 중이라 잠시 쉬고 있어요.',503);
+      return handleLand(req,env,ctx,{J,E,byToken,allowRequest,readBody});
+    }
     if (req.method === "GET" && url.pathname === "/") return J(req, { ok: true });
     if(req.method==='GET'&&url.pathname==='/ranking'){
       const now=Date.now(),ip=req.headers.get('CF-Connecting-IP')||'unknown';

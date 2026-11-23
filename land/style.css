@@ -156,23 +156,6 @@
 .bj-info{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 0}
 .photo-ok .blackjack-stage .bj-info .game-result,.bj-info .game-result{margin:0}
 @media(prefers-reduced-motion:reduce){.fx-cards .bj-slot,.fx-cards .bj-table .playing-card,.fx-cards .bj-table .playing-card:before,.fx-cards .bj-total,.fx-cards .bj-info .game-result{animation:none!important}.fx-cards .bj-table .playing-card.flip:before{display:none}}
-/* 소리 조절(land/sound/ui.js): 아이콘 하나가 요약, 누르면 패널 */
-.sound-control{position:relative;display:flex}
-.sound-control .sound-toggle{min-width:44px;min-height:44px;padding:0;display:grid;place-items:center;color:var(--ink)}
-.sound-control .sound-toggle svg{width:22px;height:22px}
-.sound-control .sound-toggle.muted{color:var(--muted)}
-.sound-control .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.sound-panel{position:absolute;right:0;top:calc(100% + 6px);z-index:40;width:min(300px,calc(100vw - 32px));background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(73,55,47,.16);display:grid;gap:8px;font-size:14px}
-.sound-panel[hidden]{display:none}
-.sound-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.sound-head .sound-mute{min-height:44px;font-size:13px}
-.sound-head .sound-mute[aria-pressed=true]{background:var(--clay);border-color:var(--clay);color:#fff}
-.sound-row{display:grid;grid-template-columns:52px 1fr 42px;align-items:center;gap:8px;min-height:44px}
-.sound-row input[type=range]{width:100%;min-height:44px;accent-color:var(--clay);margin:0}
-.sound-row output{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
-.sound-row.concept{grid-template-columns:52px 1fr}
-.sound-row select{min-height:44px;width:100%;min-width:0}
-@media(max-width:600px){.sound-panel{position:fixed;left:16px;right:16px;top:64px;width:auto}}
 /* 마을 공지 띠(당첨·입장·퇴장)와 초코 랭킹 */
 :root{--gold:#8a5a12;--gold-bg:#fff4d6;--gold-line:#e8c77d}
 .notice-banner{position:absolute;z-index:10;top:40px;left:12px;right:12px;width:fit-content;margin:0 auto;padding:8px 16px;border-radius:12px;font-size:13px;line-height:1.4;text-align:center;pointer-events:none;animation:notice-in .24s cubic-bezier(.2,0,0,1)}
@@ -221,6 +204,23 @@
 @media(max-width:600px){.pk-table{aspect-ratio:1/1.45;margin:56px 36px 60px}.pos1,.pos5{top:84%}.pos2,.pos4{top:16%}.pk-seat{width:84px;padding:4px;font-size:11px}.pk-seat strong{font-size:11px}.pk-seat.empty button{width:72px;min-height:44px;font-size:12px}.pk-card{width:28px;height:40px}.pk-card b{font-size:13px}.pk-felt{border-width:6px;padding:8px}.pk-status{font-size:12px}.pos1,.pos2{left:6%}.pos4,.pos5{left:94%}}
 @media(max-width:360px){.pk-table{margin:56px 30px 60px}.pk-seat{width:74px}.pk-card{width:24px;height:34px}.pk-board{gap:2px}}
 @media (prefers-reduced-motion: reduce){.pk-seat{transition:none}}
+/* 소리 조절(land/sound/ui.js): 아이콘 하나가 요약, 누르면 패널 */
+.sound-control{position:relative;display:flex}
+.sound-control .sound-toggle{min-width:44px;min-height:44px;padding:0;display:grid;place-items:center;color:var(--ink)}
+.sound-control .sound-toggle svg{width:22px;height:22px}
+.sound-control .sound-toggle.muted{color:var(--muted)}
+.sound-control .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.sound-panel{position:absolute;right:0;top:calc(100% + 6px);z-index:40;width:min(300px,calc(100vw - 32px));background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(73,55,47,.16);display:grid;gap:8px;font-size:14px}
+.sound-panel[hidden]{display:none}
+.sound-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sound-head .sound-mute{min-height:44px;font-size:13px}
+.sound-head .sound-mute[aria-pressed=true]{background:var(--clay);border-color:var(--clay);color:#fff}
+.sound-row{display:grid;grid-template-columns:52px 1fr 42px;align-items:center;gap:8px;min-height:44px}
+.sound-row input[type=range]{width:100%;min-height:44px;accent-color:var(--clay);margin:0}
+.sound-row output{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.sound-row.concept{grid-template-columns:52px 1fr}
+.sound-row select{min-height:44px;width:100%;min-width:0}
+@media(max-width:600px){.sound-panel{position:fixed;left:16px;right:16px;top:64px;width:auto}}
 /* 새 오락관 게임(arcade-ui.js): 숫자 요약 먼저 → 무대 → 조작. 경고색은 쓰지 않고 이긴 값만 초록 */
 .venue-groups{display:flex;gap:6px;margin-bottom:8px}.venue-groups button{flex:1;min-height:44px;font-weight:600}.venue-groups small{color:inherit;opacity:.7;font-weight:400}.venue-groups [aria-pressed=true]{background:var(--soft);border-color:var(--ink)}
 .venue-tabs button{min-height:44px}
