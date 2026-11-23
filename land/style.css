@@ -145,8 +145,9 @@
 .bj-total{position:absolute;z-index:20;transform:translateY(-50%);padding:.3cqw 1.2cqw;border:1px solid #e8c76688;border-radius:999px;background:#000b;color:#f3d88e;font:700 max(11px,2.3cqw)/1.2 Georgia,serif;white-space:nowrap}
 .fx-cards .bj-total,.fx-cards .bj-info .game-result{animation:bj-fade .3s ease-out both;animation-delay:var(--bj-end)}
 .fx-cards .outcome-banner{animation-delay:var(--bj-end)}.fx-rps .outcome-banner{animation-delay:var(--settle,1.26s)}.fx-rps .game-result{animation:result-reveal .35s var(--settle,1.26s) both}.fx-rps.fx-win,.fx-rps.fx-loss,.fx-rps.fx-draw{animation-delay:var(--settle,1.26s)}
+.bj-table .playing-card>span.rev{left:auto;top:auto;right:.6cqw;bottom:.4cqw;transform:rotate(180deg)}.bj-total.bust{background:#7d1d1dd9;border-color:#ff9b8a99;color:#ffe6df;letter-spacing:.06em}.bj-total.natural{background:linear-gradient(#f3d88e,#c99b3c);border-color:#fff4cc;color:#2b1d07;letter-spacing:.08em;box-shadow:0 0 1.6cqw #f3d88e88}
 @keyframes bj-fade{from{opacity:0}to{opacity:1}}
-.bj-bet{position:absolute;left:50%;top:49cqw;width:6cqw;height:6cqw;transform:translate(-50%,-50%)}
+.bj-bet{position:absolute;left:50%;top:50.4cqw;width:6cqw;height:6cqw;transform:translate(-50%,-50%)}
 .bj-bet img{position:absolute;left:0;top:calc(var(--i)*-.7cqw);width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 .3cqw .3cqw #0008)}
 .bj-empty{position:absolute;left:0;right:0;top:37.5cqw;margin:0;text-align:center;color:#f6ecd2;font-size:max(12px,2.4cqw);text-shadow:0 1px 3px #000}
 .bj-info{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 0}
