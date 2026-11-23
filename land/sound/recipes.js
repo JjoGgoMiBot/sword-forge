@@ -294,11 +294,13 @@ const bellNote = (c, at, i, dur, gain = 0) => ({ ...c.bell, at, dur, freq: c.bel
 
 Object.assign(SFX, {
   win: { id: 'win', lufs: -14, duck: 4, build(p) {
-    const c = conceptOf(p);
+    const c = conceptOf(p), r = rng(p.seed ?? 5), coins = [];
+    for (let k = 0; k < 9; k++) coins.push({ at: 0.16 + k * 0.05 + r() * 0.02, dur: 0.22, src: { type: 'fm', ratio: 2.3, index: [[0, 1.4], [0.2, 0.2]] }, freq: 2300 + r() * 1500, env: { a: 0.001, d: 0.18, s: 0, r: 0.08 }, gain: -10 - k * 0.7, pan: r() * 1.2 - 0.6 });
     return { space: c.space, tracks: [
-      tr('transient', [click(0, 4000, -6, 0.006), bellNote(c, 0, 5, 0.4, -6)]),
-      tr('body', [0, 2, 3, 5, 6].map((d, i) => leadNote(c, 0.02 + i * 0.085, d, 0.6, -i * 0.5)), { fx: { reverb: 0.3 } }),
-      tr('tail', [2, 3, 5].map(i => leadNote(c, 0.5, i + 2, 1.4, -6)).concat([bellNote(c, 0.48, 7, 1.2, -8)]), { fx: { reverb: 0.6 } }),
+      tr('transient', [click(0, 4500, -4, 0.006), { at: 0, dur: 0.18, src: { type: 'noise', color: 'pink' }, env: { points: [[0, 0], [0.14, 1], [0.18, 0]] }, filter: { type: 'bandpass', freq: [[0, 700], [0.16, 5200]], q: 1.2 }, gain: -12 }]),
+      tr('body', [0, 2, 4, 7].map((d, i) => leadNote(c, 0.1 + i * 0.07, d, 0.55, -i * 0.4)).concat([bellNote(c, 0.1, 5, 0.5, -6)]), { fx: { reverb: 0.3 } }),
+      tr('동전', coins, { fx: { reverb: 0.25 } }),
+      tr('tail', [bellNote(c, 0.42, 7, 1.4, -4), bellNote(c, 0.5, 9, 1.4, -9), leadNote(c, 0.42, 4, 1.2, -8)], { fx: { reverb: 0.6 } }),
     ] };
   } },
   draw: { id: 'draw', lufs: -19, build(p) {
@@ -308,8 +310,9 @@ Object.assign(SFX, {
   lose: { id: 'lose', lufs: -18, build(p) {
     const c = conceptOf(p);
     return { space: c.space, tracks: [
-      tr('body', [4, 2, 0].map((d, i) => leadNote(c, i * 0.2, d, 0.7, -i, { bend: i === 2 ? [[0, 0], [0.6, -0.8]] : undefined })), { fx: { reverb: 0.3, filter: { type: 'lowpass', freq: 1800 } } }),
-      tr('tail', [{ ...c.drum, at: 0.4, dur: 0.5, gain: -6 }], { fx: { reverb: 0.4 } }),
+      tr('transient', [thud(0, 95, -2, 0.3, 14), click(0, 900, -14, 0.02)]),
+      tr('body', [{ ...c.lead, at: 0.04, dur: 0.9, freq: sc(c, 4), gain: (c.lead.gain ?? 0) - 2, bend: [[0, 0], [0.18, -0.2], [0.9, -3.2]] }, { ...c.lead, at: 0.04, dur: 0.9, freq: sc(c, 4) * 1.012, gain: (c.lead.gain ?? 0) - 7, bend: [[0, 0], [0.9, -3.4]] }], { fx: { reverb: 0.3, filter: { type: 'lowpass', freq: 1400 } } }),
+      tr('tail', [{ at: 0.1, dur: 0.7, src: { type: 'noise', color: 'brown' }, env: { points: [[0, 0], [0.1, 1], [0.7, 0]] }, filter: { type: 'lowpass', freq: [[0, 900], [0.7, 200]], q: 0.7 }, gain: -12 }], { fx: { reverb: 0.4 } }),
     ] };
   } },
   jackpot: { id: 'jackpot', lufs: -12, duck: 9, variants: 1, build(p) {

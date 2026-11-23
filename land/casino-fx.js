@@ -13,9 +13,9 @@ const HOLD_SCALE = 0.12;
 const RECIPES = {
   jackpot:   { dur: 3400, wait: 520, coins: 44, sparks: 72, shards: 34, rings: 3, flash: 1,   dust: 0,  dim: 0.22, bloom: '#ffd66b' },
   blackjack: { dur: 2300, wait: 300, coins: 10, sparks: 38, shards: 16, rings: 2, flash: 0.7, dust: 0,  dim: 0.12, bloom: '#f1dc9f' },
-  win:       { dur: 1900, wait: 150, coins: 16, sparks: 26, shards: 0,  rings: 1, flash: 0.5, dust: 0,  dim: 0,    bloom: '#f6c85f' },
+  win:       { dur: 2100, wait: 120, coins: 22, sparks: 34, shards: 0,  rings: 2, flash: 0.8, dust: 0,  dim: 0.08, bloom: '#ffd66b' },
   draw:      { dur: 950,  wait: 0,   coins: 0,  sparks: 0,  shards: 0,  rings: 1, flash: 0,   dust: 0,  dim: 0,    bloom: '#e6d9bd' },
-  loss:      { dur: 1250, wait: 0,   coins: 0,  sparks: 0,  shards: 0,  rings: 0, flash: 0,   dust: 14, dim: 0.34, bloom: '#4b3a30' },
+  loss:      { dur: 1500, wait: 0,   coins: 0,  sparks: 0,  shards: 0,  rings: 0, flash: 0,   dust: 24, dim: 0.44, bloom: '#3a2c26' },
 };
 
 // 게임별로 이펙트가 터지는 자리(화면 안 요소)와 세기 보정.

@@ -1,7 +1,7 @@
 import {WORLD,BUILDINGS,BOUNDARY,OFFSET,SHIRTS,SKINS,avatar,move,near} from './world.js?v=4';
 import {drawResident,drawResidentFast} from './resident-art.js?v=3';
 import {isActivity,connectDiscordVoice} from './discord-voice.js';
-import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=12';
+import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=13';
 import {raceMarkup,playRace,RACE} from './race-script.js?v=1';
 import {createPoker} from './poker-ui.js?v=1';
 import {createArcade,ARCADE_TABS,ARCADE_RULES} from './arcade-ui.js?v=4';
