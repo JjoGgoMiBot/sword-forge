@@ -1,5 +1,6 @@
 import {WORLD,move,avatar,canStand} from '../../land/world.js';
 export {LandPlayer} from './land-player.js';
+import {NOTICE,winNotice,joinNotice,leaveNotice} from './land-notice.js';
 const enc=new TextEncoder(),hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
 const hash=async s=>hex(await crypto.subtle.digest('SHA-256',enc.encode(s)));
 const equal=(a,b)=>{if(typeof a!=='string'||typeof b!=='string'||a.length!==b.length)return false;let n=0;for(let i=0;i<a.length;i++)n|=a.charCodeAt(i)^b.charCodeAt(i);return n===0;};
@@ -27,6 +28,12 @@ export async function channelAccess(env,user,guild,channel){
     if(permissionsCache.size>1000)permissionsCache.clear();permissionsCache.set(cacheKey,{expires:Date.now()+20000,value});return value;
   }catch{return null;}
 }
+// 초코 랭킹: 지갑 잔액이 바뀔 때마다 한 줄 갱신. 표는 처음 쓸 때 만든다(land-schema.sql에도 같은 정의)
+let rankReady=null;const rankTable=env=>rankReady??=env.DB.prepare('CREATE TABLE IF NOT EXISTS land_choco_rank (player_key TEXT PRIMARY KEY,name TEXT NOT NULL,balance INTEGER NOT NULL,updated INTEGER NOT NULL)').run().catch(e=>{rankReady=null;throw e;});
+export async function saveRank(env,key,name,balance){if(!Number.isSafeInteger(balance))return;await rankTable(env);await env.DB.prepare('INSERT INTO land_choco_rank VALUES(?,?,?,?) ON CONFLICT(player_key) DO UPDATE SET name=excluded.name,balance=excluded.balance,updated=excluded.updated WHERE land_choco_rank.balance<>excluded.balance OR land_choco_rank.name<>excluded.name').bind(key,String(name||'주민').slice(0,24),balance,Date.now()).run();}
+let rankCache=null;export const clearRankCache=()=>{rankCache=null;rankReady=null;};
+export async function chocoRanking(env,now=Date.now()){if(rankCache&&now-rankCache.at<NOTICE.rankingCacheMs)return rankCache.list;await rankTable(env);const list= (await env.DB.prepare('SELECT name,balance FROM land_choco_rank ORDER BY balance DESC,updated ASC LIMIT ?').bind(NOTICE.rankingSize).all()).results.map((r,i)=>({rank:i+1,name:r.name,balance:r.balance}));rankCache={at:now,list};return list;}
+const later=(ctx,work)=>{const p=Promise.resolve().then(work).catch(e=>console.error('land later',e.message));if(ctx?.waitUntil)ctx.waitUntil(p);return p;};
 export async function handleLand(req,env,ctx,h){
   const url=new URL(req.url),path=url.pathname;
   try{
@@ -44,7 +51,7 @@ export async function handleLand(req,env,ctx,h){
     }
     if(req.method!=='POST')return h.E(req,'method','POST가 필요해요.',405);
     const ip=req.headers.get('CF-Connecting-IP')||'local';if(!await h.allowRequest(env,'land:ip:'+ip,240,60000,Date.now()))return h.E(req,'rate','조금 쉬었다가 다시 시도해주세요.',429);
-    const b=await h.readBody(req);
+    const b=await h.readBody(req);if(path==='/land/ranking')return h.J(req,{ranking:await chocoRanking(env)});
     if(path.startsWith('/land/bridge/')){
       if(!env.LAND_BRIDGE_SECRET||!equal(req.headers.get('Authorization'),env.LAND_BRIDGE_SECRET))return h.E(req,'auth','인증 실패',401);
       if(path==='/land/bridge/channels')return h.J(req,{channels:(await env.DB.prepare('SELECT * FROM land_channels LIMIT 30').all()).results});
@@ -83,7 +90,7 @@ export async function handleLand(req,env,ctx,h){
       return h.J(req,{accessToken:oauth.access_token,proof:await sign(env,{type:'voice',resident:data.resident.id,room:state.room,exp:Date.now()+3600000})});
     }
     if(path==='/land/player'){
-      const r=await player(env,p.key).fetch(new Request('https://player/',{method:'POST',body:JSON.stringify({key:p.key,name:p.name,discordId:linked?.discord_id,op:b.op||'get',payload:b.payload,id:b.id,issued:b.issued})}));return h.J(req,{...await r.json(),discord:{linked:!!linked,available:!!env.LAND_BRIDGE_SECRET}},r.status);
+      const r=await player(env,p.key).fetch(new Request('https://player/',{method:'POST',body:JSON.stringify({key:p.key,name:p.name,discordId:linked?.discord_id,op:b.op||'get',payload:b.payload,id:b.id,issued:b.issued})}));const data=await r.json();if(r.ok&&!data.replayed){const name=data.resident?.name||p.name,notice=data.settled&&winNotice(name,data.settled);if(notice)later(ctx,()=>Promise.all(NOTICE.winRooms.map(k=>room(env,k).fetch(new Request('https://room/notice',{method:'POST',body:JSON.stringify({notice,id:p.key+':'+String(b.id||Date.now())})})))));if(data.wallet)later(ctx,()=>saveRank(env,p.key,name,data.wallet.balance));}return h.J(req,{...data,discord:{linked:!!linked,available:!!env.LAND_BRIDGE_SECRET}},r.status);
     }
     if(path==='/land/session'){
       const key=b.room||'public:1';let access=null;if(!publicRoom(key)){const c=await env.DB.prepare('SELECT * FROM land_channels WHERE room=?').bind(key).first();if(!c||!linked)return h.E(req,'access','Discord 연결과 채널 권한이 필요해요.',403);access=await channelAccess(env,linked.discord_id,c.guild_id,c.channel_id);if(!access)return h.E(req,'access','채널을 보고 참여할 권한이 필요해요.',403);}
@@ -102,7 +109,7 @@ export async function handleLand(req,env,ctx,h){
   }catch(e){console.error('land',e.name,e.message);return h.E(req,'land','연결을 확인할 수 없어요. 잠시 후 다시 시도해주세요.',503);}
 }
 export class LandRoom{
-  constructor(ctx,env){this.ctx=ctx;this.env=env;this.sql=ctx.storage.sql;this.sql.exec('CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT,client_id TEXT UNIQUE,uid TEXT NOT NULL,name TEXT NOT NULL,text TEXT NOT NULL,source TEXT NOT NULL,created INTEGER NOT NULL,discord_id TEXT,pending INTEGER NOT NULL DEFAULT 0)');if(ctx.setWebSocketAutoResponse)ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping','pong'));}
+  constructor(ctx,env){this.ctx=ctx;this.env=env;this.sql=ctx.storage.sql;this.sql.exec('CREATE TABLE IF NOT EXISTS presence (id TEXT PRIMARY KEY,name TEXT NOT NULL,joined INTEGER NOT NULL DEFAULT 0,leave_due INTEGER)');this.noticeIds=new Set();this.sql.exec('CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT,client_id TEXT UNIQUE,uid TEXT NOT NULL,name TEXT NOT NULL,text TEXT NOT NULL,source TEXT NOT NULL,created INTEGER NOT NULL,discord_id TEXT,pending INTEGER NOT NULL DEFAULT 0)');if(ctx.setWebSocketAutoResponse)ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping','pong'));}
   sockets(){return this.ctx.getWebSockets().filter(ws=>ws.readyState===1);}
   users(){const users=new Map();for(const ws of this.sockets()){const a=ws.deserializeAttachment();if(!a.bridge&&!a.chatOnly)users.set(a.id,{id:a.id,name:a.name,avatar:a.avatar,x:a.x,y:a.y});}return [...users.values()];}
   send(ws,value){try{ws.send(JSON.stringify(value));}catch{}}
@@ -112,14 +119,15 @@ export class LandRoom{
     const now=Date.now();await Promise.all(this.sockets().map(async ws=>{const a=ws.deserializeAttachment();if(a.bridge||a.authUntil>=now)return;const valid=await this.env.DB.prepare('SELECT hash FROM tokens WHERE hash=? AND created>=?').bind(a.tokenHash,now-30*86400000).first();const access=a.channel?await channelAccess(this.env,a.discordId,a.guild,a.channel):null;if(!valid||a.channel&&!access||now-a.connected>3600000){ws.close(4003,'계정 또는 채널 권한이 바뀌었어요.');return;}const current=ws.deserializeAttachment();current.canSend=access?access.canSend:true;current.authUntil=now+20000;ws.serializeAttachment(current);}));
   }
   async fetch(req){
+    if(new URL(req.url).pathname==='/notice'){const b=await req.json().catch(()=>null);return Response.json({sent:this.notice(b?.notice,b?.id)});}
     const a=JSON.parse(decodeURIComponent(req.headers.get('X-Land-User')||'null'));if(!a)return new Response('Forbidden',{status:403});
     if(new URL(req.url).pathname==='/invalidate'&&a.bridge){for(const ws of this.sockets())ws.close(4003,'채널 연동이 해제되었어요.');return Response.json({ok:true});}
     if(!a.bridge&&!a.chatOnly&&this.users().filter(u=>u.id!==a.id).length>=20||this.sockets().length>=60)return new Response('이 광장은 가득 찼어요. 다른 광장을 선택해주세요.',{status:429});
     for(const old of this.sockets()){const u=old.deserializeAttachment();if(a.bridge?u.bridge:u.id===a.id&&!!u.chatOnly===!!a.chatOnly){old.close(4002,'다른 창에서 접속했어요.');}}
-    const pair=new WebSocketPair(),[client,server]=Object.values(pair);this.ctx.acceptWebSocket(server,[a.bridge?'bridge':a.id]);
+    const returning=this.sockets().some(s=>{const u=s.deserializeAttachment();return !u.bridge&&!u.chatOnly&&u.id===a.id;});const pair=new WebSocketPair(),[client,server]=Object.values(pair);this.ctx.acceptWebSocket(server,[a.bridge?'bridge':a.id]);
     server.serializeAttachment({...a,x:WORLD.spawn.x,y:WORLD.spawn.y,lastMove:Date.now(),seq:0,lastChat:0,authUntil:Date.now()+20000,connected:Date.now()});
     if(a.bridge){this.send(server,{type:'outbox',messages:this.sql.exec('SELECT * FROM messages WHERE pending=1 ORDER BY id LIMIT 100').toArray()});this.broadcast({type:'relay',online:true});}
-    else{this.send(server,{type:'welcome',self:a.id,users:this.users(),messages:this.history()});if(a.channel)this.send(server,{type:'relay',online:this.sockets().some(s=>s.deserializeAttachment().bridge)});this.broadcast({type:'users',users:this.users()},server);}
+    else{this.send(server,{type:'welcome',self:a.id,users:this.users(),messages:this.history()});if(a.channel)this.send(server,{type:'relay',online:this.sockets().some(s=>s.deserializeAttachment().bridge)});this.broadcast({type:'users',users:this.users()},server);if(!a.chatOnly)this.arrive(a,returning,server);}
     return new Response(null,{status:101,webSocket:client});
   }
   async webSocketMessage(ws,raw){
@@ -164,7 +172,20 @@ export class LandRoom{
     else if(m.type==='discordDelete'&&dcId(m.id)){const row=this.sql.exec('DELETE FROM messages WHERE discord_id=? RETURNING id',m.id).toArray()[0];if(row)this.broadcast({type:'delete',id:row.id});}
     else if(m.type==='deliveryError'&&Number.isSafeInteger(m.id))this.broadcast({type:'deliveryError',id:m.id,msg:'Discord 전송 결과를 확인하지 못했어요. 마을 대화는 유지돼요.'});
   }
+  // 공지: 같은 id는 한 번만. 방 밖 요청(/notice)과 입장·퇴장이 함께 쓴다
+  notice(notice,id=null,exclude=null){if(!notice||typeof notice.text!=='string')return false;if(id){if(this.noticeIds.has(id))return false;this.noticeIds.add(id);if(this.noticeIds.size>200)this.noticeIds.delete(this.noticeIds.values().next().value);}this.broadcast({type:'notice',notice:{kind:String(notice.kind||''),text:notice.text.slice(0,120),at:Date.now()}},exclude);return true;}
+  // 입장: 잠깐 끊겼다 돌아온 사람(퇴장 대기 중)은 조용히, 같은 사람은 joinCooldownMs 안에 한 번만
+  arrive(a,returning,exclude){const now=Date.now(),row=this.sql.exec('SELECT * FROM presence WHERE id=?',a.id).toArray()[0];
+    if(row?.leave_due!=null||returning){this.sql.exec('UPDATE presence SET leave_due=NULL,name=? WHERE id=?',a.name,a.id);return;}
+    if(row&&now-row.joined<NOTICE.joinCooldownMs)return;
+    this.sql.exec('INSERT INTO presence(id,name,joined) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,joined=excluded.joined,leave_due=NULL',a.id,a.name,now);this.notice(joinNotice(a.name),null,exclude);}
+  // 퇴장: 마지막 창이 닫히면 leaveDelayMs 뒤에 아직 없을 때만 알린다
+  depart(a){if(!a||a.bridge||a.chatOnly||this.users().some(u=>u.id===a.id))return;const due=Date.now()+NOTICE.leaveDelayMs;this.sql.exec('UPDATE presence SET leave_due=? WHERE id=?',due,a.id);this.schedule().catch(e=>console.error("land alarm",e.message));}
+  async schedule(){const next=this.sql.exec('SELECT MIN(leave_due) AS due FROM presence WHERE leave_due IS NOT NULL').toArray()[0]?.due;if(next!=null&&this.ctx.storage.setAlarm)await this.ctx.storage.setAlarm(next);}
+  async alarm(){const now=Date.now(),online=new Set(this.users().map(u=>u.id));
+    for(const row of this.sql.exec('SELECT * FROM presence WHERE leave_due IS NOT NULL AND leave_due<=?',now).toArray()){this.sql.exec('UPDATE presence SET leave_due=NULL WHERE id=?',row.id);if(!online.has(row.id))this.notice(leaveNotice(row.name));}
+    this.sql.exec('DELETE FROM presence WHERE leave_due IS NULL AND joined<?',now-86400000);await this.schedule();}
   prune(){this.sql.exec('DELETE FROM messages WHERE id<(SELECT COALESCE(MAX(id),0)-199 FROM messages) AND pending=0');}
-  webSocketClose(ws,code,reason){try{ws.close(code>=1000&&![1005,1006,1015].includes(code)?code:1000,String(reason||'').slice(0,60));}catch{}if(ws.deserializeAttachment()?.bridge)this.broadcast({type:'relay',online:false});this.broadcast({type:'users',users:this.users()});}
+  webSocketClose(ws,code,reason){try{ws.close(code>=1000&&![1005,1006,1015].includes(code)?code:1000,String(reason||'').slice(0,60));}catch{}const gone=ws.deserializeAttachment();if(gone?.bridge)this.broadcast({type:'relay',online:false});this.broadcast({type:'users',users:this.users()});this.depart(gone);}
   webSocketError(ws){try{ws.close(1011,'다시 연결해주세요.');}catch{}}
 }

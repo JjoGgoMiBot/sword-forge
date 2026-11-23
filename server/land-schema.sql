@@ -15,3 +15,10 @@ CREATE TABLE IF NOT EXISTS land_channels (
   channel_id TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS land_choco_rank (
+  player_key TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  balance INTEGER NOT NULL,
+  updated INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS land_choco_rank_balance ON land_choco_rank(balance DESC);
