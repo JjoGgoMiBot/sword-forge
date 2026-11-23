@@ -153,3 +153,20 @@
 .bj-info{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 0}
 .photo-ok .blackjack-stage .bj-info .game-result,.bj-info .game-result{margin:0}
 @media(prefers-reduced-motion:reduce){.fx-cards .bj-slot,.fx-cards .bj-table .playing-card,.fx-cards .bj-table .playing-card:before,.fx-cards .bj-total,.fx-cards .bj-info .game-result{animation:none!important}.fx-cards .bj-table .playing-card.flip:before{display:none}}
+/* 소리 조절(land/sound/ui.js): 아이콘 하나가 요약, 누르면 패널 */
+.sound-control{position:relative;display:flex}
+.sound-control .sound-toggle{min-width:44px;min-height:44px;padding:0;display:grid;place-items:center;color:var(--ink)}
+.sound-control .sound-toggle svg{width:22px;height:22px}
+.sound-control .sound-toggle.muted{color:var(--muted)}
+.sound-control .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.sound-panel{position:absolute;right:0;top:calc(100% + 6px);z-index:40;width:min(300px,calc(100vw - 32px));background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(73,55,47,.16);display:grid;gap:8px;font-size:14px}
+.sound-panel[hidden]{display:none}
+.sound-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sound-head .sound-mute{min-height:44px;font-size:13px}
+.sound-head .sound-mute[aria-pressed=true]{background:var(--clay);border-color:var(--clay);color:#fff}
+.sound-row{display:grid;grid-template-columns:52px 1fr 42px;align-items:center;gap:8px;min-height:44px}
+.sound-row input[type=range]{width:100%;min-height:44px;accent-color:var(--clay);margin:0}
+.sound-row output{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.sound-row.concept{grid-template-columns:52px 1fr}
+.sound-row select{min-height:44px;width:100%;min-width:0}
+@media(max-width:600px){.sound-panel{position:fixed;left:16px;right:16px;top:64px;width:auto}}
