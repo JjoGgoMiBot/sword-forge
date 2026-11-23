@@ -155,8 +155,8 @@ function reelStrip(symbol,i,spin){const cell=s=>'<span class="reel-cell"><img sr
   return '<span class="reel-strip" style="--cells:'+n+';--from:'+(n-2)+'">'+cells.map(cell).join('')+'</span>';}
 function reelBox(cls,symbol,i,spin,label=''){return '<span class="'+cls+(spin?' rolling':'')+'" style="--reel:'+i+(spin?';--spin:'+reelStopMs(i)+'ms':'')+'"'+(label?' role="img" aria-label="'+h(label)+'"':'')+'>'+reelStrip(symbol,i,spin)+'</span>';}
 // 주사위: 두 알을 가죽 통에 담아 흔든 뒤 엎었다가 들어 올려 결과를 보인다. 흔들기 전 주사위(pre)는 아무 눈이나, 결과는 통 아래에서 나온다.
-function diceScene(dice){const show=dice||[3,5],die=(n,i,cls)=>'<img class="'+cls+'" style="--i:'+i+'" src="'+art('die-'+n+'.png')+'" alt="">';
-  return '<div class="dice-scene" role="img" aria-label="'+(dice?'주사위 '+dice.join('과 ')+' · 합계 '+(dice[0]+dice[1]):'가죽 통과 주사위 두 개')+'"><span class="dice-felt"></span>'+(dice?[1+Math.random()*6|0,1+Math.random()*6|0].map((n,i)=>die(n,i,'die die-pre')).join(''):'')+show.map((n,i)=>die(n,i,'die die-roll')).join('')+'<img class="dice-cup" src="'+art('arcade-dice-cup-down.png')+'" alt=""></div>';}
+function diceScene(dice){const show=dice||[3,5],die=(n,i,cls)=>'<img class="'+cls+'" style="--i:'+i+'" src="'+art('die-'+n+'.png')+'?v=2" alt="">';
+  return '<div class="dice-scene" role="img" aria-label="'+(dice?'주사위 '+dice.join('과 ')+' · 합계 '+(dice[0]+dice[1]):'가죽 통과 주사위 두 개')+'"><span class="dice-felt"></span>'+(dice?[1+Math.random()*6|0,1+Math.random()*6|0].map((n,i)=>die(n,i,'die die-pre')).join(''):'')+show.map((n,i)=>die(n,i,'die die-roll')).join('')+'<img class="dice-cup" src="'+art('arcade-dice-cup-down.png')+'?v=2" alt=""></div>';}
 // 가위바위보: 두 주먹이 마주 보고 "가위·바위·보!" 박자에 맞춰 위아래로 흔들다 '보!'에서 앞으로 내밀며 모양을 바꾼다.
 const RPS_CHANT=['가위','바위','보!'];
 function rpsScene(r){const o=r?classifyOutcome(r,'rps'):'idle',fate=me=>o==='draw'||o==='idle'?'':(o==='win')===me?' won':' lost';
