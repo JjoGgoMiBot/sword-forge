@@ -46,3 +46,8 @@ Cloud sessions are bearer-token based and share the existing GitHub Pages origin
 `assets/town-illustrated-alpha.png` is the original generated gouache/colored-pencil sprite atlas with real alpha. `art-source/illustration-prompts.md` records generation and extraction prompts. Runtime draw ordering, paper-grain terrain, avatar palette variants and walking interpolation live in `scene-illustrated.js`. Blender studies are not used by the shipped renderer.
 
 The shipped look is photoreal: `assets/photo/*.webp` (town atlas in the same 4×2/444px layout, grass and path ground tiles, slot symbols, coin, arcade props, card back) generated with ChatGPT from the prompts in `art-source/photo-prompts.md`. Every photo asset has a painted fallback: `art()` points at `assets/photo/`, a capture-phase image `error` listener swaps a failed WebP back to the matching `assets/*.png`, CSS photo overrides only apply once `html.photo-ok` is set by a probe, and `scene-illustrated.js` falls back to the painted atlas and paper floor if the photo atlas or ground tiles fail (`#stage[data-art]` reports which one is live).
+
+## 관리자 패널 (`land/admin.html`)
+- 로그인은 마을과 같은 이름·비밀번호. 관리자 판별은 연결된 디스코드 ID가 Worker 환경값 `LAND_ADMIN_IDS`(쉼표 구분)에 있는지로 서버가 한다. 값은 배포 때 사용자가 직접 비밀값/변수로 설정한다(저장소에 두지 않는다).
+- 기능: 주민 검색(이름·디스코드 ID), 초코 지급/회수(회수는 잔액 아래로 못 내려감, 1회 최대 10,000,000), 조작 기록(D1 `land_admin_log`). 관리자 API는 `/land/admin/*`, 관리자가 아니면 403.
+- 시험: `tests/land-admin.test.mjs`(단위, `npm test`에 포함), `tests/land-admin-api.test.mjs`(`npm run test:api`에 포함). API 시험은 새로 띄운 로컬 Worker에 `--var LAND_ADMIN_IDS:<ID> --var LAND_BRIDGE_SECRET:<값>`을 주고 `FORGE_TEST_ADMIN_ID`, `FORGE_TEST_BRIDGE_SECRET`, `FORGE_TEST_API`를 맞춰 돌린다. 같은 저장소 상태에서 두 번 돌리면 디스코드 ID가 이미 연결돼 실패하므로 매번 새 `--persist-to`를 쓴다.

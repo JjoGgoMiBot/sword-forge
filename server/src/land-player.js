@@ -1,6 +1,7 @@
 import {avatar} from '../../land/world.js';
 import {random,integer,weighted,deal,stand,finish,value,bjView,oneShot,horses} from './land-games.js';
 import cards from './land-deck.js';
+import {playerAdmin} from './land-admin.js';
 const day=now=>new Date(now+32400000).toISOString().slice(0,10);
 const digest=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(x=>x.toString(16).padStart(2,'0')).join('');
 const fail=(msg,status=400)=>{const e=Error(msg);e.status=status;throw e;};
@@ -14,6 +15,7 @@ function cardView(c){return {...cards[c.id],reversed:c.reversed,day:c.day};}
 export class LandPlayer{
   constructor(ctx,env){this.ctx=ctx;this.env=env;this.sql=ctx.storage.sql;this.sql.exec('CREATE TABLE IF NOT EXISTS player (id INTEGER PRIMARY KEY CHECK(id=1),data TEXT NOT NULL)');this.sql.exec('CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,response TEXT NOT NULL)');this.sql.exec('CREATE TABLE IF NOT EXISTS ledger (id INTEGER PRIMARY KEY AUTOINCREMENT,delta INTEGER NOT NULL,balance INTEGER NOT NULL,reason TEXT NOT NULL,created INTEGER NOT NULL)');}
   async fetch(request){
+    if(new URL(request.url).pathname==='/admin'){try{return playerAdmin(this,await request.json(),{fail,Response});}catch(e){return Response.json({error:'land_action',msg:e.message},{status:e.status||400});}}
     const b=await request.json(),now=Date.now(),today=day(now);
     const seed=BigInt('0x'+(await digest('jjokkomi-tarot-v1:'+String(b.discordId||b.key)+':'+today)).slice(0,16));
     try{return this.ctx.storage.transactionSync(()=>{

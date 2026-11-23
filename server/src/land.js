@@ -4,6 +4,7 @@ import {NOTICE,winNotice,joinNotice,leaveNotice} from './land-notice.js';
 import {newTable,checkSit,sit as pokerSit,standUp,setAway,act as pokerAct,tick as pokerTick,nextDue,view as pokerView} from './land-poker.js';
 import {newCrash,checkCrashBet,placeCrashBet,crashCash,crashTick,crashDue,crashView,newParty,checkPartyJoin,partyJoin,partyLeave,partyTick,partyDue,partyView,newDuel,checkDuelJoin,duelJoin,duelLeave,duelShoot,duelTick,duelDue,duelView} from './land-crash.js';
 import {GIFT} from './land-player.js';
+import {handleAdmin} from './land-admin.js';
 const enc=new TextEncoder(),hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
 const hash=async s=>hex(await crypto.subtle.digest('SHA-256',enc.encode(s)));
 const equal=(a,b)=>{if(typeof a!=='string'||typeof b!=='string'||a.length!==b.length)return false;let n=0;for(let i=0;i<a.length;i++)n|=a.charCodeAt(i)^b.charCodeAt(i);return n===0;};
@@ -77,6 +78,7 @@ export async function handleLand(req,env,ctx,h){
     const p=await h.byToken(env,b.token);if(!p)return h.E(req,'auth','다시 로그인해주세요.',401);
     if(!await h.allowRequest(env,'land:user:'+p.key,120,60000,Date.now()))return h.E(req,'rate','조금 쉬었다가 다시 시도해주세요.',429);
     const linked=await env.DB.prepare('SELECT discord_id FROM land_discord_links WHERE player_key=?').bind(p.key).first();
+    if(path.startsWith('/land/admin/'))return handleAdmin(req,env,h,{path,b,p,linked,saveRank});
     if(path==='/land/voice/config'){
       if(!env.DISCORD_CLIENT_SECRET||!env.DISCORD_APPLICATION_ID)return h.J(req,{available:false,reason:'setup'});
       const c=await env.DB.prepare('SELECT * FROM land_channels WHERE room=?').bind(b.room||'').first();const access=c&&linked?await channelAccess(env,linked.discord_id,c.guild_id,c.channel_id):null;
