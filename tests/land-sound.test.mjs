@@ -129,6 +129,24 @@ function mockAudio(sampleRate = 48000) {
   return { ctx, stats };
 }
 
+test('prepared music loads without synthesis and a stale scene cannot start late', async () => {
+  const {ctx, stats} = mockAudio(), requests = new Map();
+  ctx.decodeAudioData = async () => {};
+  const OfflineCtx = function () { return {decodeAudioData: async bytes => ctx.createBuffer(2, Math.round(new Float64Array(bytes)[0] * 32000), 32000)}; };
+  const fetchAudio = url => new Promise(resolve => requests.set(String(url).split('/').at(-1), resolve));
+  const sound = createSound({win: {}, storage: null, AudioCtx: function(){return ctx;}, OfflineCtx, fetchAudio});
+  sound.setScene('town'); sound.unlock(); sound.setScene('forge');
+  const response = id => ({ok:true,arrayBuffer:async()=>new Float64Array([PLACE_MUSIC[id].dur]).buffer});
+  requests.get('forge.ogg?v=1')(response('forge'));
+  await new Promise(r => setImmediate(r));
+  assert.equal(stats.started, 1, 'current scene starts');
+  requests.get('town.ogg?v=1')(response('town'));
+  await new Promise(r => setImmediate(r));
+  assert.equal(stats.started, 1, 'outdated scene does not overlap');
+  assert.equal(sound.stats.renders, 0, 'file path avoids runtime synthesis');
+  assert.equal(sound.get().activeConcept, 'forge');
+});
+
 test('every recipe builds a valid Web Audio graph (mock context, all concepts)', () => {
   for (const concept of Object.keys(CONCEPTS)) {
     for (const id of ['bgm', ...SFX_IDS]) {

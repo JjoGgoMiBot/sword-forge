@@ -11,7 +11,8 @@ import { recipeFor, CONCEPTS, DEFAULT_CONCEPT } from './recipes.js?v=3';
 export const STORAGE_KEY = 'land.sound.v1';
 export const DEFAULTS = Object.freeze({ muted: false, master: 0.9, bgm: 0.55, sfx: 0.9, concept: 'auto' });
 export const SCENE_CONCEPT = { town:'town',forge:'forge',casino:'lounge',fortune:'mist' };
-const CACHE_LIMIT = 8e6; // 캐시 표본 수 상한(≈32MB float). BGM 은 고정, 나머지는 오래 안 쓴 것부터 버린다.
+const CACHE_LIMIT = 8e6; // 캐시 표본 수 상한(≈32MB float). 오래 안 쓴 것부터 버린다.
+export const BGM_FILES = Object.freeze({town:'town',lounge:'casino',forge:'forge',mist:'fortune'});
 const NOOP = Object.freeze({ stop() {}, cancel() {}, done: Promise.resolve() });
 
 export function normalizeSettings(raw) {
@@ -42,7 +43,7 @@ export function safetyCurve(n = 2048) {
   return c;
 }
 
-export function createSound({ win = globalThis.window, storage = defaultStorage(), AudioCtx, OfflineCtx, log = console } = {}) {
+export function createSound({ win = globalThis.window, storage = defaultStorage(), AudioCtx, OfflineCtx, fetchAudio = globalThis.fetch, log = console } = {}) {
   AudioCtx ||= win?.AudioContext || win?.webkitAudioContext;
   OfflineCtx ||= win?.OfflineAudioContext || win?.webkitOfflineAudioContext;
   let settings = loadSettings(storage);
@@ -126,6 +127,24 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
     stats.renders++; stats.renderMs += (globalThis.performance || Date).now() - t0;
     return { ...out, compiled };
   }
+  async function prepareBuffer(id, concept, params, seed) {
+    if (id === 'bgm' && BGM_FILES[concept] && ctx?.decodeAudioData && fetchAudio && OfflineCtx) {
+      try {
+        const url = new URL('../assets/music/' + BGM_FILES[concept] + '.ogg?v=1', import.meta.url);
+        const response = await fetchAudio(url, { signal: AbortSignal.timeout(8000) });
+        if (!response.ok) throw new Error('music HTTP ' + response.status);
+        const decoder = new OfflineCtx(2, 1, 32000);
+        const buffer = await decoder.decodeAudioData(await response.arrayBuffer());
+        const meta = compileRecipe(recipeFor(id, concept), { ...params, concept, seed });
+        if (Math.abs(buffer.duration - meta.dur) > .15) throw new Error('music duration');
+        return { buffer, meta };
+      } catch (error) { warn('music.file.' + concept, error); }
+    }
+    const r = await renderOffline(id, { concept, params, seed });
+    const buffer = ctx.createBuffer(2, r.channels[0].length, r.sampleRate);
+    r.channels.forEach((ch, c) => buffer.copyToChannel(ch, c));
+    return { buffer, meta: r.compiled };
+  }
   // 변형(라운드로빈) 하나를 꺼낸다. 없으면 그린다.
   async function variant(id, concept, params) {
     const key = keyOf(id, concept, params);
@@ -140,10 +159,8 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
     const i = entry.rr++ % entry.buffers.length;
     if (!entry.buffers[i]) {
       const pkey = key + '#' + i;
-      if (!pending.has(pkey)) pending.set(pkey, renderOffline(id, { concept, params, seed: i + 1 }).then(r => {
-        const b = ctx.createBuffer(2, r.channels[0].length, r.sampleRate);
-        r.channels.forEach((ch, c) => b.copyToChannel(ch, c));
-        entry.buffers[i] = b; entry.meta = r.compiled; entry.samples += r.channels[0].length * 2;
+      if (!pending.has(pkey)) pending.set(pkey, prepareBuffer(id, concept, params, i + 1).then(({buffer:b,meta}) => {
+        entry.buffers[i] = b; entry.meta = meta; entry.samples += b.length * b.numberOfChannels;
         evict();
         return b;
       }).finally(() => pending.delete(pkey)));
