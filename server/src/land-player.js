@@ -58,7 +58,7 @@ export class LandPlayer{
       }
       else if(b.op==='arcadeMove'){
         const g=s.arcade;if(!g||g.done||p.roundId!==g.id)fail('이미 끝났거나 다른 판이에요.',409);
-        try{if(p.move==='cash')cashOut(g);else if(g.game==='roulette'&&p.move==='pull')roulettePull(g);else if(g.game==='hilo'&&['high','low'].includes(p.move))hiloGuess(g,p.move);else if(g.game==='mines'&&p.move==='pick')minesPick(g,p.cell);else fail('잘못된 선택이에요.');}catch(e){if(e.arcade)fail(e.message);throw e;}
+        try{if(p.move==='cash')cashOut(g);else if(g.game==='roulette'&&p.move==='pull')roulettePull(g);else if(g.game==='hilo'&&['high','low','equal'].includes(p.move))hiloGuess(g,p.move);else if(g.game==='mines'&&p.move==='pick')minesPick(g,p.cell);else fail('잘못된 선택이에요.');}catch(e){if(e.arcade)fail(e.message);throw e;}
         if(g.done&&g.payout)this.entry(s,g.payout,ROUND_NAMES[g.game]+' '+({cash:'멈춤',max:'최대 배율'})[g.outcome]+' 정산',now);
         result={game:g.game,round:roundView(g)};if(g.done)settled={game:g.game,bet:g.bet,payout:g.payout};
       }
