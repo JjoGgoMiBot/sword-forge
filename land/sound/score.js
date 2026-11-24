@@ -1,4 +1,4 @@
-// Original place scores: 24 bars, A / A' / B-return. No external recordings.
+// Catalog plus lightweight synthesized fallback; primary recordings use sampled instruments.
 const hz=n=>440*2**((n-69)/12);
 const voice=(partials,a,d,r,cut)=>({src:{type:'osc',partials},env:{a,d,s:0,r},filter:{type:'lowpass',freq:cut,q:.4}});
 const piano=voice([1,.42,.2,.1,.055,.025],.009,.85,.18,4200);
@@ -10,16 +10,16 @@ const string=voice([1,.36,.15,.06],.17,.65,.35,1700);
 const note=(inst,midi,at,dur,gain,pan=0)=>({...inst,freq:hz(midi),at,dur,gain,pan});
 const track=(name,clips,pan=0,reverb=.12)=>({name,clips,pan,fx:{reverb}});
 const KEYS={
- town:{bpm:86,title:'햇살이 머무는 광장',feel:'어쿠스틱 기타·펠트 건반·가벼운 셰이커',chords:[[50,54,57,61],[47,50,54,57],[43,47,50,54],[45,49,52,57]],lead:guitar,comp:felt,mel:[74,76,78,81,78,76,74,69],swing:0,gain:-22},
- casino:{bpm:104,title:'초록 펠트의 밤',feel:'스윙 건반·워킹 베이스·브러시',chords:[[50,53,57,60],[43,47,53,57],[48,52,55,59],[45,49,55,59]],lead:piano,comp:felt,mel:[74,77,81,79,77,76,74,72],swing:.13,gain:-23},
- forge:{bpm:92,title:'불씨와 손길',feel:'낮은 현·뜯는 현·절제된 작업 리듬',chords:[[50,53,57,62],[46,50,53,57],[43,46,50,57],[45,49,52,57]],lead:guitar,comp:string,mel:[62,65,69,74,72,69,65,64],swing:0,gain:-23},
- fortune:{bpm:68,title:'별빛 아래 펼친 카드',feel:'하프·첼레스타·여백 있는 단조 화음',chords:[[50,53,57,64],[46,50,53,60],[43,46,50,57],[45,50,52,59]],lead:celesta,comp:felt,mel:[74,76,77,81,84,81,77,76],swing:0,gain:-25},
+ town:{bpm:86,title:'햇살이 머무는 광장',feel:'플루트·나일론 기타·오보에·피치카토',chords:[[50,54,57,61],[47,50,54,57],[43,47,50,54],[45,49,52,57]],lead:guitar,comp:felt,mel:[74,76,78,81,78,76,74,69],swing:0,gain:-22},
+ casino:{bpm:104,title:'초록 펠트의 밤',feel:'피아노·비브라폰·우드 베이스·브러시',chords:[[50,53,57,60],[43,47,53,57],[48,52,55,59],[45,49,55,59]],lead:piano,comp:felt,mel:[74,77,81,79,77,76,74,72],swing:.13,gain:-23},
+ forge:{bpm:92,title:'불씨와 손길',feel:'첼로·현악·호른·마림바의 작업 테마',chords:[[50,53,57,62],[46,50,53,57],[43,46,50,57],[45,49,52,57]],lead:guitar,comp:string,mel:[62,65,69,74,72,69,65,64],swing:0,gain:-23},
+ fortune:{bpm:68,title:'별빛 아래 펼친 카드',feel:'하프·첼레스타·플루트·잔잔한 현악',chords:[[50,53,57,64],[46,50,53,60],[43,46,50,57],[45,50,52,59]],lead:celesta,comp:felt,mel:[74,76,77,81,84,81,77,76],swing:0,gain:-25},
 };
-export const MUSIC_PLAN=Object.fromEntries(Object.entries(KEYS).map(([id,c])=>[id,{title:c.title,bpm:c.bpm,bars:24,sections:['A: 주제','A′: 응답과 악기 변화','B: 대비 후 주제 복귀'],feel:c.feel,duration:96*60/c.bpm}]));
+export const MUSIC_PLAN=Object.fromEntries(Object.entries(KEYS).map(([id,c])=>[id,{title:c.title,bpm:c.bpm,bars:32,sections:['A: 주제','B: 대조와 응답','A′: 악기와 음역 변주','C: 귀환과 종지'],feel:c.feel,duration:128*60/c.bpm}]));
 export function placeScore(id){
- const c=KEYS[id]||KEYS.town,b=60/c.bpm,dur=b*96,melody=[],answer=[],chords=[],low=[],drums=[];
+ const c=KEYS[id]||KEYS.town,b=60/c.bpm,dur=b*128,melody=[],answer=[],chords=[],low=[],drums=[];
  const noise=(at,length,gain,freq)=>({at,dur:length,src:{type:'noise',color:'pink'},env:{a:.003,d:length*.8,s:0,r:.015},filter:{type:'bandpass',freq,q:.6},gain});
- for(let bar=0;bar<24;bar++){
+ for(let bar=0;bar<32;bar++){
   const section=Math.floor(bar/8),phrase=bar%8,ch=c.chords[bar%4],t=bar*4*b;
   // Sparse four-note motifs leave a breath at the end of each eight-bar phrase.
   if(phrase!==7)for(let j=0;j<4;j++){

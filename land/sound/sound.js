@@ -6,7 +6,7 @@
 // 약속: 첫 사용자 입력 전에는 AudioContext 를 만들지 않는다. 소리 쪽 오류는 게임을 막지 않는다.
 import { compileRecipe, renderToChannels, sampleUrls } from './engine.js';
 import { humanize, dbToGain, clamp } from './dsp.js';
-import { recipeFor, CONCEPTS, DEFAULT_CONCEPT } from './recipes.js?v=3';
+import { recipeFor, CONCEPTS, DEFAULT_CONCEPT } from './recipes.js?v=4';
 
 export const STORAGE_KEY = 'land.sound.v1';
 export const DEFAULTS = Object.freeze({ muted: false, master: 0.9, bgm: 0.55, sfx: 0.9, concept: 'auto' });
@@ -130,7 +130,7 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
   async function prepareBuffer(id, concept, params, seed) {
     if (id === 'bgm' && BGM_FILES[concept] && ctx?.decodeAudioData && fetchAudio && OfflineCtx) {
       try {
-        const url = new URL('../assets/music/' + BGM_FILES[concept] + '.ogg?v=1', import.meta.url);
+        const url = new URL('../assets/music/' + BGM_FILES[concept] + '.ogg?v=2', import.meta.url);
         const response = await fetchAudio(url, { signal: AbortSignal.timeout(8000) });
         if (!response.ok) throw new Error('music HTTP ' + response.status);
         const decoder = new OfflineCtx(2, 1, 32000);
