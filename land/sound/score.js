@@ -10,12 +10,16 @@ const string=voice([1,.36,.15,.06],.17,.65,.35,1700);
 const note=(inst,midi,at,dur,gain,pan=0)=>({...inst,freq:hz(midi),at,dur,gain,pan});
 const track=(name,clips,pan=0,reverb=.12)=>({name,clips,pan,fx:{reverb}});
 const KEYS={
+ oriental:{bpm:72,title:'뜰에 머무는 바람',feel:'동양풍 · 오음계 피아노·뜯는 기타',chords:[[50,54,57,64],[47,54,57,62],[43,50,54,59],[45,52,57,59]],lead:felt,comp:felt,mel:[62,66,69,71,74,71,66,62],swing:0,gain:-23},
+ japanese:{bpm:66,title:'물가의 작은 정원',feel:'일본풍 · 고요한 기타·드문 피아노',chords:[[40,47,54,55],[48,55,59,64],[43,50,54,59],[47,54,59,64]],lead:guitar,comp:felt,mel:[64,67,71,72,76,72,67,64],swing:0,gain:-24},
+ korean:{bpm:80,title:'볕이 드는 마루',feel:'한국풍 · 따뜻한 오음계 피아노·기타',chords:[[48,55,60,64],[41,48,52,57],[43,50,57,62],[45,52,55,60]],lead:felt,comp:felt,mel:[67,69,72,74,76,74,69,67],swing:0,gain:-22},
+ fantasy:{bpm:70,title:'구름 너머 작은 빛',feel:'판타지 · 피아노·하프·맑은 종',chords:[[48,55,59,66],[45,52,55,62],[41,48,52,59],[43,50,57,62]],lead:felt,comp:felt,mel:[72,76,79,86,83,79,76,72],swing:0,gain:-23},
  town:{bpm:78,title:'햇살이 머무는 광장',feel:'피아노·클래식 기타 · 따뜻한 마을',chords:[[43,50,54,59],[40,47,50,55],[48,52,55,62],[50,54,57,64]],lead:guitar,comp:felt,mel:[67,71,74,76,74,71,69,67],swing:0,gain:-22},
  casino:{bpm:86,title:'초록 펠트의 밤',feel:'작은 피아노·기타·아주 약한 브러시',chords:[[45,52,55,59],[41,48,52,57],[48,52,55,59],[43,50,55,59]],lead:piano,comp:felt,mel:[69,72,76,74,72,69,67,69],swing:.13,gain:-23},
  forge:{bpm:82,title:'불씨와 손길',feel:'기타 핑거피킹·낮은 피아노 · 편안한 작업',chords:[[50,54,57,64],[47,50,54,57],[43,50,54,59],[45,52,57,61]],lead:guitar,comp:felt,mel:[62,66,69,71,69,66,64,62],swing:0,gain:-23},
  fortune:{bpm:64,title:'별빛 아래 펼친 카드',feel:'드문 피아노 음·긴 여운·옅은 공간감',chords:[[45,52,55,59],[41,48,52,57],[48,52,55,59],[43,50,55,59]],lead:felt,comp:felt,mel:[69,76,72,71,67,69,64,69],swing:0,gain:-25},
 };
-export const MUSIC_PLAN=Object.fromEntries(Object.entries(KEYS).map(([id,c])=>[id,{title:c.title,bpm:c.bpm,bars:32,sections:['조용한 도입','주제','선율의 변화','귀환과 긴 호흡'],feel:c.feel,menu:{town:'피아노·기타',casino:'피아노·기타·약한 브러시',forge:'기타·낮은 피아노',fortune:'피아노·긴 여운'}[id],duration:128*60/c.bpm}]));
+export const MUSIC_PLAN=Object.fromEntries(Object.entries(KEYS).map(([id,c])=>[id,{title:c.title,bpm:c.bpm,bars:32,sections:['조용한 도입','주제','선율의 변화','귀환과 긴 호흡'],feel:c.feel,menu:{town:'피아노·기타',casino:'피아노·기타·약한 브러시',forge:'기타·낮은 피아노',fortune:'피아노·긴 여운',oriental:'오음계 피아노·기타',japanese:'고요한 기타·피아노',korean:'따뜻한 오음계 피아노',fantasy:'피아노·하프·종'}[id],duration:128*60/c.bpm}]));
 export function placeScore(id){
  const c=KEYS[id]||KEYS.town,b=60/c.bpm,dur=b*128,melody=[],answer=[],chords=[],low=[],drums=[];
  const noise=(at,length,gain,freq)=>({at,dur:length,src:{type:'noise',color:'pink'},env:{a:.003,d:length*.8,s:0,r:.015},filter:{type:'bandpass',freq,q:.6},gain});

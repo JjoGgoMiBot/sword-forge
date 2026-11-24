@@ -1,4 +1,4 @@
-import {PLACE_MUSIC,MUSIC_PLAN} from './score.js?v=4';
+import {PLACE_MUSIC,MUSIC_PLAN} from './score.js?v=5';
 // 쪼꼬미랜드 사운드 레시피 — 선언형 데이터. 새 소리가 필요하면 여기에 항목 하나를 더한다.
 // 문법은 engine.js 머리말 참고. 타격음은 트랙을 transient · body · tail 3층으로 쌓는다(hit:true).
 // lufs 는 그 소리 하나의 목표 음량(정규화). 큰 사건일수록 높게, 반복되는 작은 소리일수록 낮게.
@@ -137,6 +137,9 @@ CONCEPTS.town={...CONCEPTS.fantasy,id:'town',name:'광장',desc:MUSIC_PLAN.town.
 CONCEPTS.forge={...CONCEPTS.oriental,id:'forge',name:'대장간',desc:MUSIC_PLAN.forge.menu,bgm:PLACE_MUSIC.forge};
 CONCEPTS.lounge={...CONCEPTS.lounge,name:'오락관',desc:MUSIC_PLAN.casino.menu,bgm:PLACE_MUSIC.casino,space:SPACES.room};
 CONCEPTS.mist={...CONCEPTS.mist,name:'타로관',desc:MUSIC_PLAN.fortune.menu,bgm:PLACE_MUSIC.fortune,space:SPACES.wood};
+for(const id of ['oriental','japanese','korean','fantasy']){
+  CONCEPTS[id]={...CONCEPTS[id],desc:MUSIC_PLAN[id].menu,bgm:PLACE_MUSIC[id]};
+}
 export const DEFAULT_CONCEPT = 'town';
 const conceptOf = p => CONCEPTS[p?.concept] || CONCEPTS[DEFAULT_CONCEPT];
 const sc = (c, i) => noteToHz(c.scale[Math.max(0, Math.min(c.scale.length - 1, i))]);

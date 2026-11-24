@@ -6,13 +6,13 @@
 // 약속: 첫 사용자 입력 전에는 AudioContext 를 만들지 않는다. 소리 쪽 오류는 게임을 막지 않는다.
 import { compileRecipe, renderToChannels, sampleUrls } from './engine.js';
 import { humanize, dbToGain, clamp } from './dsp.js';
-import { recipeFor, CONCEPTS, DEFAULT_CONCEPT } from './recipes.js?v=6';
+import { recipeFor, CONCEPTS, DEFAULT_CONCEPT } from './recipes.js?v=7';
 
 export const STORAGE_KEY = 'land.sound.v1';
 export const DEFAULTS = Object.freeze({ muted: false, master: 0.9, bgm: 0.55, sfx: 0.9, concept: 'auto' });
 export const SCENE_CONCEPT = { town:'town',forge:'forge',casino:'lounge',fortune:'mist' };
 const CACHE_LIMIT = 8e6; // 캐시 표본 수 상한(≈32MB float). 오래 안 쓴 것부터 버린다.
-export const BGM_FILES = Object.freeze({town:'town',lounge:'casino',forge:'forge',mist:'fortune'});
+export const BGM_FILES = Object.freeze({town:'town',lounge:'casino',forge:'forge',mist:'fortune',oriental:'oriental',japanese:'japanese',korean:'korean',fantasy:'fantasy'});
 const NOOP = Object.freeze({ stop() {}, cancel() {}, done: Promise.resolve() });
 
 export function normalizeSettings(raw) {
@@ -131,7 +131,7 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
     if (id === 'bgm' && BGM_FILES[concept] && ctx?.decodeAudioData && fetchAudio && OfflineCtx) {
         // If a place recording fails, startBgm keeps the previous track instead
         // of substituting the rejected oscillator arrangement.
-        const url = new URL('../assets/music/' + BGM_FILES[concept] + '.ogg?v=3', import.meta.url);
+        const url = new URL('../assets/music/' + BGM_FILES[concept] + '.ogg?v=4', import.meta.url);
         const response = await fetchAudio(url, { signal: AbortSignal.timeout(8000) });
         if (!response.ok) throw new Error('music HTTP ' + response.status);
         const decoder = new OfflineCtx(2, 1, 32000);

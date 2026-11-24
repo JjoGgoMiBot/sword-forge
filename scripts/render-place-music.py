@@ -15,6 +15,7 @@ parser.add_argument('--tools', type=Path, required=True)
 parser.add_argument('--build', type=Path, required=True)
 parser.add_argument('--ffmpeg', type=Path, required=True)
 parser.add_argument('--master-only', action='store_true')
+parser.add_argument('--themes', nargs='+', help='Render selected themes; defaults to all eight')
 args = parser.parse_args()
 repo = Path(__file__).resolve().parent.parent
 tools, build = args.tools.resolve(), args.build.resolve()
@@ -29,6 +30,11 @@ def run(command):
 if not args.master_only:
     run(['node', repo/'scripts/compose-place-midi.mjs', build])
 pieces = json.loads((build/'arrangements.json').read_text())
+if args.themes:
+    known = {p['id'] for p in pieces}
+    if not set(args.themes) <= known:
+        raise ValueError('Unknown theme requested')
+    pieces = [p for p in pieces if p['id'] in args.themes]
 if not args.master_only:
     sfizz = tools/'sfizz/bin/Release/sfizz_render.exe'
     fluid = next((tools/'fluidsynth').glob('**/bin/fluidsynth.exe'))
@@ -52,7 +58,7 @@ for piece in pieces:
     run([args.ffmpeg, '-hide_banner', '-y', *inputs, '-filter_complex', graph, '-map', '[mix]', '-c:a', 'pcm_f32le', mix])
     meter = run([args.ffmpeg, '-hide_banner', '-i', mix, '-af', 'loudnorm=I=-22:TP=-2:LRA=14:print_format=json', '-f', 'null', '-'])
     values = json.loads(re.findall(r'\{[^{}]*"input_i"[^{}]*\}', meter)[-1])
-    target = {'town':-22, 'casino':-23, 'forge':-22, 'fortune':-24}[name]
+    target = {'town':-22, 'casino':-23, 'forge':-22, 'fortune':-24,'oriental':-23,'japanese':-24,'korean':-22,'fantasy':-23}[name]
     gain = min(target-float(values['input_i']), -2-float(values['input_tp']))
     run([args.ffmpeg, '-hide_banner', '-y', '-i', mix, '-af', f'volume={gain}dB,atrim=end_sample={count},asetpts=PTS-STARTPTS', '-c:a', 'libvorbis', '-q:a', '6', output/(name+'.ogg')])
     report.append({'id':name, 'duration':duration, 'inputLUFS':float(values['input_i']), 'fixedGainDb':gain, 'estimatedLUFS':float(values['input_i'])+gain, 'inputLRA':float(values['input_lra']), 'estimatedTruePeak':float(values['input_tp'])+gain})

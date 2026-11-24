@@ -1,5 +1,5 @@
 // 상단 막대의 소리 버튼 + 펼침 패널(음소거·볼륨 3개·컨셉). 요약(아이콘·상태) 먼저, 누르면 상세.
-import { CONCEPTS } from './recipes.js?v=6';
+import { CONCEPTS } from './recipes.js?v=7';
 
 const ICON = {
   on: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',

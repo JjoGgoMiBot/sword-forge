@@ -6,7 +6,7 @@ import { loudness, noteToHz, tickTimes, expandSeq, compileRecipe, humanize, rng,
 import { renderRecipe } from '../land/sound/engine.js';
 import { recipeFor, SFX_IDS, CONCEPTS } from '../land/sound/recipes.js';
 import { casinoCues, fortuneCues, PREWARM } from '../land/sound/cues.js';
-import { createSound, normalizeSettings, loadSettings, saveSettings, DEFAULTS, STORAGE_KEY, safetyCurve } from '../land/sound/sound.js';
+import { createSound, normalizeSettings, loadSettings, saveSettings, DEFAULTS, STORAGE_KEY, safetyCurve, BGM_FILES } from '../land/sound/sound.js';
 import { settleMs, reelStopMs } from '../land/casino-fx.js';
 import { MUSIC_PLAN, PLACE_MUSIC } from '../land/sound/score.js';
 
@@ -31,13 +31,15 @@ test('shipped sampled recordings have complete Ogg pages and match the 32-bar ca
   }
 });
 
-test('four place scores have full arrangements, phrase breaths and an evolving second section', () => {
+test('all eight themes have recordings and metadata; scores have phrase breaths and variation', () => {
+  assert.equal(Object.keys(BGM_FILES).length,8);
+  assert.deepEqual(new Set(Object.keys(CONCEPTS)),new Set(Object.keys(BGM_FILES)));
   for (const [id, score] of Object.entries(PLACE_MUSIC)) {
     const plan = MUSIC_PLAN[id], bar = 240 / plan.bpm;
     assert.ok(Math.abs(score.dur - plan.bars * bar) < 1e-8);
     assert.equal(plan.sections.length, 4);
     assert.ok(score.tracks.slice(0, 4).every(t => t.clips.length > 0), id + ' melodic arrangement');
-    assert.equal(score.tracks[4].clips.length > 0, id !== 'fortune', 'tarot leaves percussion out');
+    assert.equal(score.tracks[4].clips.length > 0, ['town','casino','forge'].includes(id), 'quiet themes leave percussion out');
     assert.ok(score.tracks.flatMap(t => t.clips).every(n => n.at >= 0 && n.at < score.dur && n.dur > 0), id + ' event bounds');
     const lead = score.tracks[0].clips, answer = score.tracks[1].clips;
     assert.ok(!lead.some(n => n.at >= 7 * bar && n.at < 8 * bar), id + ' phrase breath');
@@ -157,16 +159,16 @@ test('prepared music loads without synthesis and a stale scene cannot start late
   const sound = createSound({win: {}, storage: null, AudioCtx: function(){return ctx;}, OfflineCtx, fetchAudio,log:{warn(){}}});
   sound.setScene('town'); sound.unlock(); sound.setScene('forge');
   const response = id => ({ok:true,arrayBuffer:async()=>new Float64Array([PLACE_MUSIC[id].dur]).buffer});
-  requests.get('forge.ogg?v=3')(response('forge'));
+  requests.get('forge.ogg?v=4')(response('forge'));
   await new Promise(r => setImmediate(r));
   assert.equal(stats.started, 1, 'current scene starts');
-  requests.get('town.ogg?v=3')(response('town'));
+  requests.get('town.ogg?v=4')(response('town'));
   await new Promise(r => setImmediate(r));
   assert.equal(stats.started, 1, 'outdated scene does not overlap');
   assert.equal(sound.stats.renders, 0, 'file path avoids runtime synthesis');
   assert.equal(sound.get().activeConcept, 'forge');
   sound.setScene('fortune');
-  requests.get('fortune.ogg?v=3')({ok:false,status:503});
+  requests.get('fortune.ogg?v=4')({ok:false,status:503});
   await new Promise(r => setImmediate(r));
   assert.equal(sound.stats.errors,1,'failed recording is reported');
   assert.equal(sound.stats.renders,0,'failed recording does not bring the rejected synth score back');
