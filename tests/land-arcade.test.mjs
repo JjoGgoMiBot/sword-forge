@@ -438,13 +438,13 @@ test('큰 당첨 공지에 새 게임 이름이 나온다', () => {
 });
 
 // ── 🔵 플링코 ──
-test('플링코: 서버가 길을 정하고, 칸 확률은 이항분포이며 위험도별 환수율이 96.5% 이하·최대 100배', () => {
+test('플링코: 서버가 길을 정하고, 칸 확률은 이항분포이며 위험도별 환수율이 94.5~95.5%로 서로 비슷하고 최대 100배', () => {
   const {rows, tables} = ARCADE.plinko, C = (n, k) => { let r = 1; for (let i = 0; i < k; i++) r = r * (n - i) / (i + 1); return Math.round(r); };
   for (const [risk, table] of Object.entries(tables)) {
     assert.equal(table.length, rows + 1, risk);
     assert.deepEqual([...table], [...table].reverse(), risk + ' 좌우 대칭');
     const rtp = table.reduce((s, m, k) => s + m * C(rows, k) / 2 ** rows, 0);
-    assert.ok(rtp <= 0.965 && rtp > 0.9, risk + ' ' + rtp);
+    assert.ok(rtp >= 0.945 && rtp <= 0.955, risk + ' ' + rtp);
     assert.ok(Math.max(...table) <= 100);
   }
   const rng = seeded(11), n = 60000, sum = {low: 0, mid: 0, high: 0};
