@@ -174,6 +174,10 @@ export const SFX = {
   } },
   'roulette.stop': hit('roulette.stop', { lufs: -26.5, transient: [click(0, 3500, 0, 0.006), click(0.07, 3500, -5, 0.005), click(0.11, 3500, -10, 0.004)], body: [thud(0.0, 300, -6, 0.08, 3), thud(0.07, 300, -12, 0.06, 2)], tail: [{ at: 0.12, dur: 0.25, src: { type: 'noise', color: 'brown' }, env: { a: 0.01, d: 0.2, s: 0, r: 0.1 }, filter: { type: 'lowpass', freq: 500 }, gain: -10 }] }),
 
+  // 리볼버: 칸이 한 칸 넘어갈 때 '틱', 방아쇠를 당길 때 '철컥'(공이치기 + 약실 잠금 두 번)
+  'revolver.tick': hit('revolver.tick', { lufs: -27, transient: [click(0, 4200, 0, 0.005)], body: [thud(0, 900, -9, 0.03, 2)], tail: [] }),
+  'revolver.click': hit('revolver.click', { lufs: -23, transient: [click(0, 3000, 0, 0.008), click(0.06, 3800, -3, 0.006)], body: [thud(0, 260, -6, 0.07, 4), thud(0.06, 520, -9, 0.04, 2)], tail: [{ at: 0.07, dur: 0.12, src: { type: 'noise', color: 'brown' }, env: { a: 0.005, d: 0.1, s: 0, r: 0.05 }, filter: { type: 'lowpass', freq: 700 }, gain: -14 }] }),
+
   // 주사위 통: 흔들기(params.dur) → 엎기 → 공개
   'dice.shake': { id: 'dice.shake', lufs: -18, build(p = {}) {
     const r = rng(p.seed ?? 11), dur = p.dur ?? 0.8, shakes = Math.max(2, Math.round(dur / 0.2));

@@ -1,6 +1,8 @@
 // 오락관·운세 화면의 "순간" → 소리 시간표. 순수 함수라 노드에서 시험한다.
 // 시각(ms)은 casino-fx.js·style.css 애니메이션과 같은 기준(결과가 그려진 순간 = 0)이다.
 import { settleMs, reelStopMs } from '../casino-fx.js?v=13';
+import { STEP_MS } from '../revolver.js?v=1';
+import { SPIN_MS } from '../wheel-view.js?v=1';
 
 // 결과 분류(casino-fx 의 outcome) → 결과음
 const OUTCOME = { jackpot: ['jackpot', 'vfx.explosion'], blackjack: ['win', 'vfx.sparkle'], win: ['win'], draw: ['draw'], loss: ['lose'] };
@@ -20,12 +22,27 @@ export function casinoCues(game, outcome, { count = 1, reduced = false } = {}) {
       for (let k = 0; k < count; k++) out.push({ at: k * 300, id: 'card.deal' }, { at: k * 300 + 330, id: 'card.flip' });
     } else if (game === 'horse') {
       out.push({ at: 0, id: 'race.start' }, { at: 300, id: 'race.gallop', params: { dur: +((settle - 300) / 1000).toFixed(1) } }, { at: Math.max(0, settle - 250), id: 'race.finish' });
+    } else if (game === 'wheel') { // wheel-view.js: 공이 SPIN_MS 동안 감속하며 돌고 마지막에 칸에 떨어진다
+      out.push({ at: 0, id: 'roulette.spin', params: { dur: +(SPIN_MS / 1000 - 0.3).toFixed(1) } }, { at: SPIN_MS - 120, id: 'roulette.stop' });
     } else if (game === 'rps') { // rps-pump 박자 13.2% · 35.3% · 57.4% of 1.9s
       out.push({ at: 250, id: 'rps.beat' }, { at: 670, id: 'rps.beat' }, { at: 1090, id: 'rps.beat' }, { at: 1090, id: 'rps.reveal' });
     }
   }
   for (const id of OUTCOME[outcome] || []) out.push({ at: settle, id });
   return out.sort((a, b) => a.at - b.at);
+}
+
+// 러시안 룰렛: 방아쇠를 당긴 한 번(step = revolver.js pullStep)의 소리 시간표.
+// 버텼으면 철컥 → 한 칸 옆으로 틱, 총알이 나왔으면 철컥 뒤 폭발. 반복음의 음높이·크기 무작위(±5%)는 sound.js 가 맡는다.
+export function pullCues(step, { reduced = false, stepMs = STEP_MS } = {}) {
+  if (!step) return [];
+  const out = [];
+  if (step === 'cash') return [{ at: 0, id: 'win' }];
+  out.push({ at: 0, id: 'revolver.click' });
+  if (step === 'safe') { if (!reduced) out.push({ at: stepMs, id: 'revolver.tick' }); return out; }
+  const end = reduced ? 0 : stepMs;
+  if (step === 'max') { if (!reduced) out.push({ at: stepMs, id: 'revolver.tick' }); out.push({ at: end + 80, id: 'win' }); return out; }
+  return [{ at: 0, id: 'revolver.click' }, { at: 90, id: 'vfx.explosion' }, { at: 90, id: 'lose' }]; // bang
 }
 
 // 운세: 열기·카드 뽑기·결과

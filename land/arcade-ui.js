@@ -1,11 +1,12 @@
 import {chips} from './chips.js?v=1';
 import {baccaratRoad} from './baccarat-road.js?v=1';
-import {turnCylinder} from './roulette-motion.js?v=1';
+import {rouletteSvg, pullStep} from './revolver.js?v=1';
+import {wheelSvg, orbitFrames, SPIN_MS} from './wheel-view.js?v=1';
+import {pullCues} from './sound/cues.js?v=4';
 import {dealCards,playLandVfx} from './vfx.js?v=1';
 import {raceMarkup,laneX,RACE} from './race-script.js?v=2';
 // 새 오락관 게임 화면. 혼자 하는 게임은 act()로 지갑 서버에, 함께 하는 게임(크래시·총쏘기·결투·선물)은 마을 소켓으로 보낸다.
 // 결과·시드·터지는 배율·발사 시각은 서버만 안다. 여기서는 서버가 보낸 view를 그리고 누른 것을 돌려보낼 뿐이다.
-import {rouletteScene} from './roulette-view.js?v=3';
 import {baccaratScene,baccaratOutcome} from './baccarat-view.js?v=1';
 export const ARCADE_TABS = {horse: '경마', roulette: '러시안 룰렛', hilo: '하이로우', mines: '마인즈', baccarat: '바카라', wheel: '룰렛 휠', luckybox: '럭키박스',
   crash: '크래시', party: '총쏘기 서바이벌', duel: '총잡이 결투', gift: '초코 선물', beg: '구걸하기'};
@@ -37,10 +38,10 @@ const card = (c, h) => c ? '<span class="ac-card' + (c.suit === 1 || c.suit === 
 const x2 = m => '×' + (Math.floor(m * 100) / 100).toFixed(2);
 const secs = ms => Math.max(0, Math.ceil(ms / 1000));
 
-export function createArcade({money, h, toast, act, send, balance, wallet, round, peers, refresh, history = () => [], sound, fx = () => {}}) {
+export function createArcade({money, h, toast, act, send, balance, wallet, round, peers, refresh, history = () => [], sound, sfx = () => {}, reduced = () => false, fx = () => {}}) {
   let fxSeq = 0, fxKey = null; // 마지막으로 연출한 결과 문구. 탭을 막 연 때의 지난 결과는 다시 터뜨리지 않는다
 
-  let box = null, game = null, watching = null, last = {}, at = 0, raf = 0, pending=false, motion=null, dealPending=null,impactPending=false,bigRoadOpen=false;
+  let box = null, game = null, watching = null, last = {}, at = 0, raf = 0, pending=false, resetT=0, cylAt={id:0,shots:0,done:false}, wheelSeen=-1, wheelBusy=0, dealPending=null,impactPending=false,bigRoadOpen=false;
   const views = {}, input = {bet: 100, auto: '', stake: 100, mines: 3, choice: {}, gift: 100, to: ''};
 
   // ── 소켓 구독: 한 번에 한 게임만 본다 ──
@@ -80,6 +81,11 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
     return html;
   }
   const stepEnd = g => ({bang: '탕! 총알이 나왔어요.', miss: '아쉽게 틀렸어요.', boom: '지뢰를 밟았어요.', cash: '멈추고 ' + money(g.payout) + '초코를 받았어요.', max: '끝까지 버텨 ' + money(g.payout) + '초코를 받았어요!'})[g.outcome] || '';
+  function rouletteScene(g) {
+    const shots = g?.shots || 0, boom = g?.done && g.outcome === 'bang', n = g?.chambers || 6;
+    const prev = g && cylAt.id === String(g.id) ? cylAt.shots : null; // 직전에 그린 칸에서 한 칸 옆으로 넘어간다
+    return '<div class="ac-cylinder' + (boom ? ' boom' : '') + '" role="img" aria-label="' + n + '칸 중 ' + shots + '칸 버팀">' + rouletteSvg(g, n, prev) + '<b>' + (g ? shots + ' / ' + (n - 1) : n + '칸') + '</b></div>';
+  }
   function hiloScene(g) {
     if (!g) return '<p class="ac-empty">카드 한 장을 받고, 다음 카드가 높을지 낮을지 골라요.</p>';
     return '<div class="ac-cards">' + g.cards.map(c => card(c, h)).join('') + '</div><p class="ac-empty">맞힌 횟수 ' + g.steps + ' / 10</p>';
@@ -98,7 +104,7 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
     let html = '<div class="ac-stage ac-' + game + '">';
     if (r) html += summary([['베팅', money(r.bet) + ' C'], ['받은 돈', money(r.payout) + ' C', r.payout > r.bet ? 'win' : '']]);
     if (game === 'baccarat') { html += baccaratScene(r); if(r){const outcome=baccaratOutcome(r);html+=banner(outcome.text,outcome.kind);} }
-    if (game === 'wheel') html += r ? '<div class="ac-wheelbox">' + pic('wheel', 'ac-wheel-img spin') + '<div class="ac-ball ' + r.color + '">' + r.number + '</div></div>' + banner(r.payout ? money(r.payout) + '초코 당첨!' : '이번엔 빗나갔어요.', r.payout ? 'win' : '') : '<div class="ac-wheelbox">' + pic('wheel', 'ac-wheel-img') + '</div><p class="ac-empty">0~36 중 공이 멈출 곳에 걸어요.</p>';
+    if (game === 'wheel') html += '<div class="ac-wheelbox">' + wheelSvg(r) + '</div>' + (r ? '<div class="ac-late' + (wheelSeen !== fxSeq && !reduced() ? ' wait' : '') + '">' + banner(r.payout ? money(r.payout) + '초코 당첨!' : '이번엔 빗나갔어요.', r.payout ? 'win' : 'loss') + '</div>' : '<p class="ac-empty">0~36 중 공이 멈출 곳에 걸어요.</p>');
     if (game === 'luckybox') html += r ? '<div class="ac-prize tier' + r.tier + '">' + pic('prize-' + r.tier) + '<b>' + h(r.prize) + '</b><span>' + x2(r.mult) + '</span></div>' + banner(money(r.payout) + '초코를 받았어요.', r.payout > r.bet ? 'win' : '') : '<div class="ac-boxrow">' + Object.keys(BOXES).map(k => pic('box-' + k)).join('') + '</div><p class="ac-empty">상자를 골라 열어요. 가격이 곧 베팅이에요.</p>';
     html += '</div>'+ (game==='baccarat'?baccaratRoad(history()):'') + '<div class="casino-controls">';
     if (game === 'luckybox') html += Object.entries(BOXES).map(([k, [name, price]]) => '<button class="ac-boxb ' + (k === 'small' ? 'primary' : '') + '" data-ac="play" data-choice="' + k + '" ' + (balance() < price ? 'disabled' : '') + '>' + pic('box-' + k) + name + ' · ' + money(price) + '</button>').join('');
@@ -225,14 +231,12 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
   function positionHorses(v){if(!v||!box)return;box.querySelectorAll('.horse-pos').forEach((e,i)=>e.style.transform=laneX(v.positions[i]||0,matchMedia('(max-width:420px)').matches?RACE.startNarrow:RACE.start));const call=box.querySelector('.race-call');if(call)call.textContent=v.phase==='running'?'같은 경주를 실시간으로 달리는 중':v.phase==='done'?'결승 · 1착 '+(v.last.winner+1)+'번':'게이트 진입 · 출발 대기';}
   function paint() {
     if (!box) return;
-    const oldCylinder = box.querySelector('.ac-cylwrap');
-    const previousTurn = oldCylinder && {key: oldCylinder.dataset.round, transform: oldCylinder.style.transform};
+    if (game === 'wheel' && wheelBusy > performance.now()) { clearTimeout(resetT); resetT = setTimeout(paint, wheelBusy - performance.now() + 30); return; } // 공이 도는 동안은 다시 그리지 않는다
     const focused = document.activeElement?.id;
     const html = STEP.includes(game) ? stepHtml() : ONE.includes(game) ? oneHtml() : game === 'beg' ? begHtml() : game === 'gift' ? giftHtml() : game==='horse'?horseHtml(): game === 'crash' ? crashHtml() : game === 'party' ? partyHtml() : duelHtml();
     box.innerHTML = html;
-    const cylinder = box.querySelector('.ac-cylwrap');
     const res = box.querySelector('.ac-result'), key = res ? game + '|' + fxSeq + '|' + res.textContent : game;
-    if (!impactPending && fxKey !== null && key !== fxKey && res && (res.classList.contains('win') || res.classList.contains('loss'))) fx(box.querySelector('.ac-stage') || box, res.classList.contains('win') ? 'win' : 'loss', game,dealPending===game?(game==='baccarat'?1100:450):0);
+    if (!impactPending && fxKey !== null && key !== fxKey && res && (res.classList.contains('win') || res.classList.contains('loss'))) fx(box.querySelector('.ac-stage') || box, res.classList.contains('win') ? 'win' : 'loss', game,dealPending===game?(game==='baccarat'?1100:450):0,game==='roulette');
     fxKey = key;
     if(dealPending===game){
       let cards=game==='baccarat'?[...box.querySelectorAll('.ac-bacc-hand')].map(e=>[...e.querySelectorAll('.ac-card')]):null;
@@ -241,6 +245,18 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
       if(game==='baccarat'&&!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches)box.querySelectorAll('.ac-bacc-hand header strong,.ac-bacc-verdict,.ac-result').forEach(e=>e.animate?.([{opacity:0},{opacity:1}],{duration:160,delay,fill:'backwards'}));
       dealPending=null;
     }
+    if (game === 'roulette') { // 새로 그려도 직전 칸에서 한 칸 옆으로 건너가고, 그 순간 철컥·틱을 낸다
+      const g = round()?.game === 'roulette' ? round() : null;
+      if (g) {
+        const step = pullStep(cylAt.id === String(g.id) ? cylAt : null, g);
+        if (step) sfx(pullCues(step, {reduced: reduced()}));
+        const cur = box.querySelector('.ac-cur');
+        if (cur) { void cur.getBoundingClientRect(); cur.style.transform = 'translate(' + cur.dataset.x + 'px,' + cur.dataset.y + 'px)'; }
+        cylAt = {id: String(g.id), shots: g.shots, done: !!g.done};
+      }
+    }
+    clearTimeout(resetT);
+    if (game === 'wheel') spinBall();
     if(impactPending){playLandVfx(box.querySelector('.ac-stage'),'bang');impactPending=false;}
     const scrollRoad=e=>{const right=Math.max(0,...[...e.querySelectorAll('.bacc-dot')].map(d=>Number(d.style.gridColumnStart)*24));e.scrollLeft=Math.max(0,right-e.clientWidth+4);};
     box.querySelectorAll('.bacc-road-scroll').forEach(scrollRoad);box.querySelectorAll('.bacc-history details').forEach((d,i)=>{if(i===1)d.open=bigRoadOpen;d.addEventListener('toggle',()=>{if(i===1)bigRoadOpen=d.open;if(d.open)scrollRoad(d.querySelector('.bacc-road-scroll'));});});
@@ -248,14 +264,23 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
     if(game==='horse')positionHorses(views.horse);
     if (game === 'crash') { drawCrash(); crashLoop(); }
   }
+  function spinBall() { // 결과가 막 도착했으면 공이 돌다 멈춘 칸에 떨어지는 모습을 보여 준다(처음 보는 판이거나 움직임 줄이기면 멈춘 모습만)
+    const o = box.querySelector('.wh-orbit');
+    if (!o || wheelSeen === fxSeq) return;
+    wheelSeen = fxSeq;
+    if (reduced() || !o.animate) return;
+    const deg = Number(o.dataset.deg), f = orbitFrames(deg), ball = o.querySelector('.wh-ball');
+    wheelBusy = performance.now() + SPIN_MS;
+    o.animate(f.spin, {duration: SPIN_MS, easing: 'cubic-bezier(.2,.6,.25,1)'});
+    ball.animate(f.drop, {duration: SPIN_MS, easing: 'ease-in'});
+  }
   async function run(op, payload, keep) {
     if(pending)return;pending=true;const playedGame=game;
-    if(game==='roulette'&&op==='arcadeMove'&&payload.move==='pull')motion=turnCylinder(box,round(),sound);
-    try{const data=await act(op,payload);await motion?.reveal(data.result?.round);
+        try{const data=await act(op,payload);
       if(keep){last[playedGame]={...data.result,choice:payload?.choice};fxSeq++;}
       if(playedGame==='baccarat'||playedGame==='hilo'&&payload.move!=='cash')dealPending=playedGame;
       impactPending=playedGame==='roulette'&&data.result?.round?.outcome==='bang';refresh();return data;
-    }catch(e){toast(e.message);refresh();}finally{pending=false;motion?.cancel();motion=null;}
+    }catch(e){toast(e.message);refresh();}finally{pending=false;}
   }
   function onInput(e) {
     const id = e.target.id, n = Number(e.target.value);
@@ -306,7 +331,7 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
       paint();
       if(next==='horse')positionHorses(views.horse);
     },
-    unmount() { motion?.cancel();box = null; game = null; cancelAnimationFrame(raf); watch(null); },
+    unmount() { clearTimeout(resetT); box = null; game = null; cancelAnimationFrame(raf); watch(null); },
     update(g, view) { const prior=views[g]; views[g] = view;if(g==='horse'&&g===game&&box&&prior?.id===view.id&&prior?.round===view.round&&prior.phase===view.phase&&prior.participants.length===view.participants.length){at=performance.now();positionHorses(view);return;}if(g==='horse'&&g===game&&view.phase==='running'&&prior?.phase!=='running'){sound?.cue?.([{at:0,id:'race.start'},{at:300,id:'race.gallop',params:{dur:10}}]);}  if (g === game) { at = performance.now(); paint(); if(g==='horse')positionHorses(view); } },
     error(g, msg) { toast(msg); if (g === game) paint(); },
     gift(m) {
