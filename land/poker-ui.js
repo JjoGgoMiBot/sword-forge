@@ -50,13 +50,16 @@ export function createPoker({money, h, send, toast, balance, sound}) {
     if (!o) return '';
     const min = o.minTo, max = o.maxTo;
     if (raise == null || raise < min || raise > max) raise = min;
-    const half = Math.max(min, Math.min(max, st.currentBet + Math.round(o.pot / 2))), pot = Math.max(min, Math.min(max, st.currentBet + o.pot + o.toCall));
+    const clamp = v => Math.max(min, Math.min(max, Math.round(v / 10) * 10));
+    const potTo = st.currentBet + o.pot + o.toCall;
+    const sizes = [['½팟', clamp(st.currentBet + o.pot / 2)], ['¾팟', clamp(st.currentBet + (o.pot + o.toCall) * 0.75)], ['팟', clamp(potTo)], ['올인', max]];
     return '<div class="pk-actions" role="group" aria-label="내 행동">'
-      + '<button data-poker="act" data-move="fold">폴드</button>'
-      + '<button class="primary" data-poker="act" data-move="' + (o.canCheck ? 'check' : 'call') + '">' + (o.canCheck ? '체크' : '콜 ' + money(o.toCall)) + '</button>'
-      + (o.canRaise ? '<div class="pk-raise"><div class="pk-quick"><button data-poker="size" data-to="' + min + '">최소</button><button data-poker="size" data-to="' + half + '">½팟</button><button data-poker="size" data-to="' + pot + '">팟</button><button data-poker="size" data-to="' + max + '">올인</button></div>'
-        + '<label class="pk-range"><input type="range" id="pkRaise" min="' + min + '" max="' + max + '" step="10" value="' + raise + '" aria-label="레이즈 금액"><span id="pkRaiseText">' + money(raise) + '</span></label>'
-        + '<button class="primary" data-poker="act" data-move="raise">' + (raise >= max ? '올인 ' : '레이즈 ') + '<span id="pkRaiseBtn">' + money(raise) + '</span></button></div>' : '')
+      + '<button class="pk-fold" data-poker="act" data-move="fold">폴드</button>'
+      + '<button class="pk-call" data-poker="act" data-move="' + (o.canCheck ? 'check' : 'call') + '">' + (o.canCheck ? '체크' : '콜<small>' + money(o.toCall) + '</small>') + '</button>'
+      + (o.canRaise ? '<button class="pk-raise-btn" data-poker="act" data-move="raise">' + (raise >= max ? '올인' : '레이즈') + '<small id="pkRaiseBtn">' + money(raise) + '</small></button>'
+        + '<div class="pk-raise"><div class="pk-raise-head"><span id="pkRaiseText">' + money(raise) + '</span><span id="pkRaisePreview">' + chipStacks(raise, 4) + '</span></div>'
+        + '<label class="pk-range"><span class="muted">' + money(min) + '</span><input type="range" id="pkRaise" min="' + min + '" max="' + max + '" step="10" value="' + raise + '" aria-label="레이즈 금액"><span class="muted">' + money(max) + '</span></label>'
+        + '<div class="pk-quick">' + sizes.map(([t, v]) => '<button data-poker="size" data-to="' + v + '">' + t + '</button>').join('') + '</div></div>' : '')
       + '</div>';
   }
 
@@ -114,8 +117,9 @@ export function createPoker({money, h, send, toast, balance, sound}) {
     if (input) input.value = raise;
     const max = st.options?.maxTo;
     for (const id of ['pkRaiseText', 'pkRaiseBtn']) { const el = box.querySelector('#' + id); if (el) el.textContent = money(raise); }
+    const pv = box.querySelector('#pkRaisePreview'); if (pv) pv.innerHTML = chipStacks(raise, 4);
     const btn = box.querySelector('[data-move="raise"]');
-    if (btn) btn.firstChild.textContent = raise >= max ? '올인 ' : '레이즈 ';
+    if (btn) btn.firstChild.textContent = raise >= max ? '올인' : '레이즈';
   }
   function onInput(event) {
     if (event.target.id === 'pkRaise') { raise = Number(event.target.value); syncRaise(); }

@@ -396,3 +396,15 @@
 @media(max-width:600px){.cstacks{--cs:16px}.pk-pot .cstacks{--cs:20px}.pkb1,.pkb2{left:28%}.pkb4,.pkb5{left:72%}}
 @media(prefers-reduced-motion:reduce){.cs-col .cs-chip{transition:none}}
 .pk-exit{display:none}
+/* 포커 액션 바: 폴드(어둠) · 체크/콜(초록) · 레이즈(금색) */
+.pk-actions{grid-template-columns:1fr 1.4fr 1.4fr;align-items:stretch}
+.pk-actions>button{min-height:56px;display:grid;place-content:center;gap:0;font-size:16px;font-weight:700;border-radius:12px;border:0;color:#fff}
+.pk-actions>button small{font-size:12px;font-weight:600;opacity:.9}
+.pk-fold{background:#4a4540}.pk-call{background:#2f7a4f}.pk-raise-btn{background:var(--pk-gold);color:#2b2420!important}
+.pk-actions>button:disabled{opacity:.5}
+.pk-raise{grid-column:1/-1;background:var(--soft);border-radius:12px;padding:12px}
+.pk-raise-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;min-height:56px}
+#pkRaiseText{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+#pkRaisePreview .cstacks{--cs:20px}
+.pk-quick{grid-template-columns:repeat(4,1fr);gap:8px}.pk-quick button{min-height:44px;border-radius:10px}
+.pk-range input{accent-color:var(--pk-gold);height:44px}
