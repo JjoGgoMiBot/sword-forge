@@ -103,6 +103,8 @@ async function send(f){
     if(e.status===401)start();
   }finally{busy=false;$('adjSubmit').disabled=$('confirmBtn').disabled=false;if(!pending)syncLabel();}
 }
-$('amount').addEventListener('input',()=>{if(pending){pending=null;syncLabel();}});
-$('reason').addEventListener('input',()=>{if(pending){pending=null;syncLabel();}});
+// 입력을 고치면 이전 경고·확정 단계·재시도 요청 번호를 모두 버린다. 확정 버튼 글자가 옛 금액을 말하는 채로 남지 않게 한다.
+const edited=()=>{if(busy)return;pending=null;$('confirmRow').hidden=true;$('adjSubmit').hidden=false;note('');syncLabel();};
+$('amount').addEventListener('input',edited);
+$('reason').addEventListener('input',edited);
 start();

@@ -104,6 +104,7 @@ const SETTLE = {
   horse: { base: RACE.settle, step: 0, sel: '.horse-runner' }, // 경주 대본(race-script)의 판정 끝 시각
   dice: { base: 1760, step: 0 }, // 통을 들어 올려 두 번째 주사위가 자리 잡는 때(1.9s 의 ~92%)
   rps: { base: 1260, step: 0 }, // '보!' 뒤 승패 반응이 시작될 때(1.9s 의 ~66%)
+  wheel: { base: 3600, step: 0 }, // 공이 돌다 칸에 멈추고 한 박자 뒤(wheel-view.js SPIN_MS 3400)
   blackjack: { base: 630, step: 300, sel: '.bj-anim' }, // app.js bjTable: 동작 k는 k*300ms에 시작, 날기 330ms + 뒤집기 300ms
 };
 export function settleMs(game, count = 1) {

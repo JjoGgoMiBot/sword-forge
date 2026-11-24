@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/core.test.mjs tests/progression.test.mjs tests/client-session.test.mjs tests/security-100.test.mjs tests/land-sound.test.mjs tests/land-joystick.test.mjs tests/land-notice.test.mjs tests/land-poker.test.mjs tests/land-arcade.test.mjs tests/land-admin.test.mjs",
+    "test": "node --test tests/core.test.mjs tests/progression.test.mjs tests/client-session.test.mjs tests/security-100.test.mjs tests/land-sound.test.mjs tests/land-joystick.test.mjs tests/land-notice.test.mjs tests/land-poker.test.mjs tests/land-arcade.test.mjs tests/land-admin.test.mjs tests/land-roulette-view.test.mjs",
     "test:security": "node --test tests/security-100.test.mjs",
     "update:csp": "node scripts/update-csp.mjs",
-    "test:api": "node --test tests/api.test.mjs tests/security-api.test.mjs tests/land-admin-api.test.mjs",
+    "test:api": "node --test tests/api.test.mjs tests/security-api.test.mjs tests/land-admin-api.test.mjs tests/land-wallet-authority.test.mjs",
     "test:land": "node --test tests/land-quiz.test.mjs tests/land-casino-fx.test.mjs tests/land-race.test.mjs tests/land.test.mjs tests/land-room.test.mjs tests/land-sound.test.mjs tests/land-api.test.mjs",
     "balance": "node tests/balance.mjs",
     "balance:progression": "node tests/progression.mjs",

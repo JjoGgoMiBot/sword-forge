@@ -4,9 +4,9 @@ import {isActivity,connectDiscordVoice} from './discord-voice.js';
 import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=13';
 import {raceMarkup,playRace,RACE} from './race-script.js?v=1';
 import {createPoker} from './poker-ui.js?v=1';
-import {createArcade,ARCADE_TABS,ARCADE_RULES} from './arcade-ui.js?v=4';
+import {createArcade,ARCADE_TABS,ARCADE_RULES} from './arcade-ui.js?v=5';
 import {getSound} from './sound/sound.js?v=2';
-import {casinoCues,fortuneCues,PREWARM} from './sound/cues.js?v=2';
+import {casinoCues,fortuneCues,PREWARM} from './sound/cues.js?v=3';
 import {mountSoundControl} from './sound/ui.js?v=2';
 // 소리: 첫 입력 전에는 AudioContext 를 만들지 않는다(sound.js). 첫 입력 뒤 자주 쓰는 소리를 미리 그린다.
 let casinoReset=0;const sound=getSound();sound.setScene('town');let soundRun={cancel(){}};
@@ -20,13 +20,13 @@ let account=store.get('swordforge-acc'),profile=null,forge=null,socket=null,self
 const position={...WORLD.spawn},held=new Set(),movingKeys=new Map([['KeyW',[0,-1]],['ArrowUp',[0,-1]],['KeyS',[0,1]],['ArrowDown',[0,1]],['KeyA',[-1,0]],['ArrowLeft',[-1,0]],['KeyD',[1,0]],['ArrowRight',[1,0]]]);
 const GAME_NAMES={slots:'슬롯',blackjack:'블랙잭',dice:'홀짝',horse:'개인 경마',rps:'가위바위보',poker:'포커',quiz:'초성퀴즈',ledger:'이용 기록',...ARCADE_TABS};
 // 탭이 많아 묶음(혼자·함께·그 밖)을 먼저 고르고 그 안의 게임을 고른다
-const GAME_GROUPS={solo:['혼자 하기',['slots','blackjack','dice','rps','horse','roulette','hilo','mines','baccarat','wheel','luckybox']],live:['함께 하기',['crash','party','duel','poker']],etc:['그 밖',['gift','beg','quiz','ledger']]};
+const GAME_GROUPS={solo:['혼자 하기',['slots','blackjack','dice','rps','horse','roulette','hilo','mines','baccarat','wheel','luckybox','plinko']],live:['함께 하기',['crash','party','duel','rpsduel','poker']],etc:['그 밖',['gift','beg','quiz','ledger']]};
 // 포커는 방(LandRoom)이 판을 돌리고 소켓으로 상태를 보낸다. 탭을 열면 구경(watch)을 켜고 닫으면 끈다.
 const poker=createPoker({money,h,toast,balance:()=>profile?.wallet?.balance||0,send:m=>{if(socket?.readyState===1)socket.send(JSON.stringify({type:'poker',...m}));else toast('마을 연결이 끊겼어요. 잠시 뒤 다시 해주세요.');}});
 let pokerWatching=false;
 function pokerWatch(on){if(pokerWatching===on)return;pokerWatching=on;if(socket?.readyState===1)socket.send(JSON.stringify({type:'poker',op:'watch',on}));}
 setInterval(()=>{if(pokerWatching)poker.tick();},250);
-const arcade=createArcade({money,h,toast,act,fx:(stage,outcome,game)=>{playCasinoFx(stage,{outcome,game});soundRun.cancel();soundRun=sound.cue(casinoCues(game,outcome,{reduced:reduceMotion()}));},balance:()=>profile?.wallet?.balance||0,wallet:()=>profile?.wallet||{},round:()=>profile?.arcade||null,
+const arcade=createArcade({money,h,toast,act,fx:(stage,outcome,game,silent)=>{playCasinoFx(stage,{outcome,game});if(silent)return;soundRun.cancel();soundRun=sound.cue(casinoCues(game,outcome,{reduced:reduceMotion()}));},sfx:list=>{soundRun.cancel();soundRun=sound.cue(list);},reduced:reduceMotion,balance:()=>profile?.wallet?.balance||0,wallet:()=>profile?.wallet||{},round:()=>profile?.arcade||null,
   peers:()=>[...peers.values()].filter(p=>p.id!==self&&p.name).map(p=>({id:p.id,name:p.name})),
   send:m=>{if(socket?.readyState===1)socket.send(JSON.stringify({type:'arcade',...m}));else if(m.op!=='watch')toast('마을 연결이 끊겼어요. 잠시 뒤 다시 해주세요.');},
   refresh:tab=>{if(tab)casinoTab=tab;if(venue==='casino'&&profile)renderCasino();}});
@@ -244,8 +244,9 @@ function renderCasino(){const box=$('venueContent'),wallet=profile.wallet;let ht
   box.querySelectorAll('[data-casino-tab]').forEach(button=>button.onclick=()=>{sound.play('ui.tap');casinoTab=button.dataset.casinoTab;lastResult=null;casinoFx=null;renderCasino();});
   box.querySelector('#betInput')?.addEventListener('change',event=>lastBet=Number(event.target.value));
   box.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',async()=>{
-    const kind=button.dataset.action;sound.play(kind==='play'||kind==='bj'&&button.dataset.choice==='double'?'chip.place':'ui.tap');try{
+    const kind=button.dataset.action;if(kind!=='recover'&&balanceTampered())return;sound.play(kind==='play'||kind==='bj'&&button.dataset.choice==='double'?'chip.place':'ui.tap');try{
       if(kind==='recover'){await recover();return;}
+      if(kind==='allin'){const v=Math.max(0,Math.floor(wallet.balance));if(v>=10){lastBet=v;$('betInput').value=v;}return;}
       let data;
       if(kind==='play'){const bet=Number($('betInput').value);lastBet=bet;const choice=$('gameChoice')?.value;const payload={game:casinoTab,bet};if(choice!==undefined)payload.choice=casinoTab==='horse'?Number(choice):choice;if(casinoTab==='horse')payload.raceId=profile.race?.id;data=await act('play',payload);}
       else if(kind==='bj')data=await act('blackjack',{roundId:profile.blackjack.id,choice:button.dataset.choice});
@@ -259,8 +260,31 @@ function renderCasino(){const box=$('venueContent'),wallet=profile.wallet;let ht
   setBusy(busy);
 }
 function casinoTabs(){const group=Object.keys(GAME_GROUPS).find(k=>GAME_GROUPS[k][1].includes(casinoTab))||'solo';return '<div class="venue-groups" role="group" aria-label="게임 묶음">'+Object.entries(GAME_GROUPS).map(([id,[name,list]])=>'<button data-casino-tab="'+(id===group?casinoTab:list[0])+'" aria-pressed="'+(id===group)+'">'+name+' <small>'+list.length+'</small></button>').join('')+'</div><div class="venue-tabs">'+GAME_GROUPS[group][1].map(id=>'<button data-casino-tab="'+id+'" aria-pressed="'+(id===casinoTab)+'">'+GAME_NAMES[id]+'</button>').join('')+'</div>';}
-function betControls(){let choice='';if(casinoTab==='dice')choice='<label>내 선택<select id="gameChoice"><option value="odd">홀수</option><option value="even">짝수</option></select></label>';if(casinoTab==='rps')choice='<label>내 선택<select id="gameChoice">'+Object.entries(RPS).map(([id,name])=>'<option value="'+id+'">'+name+'</option>').join('')+'</select></label>';if(casinoTab==='horse')choice='<label>응원할 말<select id="gameChoice">'+profile.race.horses.map((horse,i)=>'<option value="'+i+'">'+h(horse.name)+' · '+(horse.rate/10).toFixed(1)+'배</option>').join('')+'</select></label>';return '<div class="casino-controls"><label>베팅 초코<input id="betInput" type="number" inputmode="numeric" min="10" max="5000" step="1" value="'+Math.min(5000,Math.max(10,lastBet||100))+'"></label>'+choice+'<button class="primary" data-action="play">'+(casinoTab==='blackjack'?'카드 받기':'한 판 시작')+'</button></div><p class="status-note">10~5,000초코 · 확정하면 베팅금이 차감돼요. 자동 연속 베팅은 없어요.</p>';}
-function casinoRules(game){const rules={poker:'텍사스 홀덤 노리밋, 블라인드 10/20, 최대 6명. 서버가 매 판 52장을 새로 섞어 나눠 주고, 다른 사람 패는 쇼다운 전까지 누구에게도 보내지 않아요. 사람이 앉으면 빈자리는 봇이 채워요(봇도 자기 패와 보드만 봐요). 내 차례는 20초, 넘기면 체크할 수 있으면 체크·아니면 폴드되고, 두 번 연속이면 판이 끝날 때 자리에서 일어나요. 일어나면 남은 칩이 바로 지갑으로 돌아와요.',slots:'세 그림 일치: 체리 4배, 레몬 6배, 포도 10배, 종 20배, 별 50배, 다이아 120배, 7은 777배. 두 그림 일치: 체리 1.5배, 나머지 1.2배. 그림 가중치는 순서대로 30·24·18·13·8·5·2입니다.',dice:'두 개의 공정한 주사위를 굴려 합계를 맞혀요. 맞히면 1.9배, 틀리면 0. 지급액의 소수점은 버립니다.',blackjack:'4덱을 매 판 새로 섞어요. 딜러는 소프트 17에서도 멈춰요. 일반 승리 2배, 내추럴 블랙잭 2.5배, 무승부 원금 반환. 첫 선택에서만 더블할 수 있어요. 보험·스플릿은 없습니다.',horse:'각 말의 승률은 경주표 생성 시 정해지며, 배당은 0.92/승률을 소수 첫째 자리에서 내린 값입니다. 다른 이용자와 결과를 공유하지 않는 개인 경주예요.',rps:'봇은 가위·바위·보를 같은 확률로 선택해요. 이기면 2배, 비기면 원금 반환, 지면 0입니다.',quiz:'정답은 서버에서 확인해요. 한 문제 세 번까지, 제한 시간 90초. 정답마다 40초코, 하루 25번까지 보상해요. 다음 문제까지 10초 쉬어요.',ledger:'재시작·새로고침 뒤에도 서버의 잔액과 정산 기록이 유지돼요. 결과 확인이 안 된 요청은 같은 번호로 다시 조회합니다.'};return '<details class="rules"><summary>규칙과 지급 기준</summary><p>'+h(rules[game]||ARCADE_RULES[game]||'')+'</p><p>랜드 초코는 현금 가치·환전·대장간 골드 교환이 없어요. 출석 300초코, 잔액 100 미만이면 하루 한 번 응원 300초코를 받을 수 있어요.</p></details>';}
+function betControls(){let choice='';if(casinoTab==='dice')choice='<label>내 선택<select id="gameChoice"><option value="odd">홀수</option><option value="even">짝수</option></select></label>';if(casinoTab==='rps')choice='<label>내 선택<select id="gameChoice">'+Object.entries(RPS).map(([id,name])=>'<option value="'+id+'">'+name+'</option>').join('')+'</select></label>';if(casinoTab==='horse')choice='<label>응원할 말<select id="gameChoice">'+profile.race.horses.map((horse,i)=>'<option value="'+i+'">'+h(horse.name)+' · '+(horse.rate/10).toFixed(1)+'배</option>').join('')+'</select></label>';return '<div class="casino-controls"><label>베팅 초코<input id="betInput" type="number" inputmode="numeric" min="10" step="1" value="'+Math.max(10,lastBet||100)+'"></label>'+'<button type="button" class="ac-allin" data-action="allin">올인 '+Math.max(0,Math.floor(wallet.balance))+'</button>'+choice+'<button class="primary" data-action="play">'+(casinoTab==='blackjack'?'카드 받기':'한 판 시작')+'</button></div><p class="status-note">10초코 이상 · 확정하면 베팅금이 차감돼요. 자동 연속 베팅은 없어요.</p>';}
+// 규칙은 문단 배열로 쓴다. '• '로 시작하는 줄은 목록, 나머지는 문단이다. 처음 하는 사람이 순서대로 읽을 수 있게 짧게 나눈다.
+const RULE_TEXT={
+poker:['📖 처음이라면: 카드 2장(내 패)과 가운데 공용 카드 5장 중에서 가장 센 5장 조합을 만든 사람이 판돈(팟)을 가져가요. 모두가 폴드하고 한 명만 남아도 그 사람이 가져가요.',
+'진행 순서',
+'• ① 프리플랍: 내 패 2장을 받고 베팅해요.','• ② 플랍: 공용 카드 3장이 열리고 베팅해요.','• ③ 턴: 카드 1장이 더 열리고 베팅해요.','• ④ 리버: 마지막 카드 1장이 열리고 베팅해요.','• ⑤ 쇼다운: 남은 사람이 패를 펼쳐 이긴 사람을 가려요.',
+'내 차례에 할 수 있는 것',
+'• 체크: 걸 돈이 없을 때 그냥 넘기기(돈 안 냄).','• 콜: 앞사람이 건 만큼 맞춰 내기.','• 레이즈: 더 올려서 걸기. 다른 사람은 따라오거나 포기해야 해요.','• 폴드: 이번 판을 포기해요. 이미 낸 돈은 돌려받지 못해요.','• 올인: 가진 칩을 전부 거는 것. 칩이 모자란 사람도 올인한 만큼만 따낼 수 있어요.',
+'족보(위가 가장 세요)',
+'• 1. 로열 스트레이트 플러시: 같은 무늬 10-J-Q-K-A','• 2. 스트레이트 플러시: 같은 무늬로 숫자 5장 연속','• 3. 포카드: 같은 숫자 4장','• 4. 풀하우스: 같은 숫자 3장 + 2장','• 5. 플러시: 같은 무늬 5장(숫자는 상관없음)','• 6. 스트레이트: 무늬 상관없이 숫자 5장 연속(A는 1과 14 둘 다 가능)','• 7. 트리플: 같은 숫자 3장','• 8. 투페어: 같은 숫자 2장이 두 쌍','• 9. 원페어: 같은 숫자 2장','• 10. 하이카드: 아무 조합도 없으면 가장 높은 카드',
+'같은 족보끼리는 숫자가 높은 쪽, 그래도 같으면 남은 카드가 높은 쪽이 이겨요. 그래도 같으면 팟을 나눠요.',
+'💡 이 방에서는: 블라인드(강제 베팅) 10/20, 최대 6명, 앉을 때 400~4,000초코를 칩으로 바꿔요. 일어나면 남은 칩이 바로 지갑으로 돌아와요. 내 차례는 20초이고, 넘기면 체크할 수 있을 땐 체크·아니면 폴드돼요(두 번 연속이면 자리에서 일어나요).',
+'🔒 서버가 매 판 52장을 새로 섞어 나눠 주고, 다른 사람 패는 쇼다운 전까지 아무에게도 보내지 않아요. 빈자리는 봇이 채우고, 봇도 자기 패와 공용 카드만 봐요.'],
+slots:['세 그림이 같으면 크게 받아요: 체리 4배 · 레몬 6배 · 포도 10배 · 종 20배 · 별 50배 · 다이아 120배 · 7 777배.','두 그림만 같아도 받아요: 체리 1.5배, 나머지 1.2배. 나머지 경우는 0이에요.','그림은 나오는 확률이 달라요(체리가 가장 흔하고 7이 가장 드물어요).'],
+dice:['두 개의 주사위를 굴려 나온 두 숫자의 합을 보고 홀수인지 짝수인지 맞혀요.','맞히면 건 돈의 1.9배를 받고, 틀리면 잃어요. 소수점은 버려요.'],
+blackjack:['카드 숫자의 합을 21에 가깝게 만들되 넘으면(버스트) 져요. J·Q·K는 10, A는 1 또는 11로 계산해요.','한 장 더: 카드를 더 받기 · 멈추기: 지금 합으로 끝내기 · 더블: 처음 선택에서만, 돈을 두 배로 걸고 딱 한 장만 받기.','딜러는 합이 17이 될 때까지 뽑고 17부터 멈춰요. 이기면 2배, 처음 두 장이 A+10인 블랙잭은 2.5배, 비기면 원금 반환이에요. 보험·스플릿은 없어요.'],
+horse:['말마다 이길 확률이 다르고 배당도 달라요. 확률이 낮은 말일수록 맞혔을 때 배당이 커요.','응원할 말을 고르고 베팅하면 결과를 보여 줘요. 다른 사람과 결과를 공유하지 않는 혼자 하는 경주예요.'],
+rps:['가위·바위·보 중 하나를 고르면 봇이 같은 확률로 하나를 내요. 이기면 2배, 비기면 원금 반환, 지면 잃어요.','가위는 보를, 바위는 가위를, 보는 바위를 이겨요. 사람과 하려면 「가위바위보 대결」 탭을 쓰세요.'],
+quiz:['초성(ㄱㄴㄷ…)만 보고 어떤 낱말인지 맞혀요. 정답은 서버가 확인해요.','한 문제에 기회는 세 번, 제한 시간은 30초예요. 정답마다 40초코, 하루 25번까지 받아요. 다음 문제까지 10초 쉬어요.'],
+ledger:['재시작·새로고침 뒤에도 서버의 잔액과 정산 기록이 그대로 유지돼요.','결과를 확인하지 못한 요청은 같은 번호로 다시 조회해서 중복 지급되지 않아요.']};
+function casinoRules(game){const r=RULE_TEXT[game]||[ARCADE_RULES[game]||''];let list=false,html='';for(const line of r){if(line.startsWith('• ')){if(!list){html+='<ul>';list=true;}html+='<li>'+h(line.slice(2))+'</li>';}else{if(list){html+='</ul>';list=false;}html+=(line.length<20&&!/[.요]$/.test(line)?'<p><b>'+h(line)+'</b></p>':'<p>'+h(line)+'</p>');}}if(list)html+='</ul>';return '<details class="rules"><summary>'+(game==='poker'?'처음이라면: 규칙과 족보 보기':'규칙과 지급 기준')+'</summary>'+html+'<p>랜드 초코는 현금 가치·환전·대장간 골드 교환이 없어요. 출석 300초코, 잔액 100 미만이면 하루 한 번 응원 300초코를 받을 수 있어요.</p></details>';}
+// 화면의 초코 숫자를 개발자도구로 고쳤는지 본다. 진짜 잔액은 서버에만 있어 고쳐도 게임 결과엔 영향이 없지만,
+// 고친 숫자가 보이는 채로 게임을 하지 못하게 서버 값으로 되돌리고 그 동작을 막는다.
+function balanceTampered(){if(!profile?.wallet)return false;const real=money(profile.wallet.balance);let bad=false;for(const el of document.querySelectorAll('#choco,.casino-wallet strong')){const t=el.textContent.replace(/\s*C$/,'').trim();if(t!==real&&t!=='—'){el.textContent=el.id==='choco'?real+' C':real;bad=true;}}if(bad)toast('화면의 초코가 서버 값과 달라서 되돌렸어요. 실제 초코는 서버가 정해요.');return bad;}
+setInterval(()=>{if(profile?.wallet)balanceTampered();},1500);
 setInterval(()=>{if(venue==='casino'&&profile?.quiz&&$('quizTime'))$('quizTime').textContent=Math.max(0,Math.ceil((profile.quiz.expires-Date.now())/1000));},1000);
 // Native canvas art: an isometric floor, tiny houses and customizable residents.
 const canvas=$('world'),ctx=canvas.getContext('2d');let width=0,height=0,zoom=1,camera={x:0,y:0};
