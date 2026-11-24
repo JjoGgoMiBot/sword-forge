@@ -220,17 +220,22 @@ export const DUEL = Object.freeze({
 });
 export const duelPrize = stake => Math.floor(stake * 2 * (1 - DUEL.fee));
 export const newDuel = () => ({phase: 'idle', game: 0, players: [], last: null});
-export function checkDuelJoin(d, who, stake) {
+// target: 지정한 사람 이름(선택). 비우면 누구든 받을 수 있는 공개 대기.
+export const duelTarget = raw => { const t = String(raw ?? '').trim(); if (t.length > 12) fail('상대 이름은 12자 이하예요.'); return t; };
+export function checkDuelJoin(d, who, stake, target = '') {
   if (!['idle', 'lobby'].includes(d.phase)) fail('지금 결투가 진행 중이에요. 끝나면 도전해주세요.');
   if (d.players.some(x => x.id === who.id)) fail('이미 결투를 신청했어요.');
+  const me = String(who.name).toLowerCase();
+  if (d.phase === 'idle' && duelTarget(target).toLowerCase() === me && duelTarget(target)) fail('나에게는 결투를 신청할 수 없어요.');
+  if (d.phase === 'lobby' && d.target && d.target !== me) fail(d.targetName + '님에게 신청한 결투예요.');
   const amount = d.phase === 'lobby' ? d.stake : stake;
   if (!Number.isSafeInteger(amount) || amount < DUEL.minStake || amount > DUEL.maxStake) fail('판돈은 ' + DUEL.minStake + '~' + DUEL.maxStake.toLocaleString('ko-KR') + '초코의 정수로 정해주세요.');
   return amount;
 }
 // 지갑에서 판돈을 뺀 뒤에 부른다
-export function duelJoin(d, who, stake, now, rng = random) {
-  const amount = checkDuelJoin(d, who, stake);
-  if (d.phase === 'idle') Object.assign(d, {phase: 'lobby', game: d.game + 1, stake: amount, players: [], last: null, lobbyExpires: now + DUEL.aloneMs});
+export function duelJoin(d, who, stake, now, rng = random, target = '') {
+  const amount = checkDuelJoin(d, who, stake, target);
+  if (d.phase === 'idle') { const t = duelTarget(target); Object.assign(d, {phase: 'lobby', game: d.game + 1, stake: amount, players: [], last: null, lobbyExpires: now + DUEL.aloneMs, target: t.toLowerCase(), targetName: t}); }
   d.players.push({id: who.id, key: who.key, name: who.name});
   if (d.players.length === 2) {
     const [lo, hi] = DUEL.waitMs;
@@ -287,6 +292,7 @@ export function duelDue(d) {
 export function duelView(d, id, now) {
   return {
     phase: d.phase, game: d.game, stake: d.stake || null, fee: DUEL.fee, prize: duelPrize(d.stake || 0),
+    target: d.phase === 'lobby' && d.target ? d.targetName : null,
     players: d.players.map(x => ({name: x.name, me: x.id === id})), joined: d.players.some(x => x.id === id),
     fire: d.phase === 'fire',
     closesIn: d.phase === 'lobby' ? Math.max(0, d.lobbyExpires - now) : null,

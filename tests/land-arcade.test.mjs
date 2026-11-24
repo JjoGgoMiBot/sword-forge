@@ -436,3 +436,40 @@ test('큰 당첨 공지에 새 게임 이름이 나온다', () => {
   const n = winNotice('쪼꼬', {game: 'crash', bet: 100, payout: 5000});
   assert.ok(n && n.text.includes('크래시'), JSON.stringify(n));
 });
+
+// ── 🔵 플링코 ──
+test('플링코: 서버가 길을 정하고, 칸 확률은 이항분포이며 위험도별 환수율이 96.5% 이하·최대 100배', () => {
+  const {rows, tables} = ARCADE.plinko, C = (n, k) => { let r = 1; for (let i = 0; i < k; i++) r = r * (n - i) / (i + 1); return Math.round(r); };
+  for (const [risk, table] of Object.entries(tables)) {
+    assert.equal(table.length, rows + 1, risk);
+    assert.deepEqual([...table], [...table].reverse(), risk + ' 좌우 대칭');
+    const rtp = table.reduce((s, m, k) => s + m * C(rows, k) / 2 ** rows, 0);
+    assert.ok(rtp <= 0.965 && rtp > 0.9, risk + ' ' + rtp);
+    assert.ok(Math.max(...table) <= 100);
+  }
+  const rng = seeded(11), n = 60000, sum = {low: 0, mid: 0, high: 0};
+  for (let i = 0; i < n; i++) for (const risk of Object.keys(sum)) {
+    const r = arcadeOneShot('plinko', 100, risk, rng);
+    assert.equal(r.path.length, rows); assert.equal(r.slot, r.path.reduce((s, x) => s + x, 0));
+    assert.equal(r.payout, pay(100, tables[risk][r.slot])); sum[risk] += r.payout;
+  }
+  for (const risk of Object.keys(sum)) { const rtp = sum[risk] / (100 * n); assert.ok(rtp > 0.85 && rtp < 1.02, risk + ' ' + rtp); }
+  throwsArcade(() => arcadeOneShot('plinko', 100, 'extreme'), /위험도/);
+});
+
+// ── 🤠 결투 상대 지정 ──
+test('결투: 상대를 지정하면 그 사람만 받을 수 있고, 지정하지 않으면 누구나 받는다', () => {
+  const d = newDuel();
+  throwsArcade(() => duelJoin(d, who('a'), 100, 0, () => 0.5, 'A'), /나에게는/);
+  duelJoin(d, who('a'), 100, 0, () => 0.5, ' Bob ');
+  assert.equal(d.phase, 'lobby'); assert.equal(duelView(d, 'c', 1).target, 'Bob');
+  throwsArcade(() => duelJoin(d, who('c'), 100, 5), /Bob님에게 신청한/);
+  duelJoin(d, who('bob'), 100, 10, () => 0.5);
+  assert.equal(d.phase, 'ready');
+  const open = newDuel();
+  duelJoin(open, who('a'), 100, 0, () => 0.5);
+  assert.equal(duelView(open, 'x', 1).target, null);
+  duelJoin(open, who('anyone'), 100, 5, () => 0.5);
+  assert.equal(open.phase, 'ready');
+  throwsArcade(() => duelJoin(newDuel(), who('a'), 100, 0, () => 0.5, 'x'.repeat(13)), /12자/);
+});

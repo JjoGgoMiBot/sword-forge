@@ -259,9 +259,9 @@ export class LandRoom{
         try{partyJoin(s,who,amount,Date.now());}catch(e){ev.cashOuts.push({...who,amount,game,reason:'refund'});err(e.message);}
       }else if(game==='party'&&m.op==='leave')ev=partyLeave(s,a.id);
       else if(game==='duel'&&m.op==='join'){
-        const amount=checkDuelJoin(s,who,Number(m.stake));
+        const amount=checkDuelJoin(s,who,Number(m.stake),m.target);
         const paid=await this.pokerWallet(a.key,a.name,'roomBuyIn',crypto.randomUUID(),amount,{game});if(!paid.ok){err(paid.msg);return;}
-        try{duelJoin(s,who,amount,Date.now());}catch(e){ev.cashOuts.push({...who,amount,game,reason:'refund'});err(e.message);}
+        try{duelJoin(s,who,amount,Date.now(),undefined,m.target);}catch(e){ev.cashOuts.push({...who,amount,game,reason:'refund'});err(e.message);}
       }else if(game==='duel'&&m.op==='leave')ev=duelLeave(s,a.id);
       // 사격 시각은 이 DO가 메시지를 받은 시각(now). 지갑을 기다리지 않으므로 먼저 도착한 사격이 먼저 처리된다
       else if(game==='duel'&&m.op==='shoot')ev=duelShoot(s,a.id,now);

@@ -71,7 +71,7 @@ export class LandPlayer{
       else if(b.op==='race'){if(!s.race||s.race.expires<now)s.race={id:crypto.randomUUID(),horses:horses(),expires:now+900000};result={message:'이번 개인 경주표예요.'};}
       else if(b.op==='quiz'){
         if(s.quizWins>=25)fail('오늘의 퀴즈 보상을 모두 받았어요.');if(now<s.quizNext)fail('잠시 쉬었다가 다음 문제를 받아주세요.');
-        if(!s.quiz||s.quiz.expires<now){const [answer,clue,field]=QUIZ[integer(QUIZ.length)],hint=`${field} · ${clue}`;s.quiz={id:crypto.randomUUID(),answer,hint,initials:initials(answer),created:now,expires:now+90000,tries:0};}result={message:'초성을 보고 단어를 맞혀보세요.'};
+        if(!s.quiz||s.quiz.expires<now){const [answer,clue,field]=QUIZ[integer(QUIZ.length)],hint=`${field} · ${clue}`;s.quiz={id:crypto.randomUUID(),answer,hint,initials:initials(answer),created:now,expires:now+30000,tries:0};}result={message:'초성을 보고 단어를 맞혀보세요.'};
       }
       else if(b.op==='quizAnswer'){
         const q=s.quiz;if(!q||q.id!==p.quizId||q.expires<now)fail('문제 시간이 지났어요.');if(now-q.created<1000)fail('문제를 조금 더 읽어주세요.');if(typeof p.answer!=='string'||p.answer.length>30)fail('답을 짧게 입력해주세요.');

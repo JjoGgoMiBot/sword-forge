@@ -16,6 +16,13 @@ export const ARCADE = Object.freeze({
     ['먼지만 폴폴', 3620, 0.2], ['달콤한 사탕', 3000, 0.5], ['초코 한 줌', 1800, 1], ['선물 꾸러미', 1000, 2],
     ['금화 주머니', 450, 4], ['반짝이 보석', 120, 10], ['전설의 황금 쪼꼬미', 10, 50],
   ]),
+  // 플링코(공 떨어뜨리기): 12줄을 내려오며 좌우 반반으로 튄다. 칸 k의 확률은 C(12,k)/4096.
+  // 위험도별 배당표(13칸, 가운데가 가장 흔함). 환수율 low≈96.2% · mid≈93.6% · high≈94.9%, 최대 100배.
+  plinko: Object.freeze({rows: 12, tables: Object.freeze({
+    low: Object.freeze([11, 4, 1.7, 1.2, 1.1, 0.9, 0.6, 0.9, 1.1, 1.2, 1.7, 4, 11]),
+    mid: Object.freeze([45, 10, 3, 1.8, 1.1, 0.6, 0.3, 0.6, 1.1, 1.8, 3, 10, 45]),
+    high: Object.freeze([100, 20, 6, 2.4, 0.8, 0.3, 0.1, 0.3, 0.8, 2.4, 6, 20, 100]),
+  })}),
   // 룰렛 휠(유럽식 0 하나): 환수율 36/37 ≈ 97.3%
   wheelRed: Object.freeze([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]),
   // 구걸: 잔액이 적을 때만, 쿨다운 동안 한 번. [가중치, 최소, 최대]
@@ -194,7 +201,17 @@ export function wheelBet(choice) {
 export const wheelColor = n => n === 0 ? 'green' : ARCADE.wheelRed.includes(n) ? 'red' : 'black';
 
 // 한 번에 끝나는 게임(바카라·럭키박스·룰렛 휠). 럭키박스는 상자 가격이 곧 베팅액이다
+// ── 🔵 플링코: 공이 지나간 길(path)은 서버가 정하고, 화면은 그대로 보여주기만 한다 ──
+export function plinkoDrop(bet, risk, rng = random) {
+  const table = ARCADE.plinko.tables[risk];
+  if (!table) fail('위험도를 골라주세요(낮음·보통·높음).');
+  const path = Array.from({length: ARCADE.plinko.rows}, () => integer(2, rng));   // 0=왼쪽 1=오른쪽
+  const slot = path.reduce((s, x) => s + x, 0), mult = table[slot];
+  return {game: 'plinko', choice: risk, path, slot, mult, table, payout: pay(bet, mult)};
+}
+
 export function arcadeOneShot(game, bet, choice, rng = random) {
+  if (game === 'plinko') return plinkoDrop(bet, choice, rng);
   if (game === 'baccarat') {
     if (!['player', 'banker', 'tie'].includes(choice)) fail('플레이어·뱅커·타이 중에서 골라주세요.');
     const d = baccaratDeal(rng);
