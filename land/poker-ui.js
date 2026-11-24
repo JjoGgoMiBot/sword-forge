@@ -76,7 +76,7 @@ export function createPoker({money, h, send, toast, balance, sound}) {
     const board = Array.from({length: 5}, (_, k) => st.board[k] ? card(st.board[k]) : '<span class="pk-card slot"></span>').join('');
     box.innerHTML = '<div class="pk-summary"><span>팟 <b>' + money(st.pot || (st.result?.winners || []).reduce((a, w) => a + w.amount, 0)) + '</b></span><span>블라인드 ' + money(st.limits.smallBlind) + '/' + money(st.limits.bigBlind) + '</span><span>' + (st.hand ? '#' + st.hand : '대기') + '</span></div>'
       + '<details class="pk-quick-rules"><summary>포커 간단 규칙</summary><div><p><b>내 패 2장 + 공용 카드 5장</b> 중 가장 좋은 5장으로 승부해요.</p><p>프리플랍(내 패) → 플랍(공용 3장) → 턴(+1장) → 리버(+1장) 순서로 베팅해요.</p><ul><li><b>폴드</b>: 이번 판 포기</li><li><b>체크</b>: 맞출 돈이 없을 때 넘기기</li><li><b>콜</b>: 상대 베팅액에 맞추기</li><li><b>레이즈 / 올인</b>: 베팅 올리기 / 남은 칩 모두 걸기</li></ul><p>높은 족보 순: 스트레이트 플러시(로열 포함) → 포카드 → 풀하우스 → 플러시 → 스트레이트 → 트리플 → 투페어 → 원페어 → 하이카드.</p><p>끝까지 남은 사람들이 패를 공개해 승자가 팟을 가져가요. 모두 폴드하면 마지막 한 명이 이겨요.</p></div></details><div class="pk-table"><div class="pk-felt">'+chips(st.pot||0)+'<div class="pk-board">' + board + '</div><p class="pk-status" aria-live="polite">' + statusText() + ' <span data-poker-next></span></p>' + (st.you != null ? '<button class="pk-exit" data-poker="leave">나가기</button>' : '') + '</div>' + st.seats.map(seatHtml).join('') + '</div>'
-      + (me && me.cards ? '<div class="pk-mine">' + me.cards.map(c => card(c, 'lg')).join('') + '<div><small class="muted">내 패</small><strong>' + h(st.myHand || (me.folded ? '폴드' : '프리플랍')) + '</strong>' + (st.options ? '<span class="pk-clock" data-poker-timer></span>' : '') + '</div></div>' : '')
+      + (me && me.cards ? '<div class="pk-mine">' + me.cards.map(c => card(c, 'lg')).join('') + '<div><small class="muted">내 패</small><strong>' + h(st.myHand || (me.folded ? '폴드' : '프리플랍')) + '</strong>' + (st.options ? '<span class="pk-clock" data-poker-timer></span>' : '') + (st.options && st.options.toCall > 0 ? '<b class="pk-tocall">콜 ' + money(st.options.toCall) + '</b>' : '') + '</div></div>' : '')
       + actionsHtml() + seatControls();
     tickTimers();
   }
@@ -122,6 +122,42 @@ export function createPoker({money, h, send, toast, balance, sound}) {
     if (event.target.id === 'pkBuyIn') buyIn = Number(event.target.value);
   }
 
+  // 칩 이동 효과: 베팅이 늘면 그 자리에서 가운데 팟으로, 판이 끝나면 팟에서 이긴 사람 자리로 칩이 날아간다.
+  function flyChips(from, to, count, big) {
+    const table = box?.querySelector('.pk-table');
+    if (!table || !from || !to || !table.animate) return;
+    const t = table.getBoundingClientRect(), a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
+    const ax = a.left + a.width / 2 - t.left, ay = a.top + a.height / 2 - t.top;
+    const dx = b.left + b.width / 2 - t.left - ax, dy = b.top + b.height / 2 - t.top - ay;
+    for (let i = 0; i < count; i++) {
+      const chip = document.createElement('span');
+      chip.className = 'pk-fly' + (big ? ' big' : '');
+      chip.style.left = ax + 'px'; chip.style.top = ay + 'px';
+      table.appendChild(chip);
+      const jx = (Math.random() - 0.5) * 18, jy = (Math.random() - 0.5) * 18;
+      const anim = chip.animate([
+        {transform: 'translate(-50%,-50%) scale(.6)', opacity: 0},
+        {transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: 0.15},
+        {transform: 'translate(calc(-50% + ' + (dx + jx) + 'px),calc(-50% + ' + (dy + jy) + 'px)) scale(.9)', opacity: 1},
+      ], {duration: 520 + i * 70, delay: i * 60, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'both'});
+      anim.onfinish = () => chip.remove();
+    }
+  }
+  function chipMotion(prev, now) {
+    if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    try {
+      const felt = box.querySelector('.pk-felt'), seatEl = i => box.querySelector('.pk-seat.pos' + place(i, now.you));
+      if (now.hand === prev.hand) now.seats.forEach((s, i) => {
+        const before = prev.seats[i]?.bet || 0;
+        if (s && s.bet > before) flyChips(seatEl(i), felt, Math.min(5, 1 + Math.floor((s.bet - before) / 100)), s.me);
+      });
+      if (now.phase === 'showdown' && prev.phase !== 'showdown') (now.result?.winners || []).forEach(w => {
+        const mine = now.you === w.seat;
+        flyChips(felt, seatEl(w.seat), mine ? 9 : 5, mine);
+      });
+    } catch { /* 효과 실패는 게임을 막지 않는다 */ }
+  }
+
   return {
     mount(el) {
       box = el;
@@ -138,6 +174,7 @@ export function createPoker({money, h, send, toast, balance, sound}) {
       const focused = document.activeElement?.id;
       paint();
       if(previous&&box?.isConnected){const cards=newHand?box.querySelectorAll('.pk-seat .pk-card'):state.board.length>oldBoard?[...box.querySelectorAll('.pk-board .pk-card')].slice(oldBoard,state.board.length):[];dealCards(cards,sound,{spacing:100});if(state.phase==='showdown'&&previous.phase!=='showdown')playLandVfx(box.querySelector('.pk-table'),'win');}
+      if (previous && box?.isConnected) chipMotion(previous, state);
       if (focused === 'pkBuyIn' || focused === 'pkRaise') box?.querySelector('#' + focused)?.focus();
     },
     tick: tickTimers,
