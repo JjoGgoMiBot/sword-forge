@@ -416,3 +416,6 @@
 .pk-seat.folded .pk-avatar i{filter:grayscale(1)}
 .pk-seat.turn .pk-avatar.ticking{filter:drop-shadow(0 0 4px #c99a3b99)}
 @media(max-width:600px){.pk-avatar{width:30px;height:30px}.pk-avatar i{width:24px;height:24px;font-size:12px}}
+.pk-seat.won .pk-card{animation:pkWin 1s ease-in-out 2}
+@keyframes pkWin{50%{transform:translateY(-4px);box-shadow:0 0 12px #ffd34d}}
+@media(prefers-reduced-motion:reduce){.pk-seat.won .pk-card{animation:none}}

@@ -150,6 +150,13 @@ export function createPoker({money, h, send, toast, balance, sound}) {
       anim.onfinish = () => chip.remove();
     }
   }
+  // 딜러 버튼: 이전 딜러 자리에서 새 자리로 미끄러져 온다
+  function slideDealer(prev, now) {
+    const dealer = box.querySelector('.pk-dealer'), from = box.querySelector('.pk-seat.pos' + place(prev.button, now.you));
+    if (!dealer || !from || !dealer.animate) return;
+    const a = from.getBoundingClientRect(), b = dealer.getBoundingClientRect();
+    dealer.animate([{transform: 'translate(' + (a.left - b.left) + 'px,' + (a.top - b.top) + 'px)'}, {transform: 'translate(0,0)'}], {duration: 600, easing: 'cubic-bezier(.2,.7,.2,1)'});
+  }
   function chipMotion(prev, now) {
     if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     try {
@@ -158,6 +165,10 @@ export function createPoker({money, h, send, toast, balance, sound}) {
         const before = prev.seats[i]?.bet || 0;
         if (s && s.bet > before) sound?.cue?.(Array.from({length: Math.min(4, 1 + Math.floor((s.bet - before) / 100))}, (_, k) => ({at: k * 70, id: 'chip.place'}))), flyChips(seatEl(i), felt, Math.min(5, 1 + Math.floor((s.bet - before) / 100)), s.me);
       });
+      if (now.hand === prev.hand) now.seats.forEach((s, i) => {
+        if (s?.last?.type === 'allin' && prev.seats[i]?.last?.type !== 'allin') { playLandVfx(box.querySelector('.pk-table'), 'bang', {scale: 0.8}); sound?.cue?.([{at: 0, id: 'vfx.sparkle'}]); }
+      });
+      if (now.button !== prev.button && prev.button != null) slideDealer(prev, now);
       if (now.phase === 'showdown' && prev.phase !== 'showdown') (now.result?.winners || []).forEach(w => {
         const mine = now.you === w.seat;
         flyChips(felt, seatEl(w.seat), mine ? 9 : 5, mine);
