@@ -7,8 +7,24 @@ import { recipeFor, SFX_IDS, CONCEPTS } from '../land/sound/recipes.js';
 import { casinoCues, fortuneCues, PREWARM } from '../land/sound/cues.js';
 import { createSound, normalizeSettings, loadSettings, saveSettings, DEFAULTS, STORAGE_KEY, safetyCurve } from '../land/sound/sound.js';
 import { settleMs, reelStopMs } from '../land/casino-fx.js';
+import { MUSIC_PLAN, PLACE_MUSIC } from '../land/sound/score.js';
 
 const sine = (sr, hz, sec, amp = 1) => Float32Array.from({ length: Math.round(sr * sec) }, (_, i) => amp * Math.sin(2 * Math.PI * hz * i / sr));
+
+test('four place scores have full arrangements, phrase breaths and an evolving second section', () => {
+  for (const [id, score] of Object.entries(PLACE_MUSIC)) {
+    const plan = MUSIC_PLAN[id], bar = 240 / plan.bpm;
+    assert.equal(score.dur, 24 * bar);
+    assert.equal(plan.sections.length, 3);
+    assert.ok(score.tracks.slice(0, 4).every(t => t.clips.length > 0), id + ' melodic arrangement');
+    assert.equal(score.tracks[4].clips.length > 0, id !== 'fortune', 'tarot leaves percussion out');
+    assert.ok(score.tracks.flatMap(t => t.clips).every(n => n.at >= 0 && n.at < score.dur && n.dur > 0), id + ' event bounds');
+    const lead = score.tracks[0].clips, answer = score.tracks[1].clips;
+    assert.ok(!lead.some(n => n.at >= 7 * bar && n.at < 8 * bar), id + ' phrase breath');
+    assert.ok(answer.every(n => n.at >= 8 * bar), id + ' answer enters in variation');
+    assert.notEqual(lead.find(n => n.at >= 16 * bar).freq, lead[0].freq, id + ' contrasting register');
+  }
+});
 
 test('BS.1770 meter matches reference: 997Hz 0dBFS sine = -3.01 LUFS mono, 0 LUFS stereo', () => {
   for (const sr of [48000, 44100]) {
@@ -44,7 +60,7 @@ test('every recipe compiles in every concept; hits are 3-layer; repeats humanize
   for (const concept of Object.keys(CONCEPTS)) {
     const bgm = compileRecipe(recipeFor('bgm', concept));
     assert.equal(bgm.loop, true, concept);
-    assert.ok(bgm.dur >= 15 && bgm.dur <= 40, concept + ' loop length ' + bgm.dur);
+    assert.ok(bgm.dur >= 15 && bgm.dur <= 100, concept + ' loop length ' + bgm.dur);
     assert.equal(bgm.variants, 1);
     for (const id of SFX_IDS) {
       const c = compileRecipe(recipeFor(id, concept), { dur: 1.2, seed: 3, concept });
@@ -178,6 +194,10 @@ test('no AudioContext before the first user gesture; mute stops everything', asy
   handlers.keydown();
   assert.equal(made, 1, 'single shared context');
   assert.equal(sound.get().activeConcept, 'lounge');
+  sound.setScene('forge');
+  assert.equal(sound.get().activeConcept, 'forge');
+  sound.setScene(null);
+  assert.equal(sound.get().activeConcept, 'town', 'closing a venue returns to the town score');
   sound.setScene('fortune');
   assert.equal(sound.get().activeConcept, 'mist');
   sound.set({ concept: 'japanese' });
