@@ -7,7 +7,7 @@ import {dealCards,playLandVfx} from './vfx.js?v=1';
 import {raceMarkup,laneX,RACE} from './race-script.js?v=2';
 // 새 오락관 게임 화면. 혼자 하는 게임은 act()로 지갑 서버에, 함께 하는 게임(크래시·총쏘기·결투·선물)은 마을 소켓으로 보낸다.
 // 결과·시드·터지는 배율·발사 시각은 서버만 안다. 여기서는 서버가 보낸 view를 그리고 누른 것을 돌려보낼 뿐이다.
-import {plinkoSvg, dropBall, PLINKO_MS, PLINKO_TABLES, PLINKO_RISKS} from './plinko-view.js?v=1';
+import {plinkoSvg, dropBall, PLINKO_MS, PLINKO_TABLES, PLINKO_RISKS} from './plinko-view.js?v=2';
 import {baccaratScene,baccaratOutcome} from './baccarat-view.js?v=1';
 export const ARCADE_TABS = {horse: '경마', roulette: '러시안 룰렛', hilo: '하이로우', mines: '마인즈', baccarat: '바카라', wheel: '룰렛 휠', luckybox: '럭키박스', plinko: '플링코',
   crash: '크래시', party: '총쏘기 서바이벌', duel: '총잡이 결투', rpsduel: '가위바위보 대결', gift: '초코 선물', beg: '구걸하기'};

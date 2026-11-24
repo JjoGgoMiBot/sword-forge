@@ -1,5 +1,5 @@
-import {WORLD,BUILDINGS,BOUNDARY,OFFSET,POND,FOUNTAIN,SHIRTS,SKINS,avatar,canStand} from './world.js?v=4';
-import {drawResidentFast} from './resident-art.js?v=5';
+import {WORLD,BUILDINGS,BOUNDARY,OFFSET,POND,FOUNTAIN,SHIRTS,SKINS,avatar,canStand} from './world.js?v=5';
+import {drawResidentFast} from './resident-art.js?v=6';
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const O=OFFSET;
 const TREES=[[250,590,1],[360,680,.8],[1250,650,1],[1100,760,.82],[1020,350,.9],[580,390,.85],[660,930,.9],[930,950,.85],[350,520,.72],[1190,500,.8],[800,180,.95]];

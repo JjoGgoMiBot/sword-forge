@@ -1,7 +1,8 @@
 // 사진 질감의 흰 비닐 피규어. 외형별 프레임은 캐시하여 매 프레임 사진을 다시 합성하지 않는다.
 // 발이 (0,0), 머리 꼭대기가 약 -71. 셔츠는 흰 몸 위에 입힌 옷, 피부 색은 옅은 볼 빛으로만 남겨 고른 값이 보이게 한다.
 // 마을에서는 drawResidentFast(미리 구운 프레임)를 쓴다. 걷기 24프레임 + 서 있기 1프레임을 주민 모양·배율마다 한 번만 굽는다.
-import {SHIRTS,SKINS} from './world.js?v=4';
+import {SHIRTS,SKINS} from './world.js?v=5';
+import {drawMong} from './mong-art.js?v=1';
 
 const INK='#1d1a17',WHITE='#fbfaf6',SHADE='#dcd8cf',TAU=Math.PI*2;
 const HEAD={y:-49,r:21};
@@ -42,6 +43,7 @@ function bodyPath(g){g.beginPath();g.moveTo(-8.5,-33);g.bezierCurveTo(-12,-27,-1
 // a: avatar(...) 결과, phase: 걸음 위상(라디안), weight: 0(서 있음)~1(걷기)
 // look: -1(왼쪽)~1(오른쪽) 가는 쪽을 보는 눈·입 위치
 export function drawResident(g,a,phase=0,weight=0,look=0){
+  if(a.char&&drawMong(g,a.char,phase,weight,look))return;
   a={...a,hat:0,accessory:0}; // 악세사리는 잠시 비활성화. 저장된 선택은 보존한다.
   if(photoResident(g,a,phase,weight,look))return;
   const s=Math.sin(phase)*weight,bob=-Math.abs(Math.cos(phase))*2.2*weight,lift=v=>Math.max(0,v)*-3.2;
@@ -87,7 +89,7 @@ export const WALK_FRAMES=24;
 // 한 장 약 68×100×k² 픽셀. 주민 모양×배율 64벌까지 두어 광장에 사람이 많아도 매 프레임 다시 굽지 않는다.
 const BOX={x:-34,y:-92,w:68,h:100},MAX_AVATARS=64;
 const sheets=new Map();
-const avatarKey=a=>a.shirt+'.'+a.skin+'.'+a.hat+'.'+a.accessory;
+const avatarKey=a=>a.shirt+'.'+a.skin+'.'+a.hat+'.'+a.accessory+'.'+(a.char||0);
 function canvas(w,h){if(typeof OffscreenCanvas==='function')return new OffscreenCanvas(w,h);const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
 function bake(a,phase,weight,look,k){
   const c=canvas(Math.ceil(BOX.w*k),Math.ceil(BOX.h*k)),g=c.getContext('2d');

@@ -1,12 +1,13 @@
 import {chips,chipLegend} from './chips.js?v=1';
 import {tarotPhoto} from './tarot-photo.js?v=1';
-import {WORLD,BUILDINGS,BOUNDARY,OFFSET,SHIRTS,SKINS,avatar,move,near} from './world.js?v=4';
-import {drawResident,drawResidentFast} from './resident-art.js?v=5';
+import {WORLD,BUILDINGS,BOUNDARY,OFFSET,SHIRTS,SKINS,avatar,move,near} from './world.js?v=5';
+import {drawResident,drawResidentFast} from './resident-art.js?v=6';
+import {MONG_NAMES} from './mong-art.js?v=1';
 import {isActivity,connectDiscordVoice} from './discord-voice.js';
 import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=13';
 import {raceMarkup,playRace,RACE} from './race-script.js?v=2';
 import {createPoker} from './poker-ui.js?v=10';
-import {createArcade,ARCADE_TABS,ARCADE_RULES} from './arcade-ui.js?v=12';
+import {createArcade,ARCADE_TABS,ARCADE_RULES} from './arcade-ui.js?v=13';
 import {getSound} from './sound/sound.js?v=8';
 import {casinoCues,fortuneCues,PREWARM} from './sound/cues.js?v=5';
 import {mountSoundControl} from './sound/ui.js?v=3';
@@ -126,7 +127,7 @@ function handleSocket(data,sidebar=false){if(['chat','ack','edit','delete','deli
 }
 function putMessage(message){if(messages.some(m=>m.id===message.id))return;messages.push(message);messages=messages.slice(-100);renderChat();}
 const faceUrls=new Map(),avatarByUid=new Map();
-function faceUrl(a){const key=a.shirt+'.'+a.skin+'.'+a.hat+'.'+a.accessory;let url=faceUrls.get(key);if(url)return url;try{const c=document.createElement('canvas');c.width=c.height=56;const g=c.getContext('2d');g.beginPath();g.arc(28,28,28,0,Math.PI*2);g.clip();g.fillStyle='#f1e9dc';g.fillRect(0,0,56,56);g.translate(28,98);g.scale(1.5,1.5);drawResident(g,a);url=c.toDataURL();}catch{url='';}faceUrls.set(key,url);return url;}
+function faceUrl(a){const key=a.shirt+'.'+a.skin+'.'+a.hat+'.'+a.accessory+'.'+(a.char||0);let url=faceUrls.get(key);if(url)return url;try{const c=document.createElement('canvas');c.width=c.height=56;const g=c.getContext('2d');g.beginPath();g.arc(28,28,28,0,Math.PI*2);g.clip();g.fillStyle='#f1e9dc';g.fillRect(0,0,56,56);if(a.char){g.translate(28,81);g.scale(1.9,1.9);}else{g.translate(28,98);g.scale(1.5,1.5);}drawResident(g,a);url=c.toDataURL();}catch{url='';}faceUrls.set(key,url);return url;}
 function faceElement(message){const face=document.createElement('span');face.className='msg-face';face.setAttribute('aria-hidden','true');const known=message.uid===self?profile?.resident?.avatar:avatarByUid.get(message.uid);const url=message.source!=='discord'&&known?faceUrl(avatar(known)):'';if(url){const img=document.createElement('img');img.src=url;img.alt='';face.append(img);}else{face.classList.add('plain');face.textContent=message.source==='discord'?'D':[...String(message.name||'?')][0];}return face;}
 function messageElement(message){const row=document.createElement('div');row.className='chat-message'+(message.uid===self?' mine':'')+(message.source==='discord'?' discord':'');row.dataset.messageId=message.id;const body=document.createElement('p');body.className='msg-line';const name=document.createElement('strong');name.className='msg-name';name.textContent=message.name;const source=document.createElement('span');source.className='message-source';source.textContent=message.source==='discord'?'Discord':'마을';const text=document.createElement('span');text.className='msg-text';text.textContent=' : '+message.text;body.append(name,source,text);row.append(faceElement(message),body);if(message.pending){const status=document.createElement('span');status.className='message-status';status.textContent='Discord 전달 대기';body.append(status);}return row;}
 function renderChat(reset=false){const log=$('chatLog'),atBottom=log.scrollHeight-log.scrollTop-log.clientHeight<90;if(reset)log.replaceChildren();if(!messages.length){log.innerHTML='<p class="empty-chat">아직 조용하네요.<br>먼저 인사를 건네볼까요?</p>';return;}log.querySelector('.empty-chat')?.remove();for(const message of messages)if(!log.querySelector('[data-message-id="'+message.id+'"]'))log.append(messageElement(message));while(log.children.length>100)log.firstElementChild.remove();if(atBottom||reset)log.scrollTop=log.scrollHeight;}
@@ -139,11 +140,12 @@ $('voiceButton').onclick=()=>{if(activeRoom.startsWith('d:')){const [,guild,chan
 function showProfile(){if(!profile){refresh().then(showProfile).catch(e=>toast(e.message));return;}$('profileName').textContent=account.name+' 주민';$('residentId').textContent='주민번호 '+profile.resident.id.slice(0,8)+' · 외형이 바뀌어도 기록은 그대로';selectedAvatar=avatar(profile.resident.avatar);renderAvatarChoices();renderExtraAvatar();renderDiscord();open($('profileDialog'));}
 function renderAvatarChoices(){const shirts=$('shirtChoices');shirts.replaceChildren();SHIRTS.forEach((color,index)=>{const button=document.createElement('button');button.className='swatch';button.style.setProperty('--swatch',color);button.setAttribute('aria-label',['벽돌','파랑','풀','분홍','모래','청록','보라','먹색'][index]+' 옷');button.setAttribute('aria-pressed',String(index===selectedAvatar.shirt));button.onclick=()=>{selectedAvatar.shirt=index;renderAvatarChoices();renderExtraAvatar();};shirts.append(button);});$('hatChoices').replaceChildren();$('hatChoices').hidden=true;}
 const avatarExtras=document.createElement('section');
-avatarExtras.innerHTML='<div class="avatar-preview-row"><canvas id="avatarPreview" width="240" height="300" aria-label="선택한 주민 모습 미리보기"></canvas><div><strong>나만의 작은 주민</strong><p class="muted">옷과 볼 색을<br>골라보고 저장해요.</p></div></div><h3>볼 색</h3><div class="swatches" id="skinChoices"></div>';
+avatarExtras.innerHTML='<div class="avatar-preview-row"><canvas id="avatarPreview" width="240" height="300" aria-label="선택한 주민 모습 미리보기"></canvas><div><strong>나만의 작은 주민</strong><p class="muted">옷과 볼 색을<br>골라보고 저장해요.</p></div></div><h3>볼 색</h3><div class="swatches" id="skinChoices"></div><h3>먼작귀 친구로 변신</h3><div class="mong-choices" id="mongChoices"></div>';
 $('saveAvatar').before(avatarExtras);
 function renderExtraAvatar(){
  const skin=$('skinChoices');skin.replaceChildren();SKINS.forEach((color,index)=>{const b=document.createElement('button');b.className='swatch';b.style.setProperty('--swatch',color);b.setAttribute('aria-label','피부 톤 '+(index+1));b.setAttribute('aria-pressed',String(index===selectedAvatar.skin));b.onclick=()=>{selectedAvatar.skin=index;renderExtraAvatar();};skin.append(b);});
 
+ const mongBox=$('mongChoices');mongBox.replaceChildren();MONG_NAMES.forEach((name,index)=>{const b=document.createElement('button');b.type='button';b.className='mong-pick';b.setAttribute('aria-pressed',String(index===selectedAvatar.char));b.title=name;const thumb=document.createElement('canvas');thumb.width=thumb.height=56;const tg=thumb.getContext('2d');tg.translate(28,index?52:62);tg.scale(index?.95:.58,index?.95:.58);drawResident(tg,avatar({...selectedAvatar,char:index}));b.append(thumb);const label=document.createElement('span');label.textContent=index?name:'사람';b.append(label);b.onclick=()=>{selectedAvatar.char=index;renderExtraAvatar();};mongBox.append(b);});
  if(townView?.preview){townView.preview($('avatarPreview'),selectedAvatar);return;}
  const c=$('avatarPreview').getContext('2d'),a=avatar(selectedAvatar);c.setTransform(2,0,0,2,0,0);c.clearRect(0,0,120,150);c.fillStyle='#e6ddcb';c.beginPath();c.ellipse(60,124,25,7,0,0,Math.PI*2);c.fill();c.translate(60,124);c.scale(1.45,1.45);drawResident(c,a);c.setTransform(1,0,0,1,0,0);
 }
@@ -324,7 +326,7 @@ function drawGround(){
 }
 const minimap=$('minimap'),mini=minimap.getContext('2d');
 let townView=null;
-import('./scene-illustrated.js?v=9').then(module=>module.createIllustratedTown($('stage'))).then(view=>{townView=view;$('world').style.opacity='0';}).catch(error=>{console.warn('Illustrated renderer unavailable:',error.message);toast('일러스트를 불러오지 못해 간단한 마을로 표시해요. 이동과 게임은 이용할 수 있어요.');});
+import('./scene-illustrated.js?v=10').then(module=>module.createIllustratedTown($('stage'))).then(view=>{townView=view;$('world').style.opacity='0';}).catch(error=>{console.warn('Illustrated renderer unavailable:',error.message);toast('일러스트를 불러오지 못해 간단한 마을로 표시해요. 이동과 게임은 이용할 수 있어요.');});
 // 미니맵: 땅 전체(숲 포함)를 그리고, 걸을 수 있는 초원을 밝게, 실제 화면 카메라 범위를 사각형으로 보여 준다.
 function drawMinimap(){const W=minimap.width,H=minimap.height,sx=W/WORLD.width,sy=H/WORLD.height,view=townView?.camera||{x:camera.x,y:camera.y,w:width/zoom,h:height/zoom};mini.clearRect(0,0,W,H);mini.fillStyle='#3f5233';mini.fillRect(0,0,W,H);mini.beginPath();BOUNDARY.forEach((p,i)=>i?mini.lineTo(p.x*sx,p.y*sy):mini.moveTo(p.x*sx,p.y*sy));mini.closePath();mini.fillStyle='#c7d9ae';mini.fill();mini.font='600 10px "Noto Sans KR",sans-serif';for(const b of BUILDINGS){const x=b.x*sx,y=b.y*sy,side=b.x<WORLD.width/2-100?-1:b.x>WORLD.width/2+100?1:0;mini.fillStyle=b.roof;mini.fillRect(x-5,y-7,10,7);
   // 건물이 가까워 이름이 겹치므로 왼쪽 건물은 왼쪽으로, 오른쪽 건물은 오른쪽으로, 가운데는 위로 붙인다.
