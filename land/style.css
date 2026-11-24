@@ -408,3 +408,11 @@
 #pkRaisePreview .cstacks{--cs:20px}
 .pk-quick{grid-template-columns:repeat(4,1fr);gap:8px}.pk-quick button{min-height:44px;border-radius:10px}
 .pk-range input{accent-color:var(--pk-gold);height:44px}
+/* 자리 아바타 + 시간 링 */
+.pk-avatar{--t:1;position:relative;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;margin:-4px 0 0;background:conic-gradient(var(--pk-gold) calc(var(--t) * 360deg),#0000 0)}
+.pk-avatar:not(.ticking){background:#0000}
+.pk-avatar i{font-style:normal;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:hsl(var(--hue) 45% 42%);color:#fff;font-weight:800;font-size:14px;border:2px solid var(--card)}
+.pk-seat.me .pk-avatar i{box-shadow:0 0 0 2px var(--clay)}
+.pk-seat.folded .pk-avatar i{filter:grayscale(1)}
+.pk-seat.turn .pk-avatar.ticking{filter:drop-shadow(0 0 4px #c99a3b99)}
+@media(max-width:600px){.pk-avatar{width:30px;height:30px}.pk-avatar i{width:24px;height:24px;font-size:12px}}

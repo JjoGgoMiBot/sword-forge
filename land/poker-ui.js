@@ -31,7 +31,8 @@ export function createPoker({money, h, send, toast, balance, sound}) {
     const badge = st.button === i ? '<em class="pk-dealer" title="딜러 버튼">D</em>' : '';
     const last = s.last ? '<span class="pk-last ' + s.last.type + '">' + (LAST[s.last.type] || '') + (s.last.timeout ? ' (시간)' : '') + '</span>' : '';
     const handName = st.result?.hands?.[i] ? '<span class="pk-hand-name">' + h(st.result.hands[i]) + '</span>' : '';
-    return '<div class="' + cls + '">' + badge + '<div class="pk-cards">' + cards + '</div><strong>' + h(s.name) + (s.away ? ' <small>(연결 끊김)</small>' : '') + '</strong><span class="pk-stack">' + money(s.stack) + '</span>' + (won ? '<span class="pk-won">+' + money(won.amount) + '</span>' : handName || last) + (turn ? '<span class="pk-timer" data-poker-timer></span>' : '') + '</div>';
+    const hue = [...String(s.name || '?')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7), avatar = '<span class="pk-avatar' + (turn ? ' ticking' : '') + '" style="--hue:' + hue + '"><i>' + h([...String(s.name || '?')][0] || '?') + '</i></span>';
+    return '<div class="' + cls + '">' + badge + '<div class="pk-cards">' + cards + '</div>' + avatar + '<strong>' + h(s.name) + (s.away ? ' <small>(연결 끊김)</small>' : '') + '</strong><span class="pk-stack">' + money(s.stack) + '</span>' + (won ? '<span class="pk-won">+' + money(won.amount) + '</span>' : handName || last) + (turn ? '<span class="pk-timer" data-poker-timer></span>' : '') + '</div>';
   }
 
   function statusText() {
@@ -92,6 +93,8 @@ export function createPoker({money, h, send, toast, balance, sound}) {
       el.textContent = Math.ceil(r / 1000) + '초';
       el.classList.toggle('low', r < 6000);
     });
+    const total = st.limits?.actionMs || 20000;
+    box.querySelectorAll('.pk-avatar.ticking').forEach(el => el.style.setProperty('--t', r == null ? 1 : Math.max(0, Math.min(1, r / total))));
     const next = box.querySelector('[data-poker-next]');
     if (next) next.innerHTML = n != null && st.phase !== 'idle' ? '· 다음 판 ' + Math.ceil(n / 1000) + '초' : n != null && st.seats.some(Boolean) ? '<b class="pk-count">' + Math.ceil(n / 1000) + '초 후 시작</b>' : '';
   }
