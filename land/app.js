@@ -7,9 +7,9 @@ import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelS
 import {raceMarkup,playRace,RACE} from './race-script.js?v=2';
 import {createPoker} from './poker-ui.js?v=3';
 import {createArcade,ARCADE_TABS,ARCADE_RULES} from './arcade-ui.js?v=11';
-import {getSound} from './sound/sound.js?v=6';
+import {getSound} from './sound/sound.js?v=7';
 import {casinoCues,fortuneCues,PREWARM} from './sound/cues.js?v=5';
-import {mountSoundControl} from './sound/ui.js?v=1';
+import {mountSoundControl} from './sound/ui.js?v=2';
 // 소리: 첫 입력 전에는 AudioContext 를 만들지 않는다(sound.js). 첫 입력 뒤 자주 쓰는 소리를 미리 그린다.
 const sound=getSound();sound.setScene('town');let soundRun={cancel(){}};
 mountSoundControl(sound,document.querySelector('.top-actions'));

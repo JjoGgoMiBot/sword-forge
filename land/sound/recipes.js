@@ -1,4 +1,4 @@
-import {PLACE_MUSIC} from './score.js?v=3';
+import {PLACE_MUSIC,MUSIC_PLAN} from './score.js?v=4';
 // 쪼꼬미랜드 사운드 레시피 — 선언형 데이터. 새 소리가 필요하면 여기에 항목 하나를 더한다.
 // 문법은 engine.js 머리말 참고. 타격음은 트랙을 transient · body · tail 3층으로 쌓는다(hit:true).
 // lufs 는 그 소리 하나의 목표 음량(정규화). 큰 사건일수록 높게, 반복되는 작은 소리일수록 낮게.
@@ -133,10 +133,10 @@ export const CONCEPTS = {
   mist: { id: 'mist', name: '안개', desc: '드론·그릇(박자 없음)', space: SPACES.hall, scale: ['D4', 'E4', 'F#4', 'A4', 'B4', 'D5', 'E5', 'F#5', 'A5'], lead: INST.epiano, bell: INST.bowl, drum: INST.buk, bgm: MIST_BGM },
   fantasy: { id: 'fantasy', name: '판타지', desc: '벨·패드·스파클', space: SPACES.cathedral, scale: ['C4', 'E4', 'G4', 'B4', 'D5', 'E5', 'F#5', 'G5', 'B5'], lead: INST.harp, bell: INST.bell, drum: INST.buk, bgm: FANTASY_BGM },
 };
-CONCEPTS.town={...CONCEPTS.fantasy,id:'town',name:'광장',desc:'어쿠스틱 테마',bgm:PLACE_MUSIC.town};
-CONCEPTS.forge={...CONCEPTS.oriental,id:'forge',name:'대장간',desc:'불씨와 작업 리듬',bgm:PLACE_MUSIC.forge};
-CONCEPTS.lounge={...CONCEPTS.lounge,name:'오락관',desc:'스윙 건반·워킹 베이스',bgm:PLACE_MUSIC.casino,space:SPACES.room};
-CONCEPTS.mist={...CONCEPTS.mist,name:'타로관',desc:'하프·첼레스타',bgm:PLACE_MUSIC.fortune,space:SPACES.wood};
+CONCEPTS.town={...CONCEPTS.fantasy,id:'town',name:'광장',desc:MUSIC_PLAN.town.menu,bgm:PLACE_MUSIC.town};
+CONCEPTS.forge={...CONCEPTS.oriental,id:'forge',name:'대장간',desc:MUSIC_PLAN.forge.menu,bgm:PLACE_MUSIC.forge};
+CONCEPTS.lounge={...CONCEPTS.lounge,name:'오락관',desc:MUSIC_PLAN.casino.menu,bgm:PLACE_MUSIC.casino,space:SPACES.room};
+CONCEPTS.mist={...CONCEPTS.mist,name:'타로관',desc:MUSIC_PLAN.fortune.menu,bgm:PLACE_MUSIC.fortune,space:SPACES.wood};
 export const DEFAULT_CONCEPT = 'town';
 const conceptOf = p => CONCEPTS[p?.concept] || CONCEPTS[DEFAULT_CONCEPT];
 const sc = (c, i) => noteToHz(c.scale[Math.max(0, Math.min(c.scale.length - 1, i))]);
