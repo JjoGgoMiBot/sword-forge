@@ -1,8 +1,8 @@
 import {chips,chipLegend} from './chips.js?v=1';
 import {tarotPhoto} from './tarot-photo.js?v=1';
 import {WORLD,BUILDINGS,BOUNDARY,OFFSET,SHIRTS,SKINS,avatar,move,near} from './world.js?v=5';
-import {drawResident,drawResidentFast} from './resident-art.js?v=6';
-import {MONG_NAMES} from './mong-art.js?v=1';
+import {drawResident,drawResidentFast} from './resident-art.js?v=7';
+import {MONG_NAMES,mongSpriteReady} from './mong-art.js?v=2';
 import {isActivity,connectDiscordVoice} from './discord-voice.js';
 import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=13';
 import {raceMarkup,playRace,RACE} from './race-script.js?v=2';
@@ -127,7 +127,7 @@ function handleSocket(data,sidebar=false){if(['chat','ack','edit','delete','deli
 }
 function putMessage(message){if(messages.some(m=>m.id===message.id))return;messages.push(message);messages=messages.slice(-100);renderChat();}
 const faceUrls=new Map(),avatarByUid=new Map();
-function faceUrl(a){const key=a.shirt+'.'+a.skin+'.'+a.hat+'.'+a.accessory+'.'+(a.char||0);let url=faceUrls.get(key);if(url)return url;try{const c=document.createElement('canvas');c.width=c.height=56;const g=c.getContext('2d');g.beginPath();g.arc(28,28,28,0,Math.PI*2);g.clip();g.fillStyle='#f1e9dc';g.fillRect(0,0,56,56);if(a.char){g.translate(28,81);g.scale(1.9,1.9);}else{g.translate(28,98);g.scale(1.5,1.5);}drawResident(g,a);url=c.toDataURL();}catch{url='';}faceUrls.set(key,url);return url;}
+function faceUrl(a){const key=a.shirt+'.'+a.skin+'.'+a.hat+'.'+a.accessory+'.'+(a.char||0);let url=faceUrls.get(key);if(url)return url;try{const c=document.createElement('canvas');c.width=c.height=56;const g=c.getContext('2d');g.beginPath();g.arc(28,28,28,0,Math.PI*2);g.clip();g.fillStyle='#f1e9dc';g.fillRect(0,0,56,56);if(a.char){g.translate(28,81);g.scale(1.9,1.9);}else{g.translate(28,98);g.scale(1.5,1.5);}drawResident(g,a);url=c.toDataURL();}catch{url='';}if(!a.char||mongSpriteReady(a.char))faceUrls.set(key,url);return url;}
 function faceElement(message){const face=document.createElement('span');face.className='msg-face';face.setAttribute('aria-hidden','true');const known=message.uid===self?profile?.resident?.avatar:avatarByUid.get(message.uid);const url=message.source!=='discord'&&known?faceUrl(avatar(known)):'';if(url){const img=document.createElement('img');img.src=url;img.alt='';face.append(img);}else{face.classList.add('plain');face.textContent=message.source==='discord'?'D':[...String(message.name||'?')][0];}return face;}
 function messageElement(message){const row=document.createElement('div');row.className='chat-message'+(message.uid===self?' mine':'')+(message.source==='discord'?' discord':'');row.dataset.messageId=message.id;const body=document.createElement('p');body.className='msg-line';const name=document.createElement('strong');name.className='msg-name';name.textContent=message.name;const source=document.createElement('span');source.className='message-source';source.textContent=message.source==='discord'?'Discord':'마을';const text=document.createElement('span');text.className='msg-text';text.textContent=' : '+message.text;body.append(name,source,text);row.append(faceElement(message),body);if(message.pending){const status=document.createElement('span');status.className='message-status';status.textContent='Discord 전달 대기';body.append(status);}return row;}
 function renderChat(reset=false){const log=$('chatLog'),atBottom=log.scrollHeight-log.scrollTop-log.clientHeight<90;if(reset)log.replaceChildren();if(!messages.length){log.innerHTML='<p class="empty-chat">아직 조용하네요.<br>먼저 인사를 건네볼까요?</p>';return;}log.querySelector('.empty-chat')?.remove();for(const message of messages)if(!log.querySelector('[data-message-id="'+message.id+'"]'))log.append(messageElement(message));while(log.children.length>100)log.firstElementChild.remove();if(atBottom||reset)log.scrollTop=log.scrollHeight;}

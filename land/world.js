@@ -18,4 +18,4 @@ export function move(p,dx,dy,dt){const l=Math.hypot(dx,dy);if(!l)return {...p};c
 export function near(p){return BUILDINGS.find(b=>Math.hypot(p.x-b.x,p.y-b.y-17)<49)||null;}
 export const SHIRTS=['#b97054','#6d88aa','#8c9a64','#b6859d','#a28b61','#667e7c','#8c7aa6','#5e606d'];
 export const SKINS=['#efd7b2','#deb08a','#be8d69','#8b5e47'];
-export function avatar(a={}){const pick=(key,count)=>Number.isInteger(a[key])&&a[key]>=0&&a[key]<count?a[key]:0;return {shirt:pick('shirt',8),hat:pick('hat',4),skin:pick('skin',4),accessory:pick('accessory',4),char:pick('char',8)};}
+export function avatar(a={}){const pick=(key,count)=>Number.isInteger(a[key])&&a[key]>=0&&a[key]<count?a[key]:0;return {shirt:pick('shirt',8),hat:pick('hat',4),skin:pick('skin',4),accessory:pick('accessory',4),char:pick('char',7)};}

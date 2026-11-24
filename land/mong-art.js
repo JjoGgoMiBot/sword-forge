@@ -1,7 +1,7 @@
 // 먼작귀 풍 작은 캐릭터 그림(직접 단순하게 그린 팬 스타일 도형이다. 공식 그림이 아니다).
 // 주민과 같은 좌표계를 쓴다: 발바닥이 (0,0), 위쪽이 -y. 한 장 68×100 안에 들어간다.
-export const MONG_NAMES = ['직접 꾸민 주민', '치이카와', '하치와레', '우사기', '모몽가', '쿠리만쥬', '랏코', '시사'];
-export const MONG_COUNT = MONG_NAMES.length;   // 0번은 사람 모습, 1~7이 캐릭터
+export const MONG_NAMES = ['직접 꾸민 주민', '치이카와', '하치와레', '우사기', '모몽가', '쿠리만쥬', '랏코'];
+export const MONG_COUNT = MONG_NAMES.length;   // 0번은 사람 모습, 1~6이 캐릭터
 const INK = '#5d4a46', CHEEK = '#f6aeb8';
 const ell = (g, x, y, rx, ry, fill, stroke = INK, lw = 1.5, rot = 0) => {
   g.beginPath(); g.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2);
@@ -15,14 +15,45 @@ const LOOK = {
   1: {body: '#fffaf4', belly: null, ears: 'round', earIn: '#f9d4d8', cheek: CHEEK, mouth: 'dot', tail: 'tuft'},
   2: {body: '#fffaf4', belly: null, ears: 'point', earIn: '#bcd2e6', cheek: CHEEK, mouth: 'smile', tail: 'tuft', cap: '#a9c4dc'},
   3: {body: '#fbe69a', belly: '#fff6cf', ears: 'long', earIn: '#f7c9a8', cheek: '#f4b4a4', mouth: 'open', tail: 'puff'},
-  4: {body: '#fff2f0', belly: null, ears: 'big', earIn: '#f9c9d0', cheek: CHEEK, mouth: 'w', tail: 'tuft', wing: '#f8d6dc'},
-  5: {body: '#d2a574', belly: '#f1dcbc', ears: 'round', earIn: '#b4814f', cheek: '#e8a090', mouth: 'smile', tail: 'tuft'},
-  6: {body: '#92725b', belly: '#dcc3a3', ears: 'tiny', earIn: '#92725b', cheek: '#d9a18f', mouth: 'dot', tail: 'long', whisk: true},
-  7: {body: '#f4dcae', belly: '#fff1d4', ears: 'round', earIn: '#d9534f', cheek: CHEEK, mouth: 'open', tail: 'tuft', mane: '#d9534f'},
+  4: {body: '#fffdfb', belly: null, ears: 'big', earIn: '#f3d2d8', cheek: CHEEK, mouth: 'w', tail: 'tuft', wing: '#c8d4e2'},
+  5: {body: '#f7dfb8', belly: null, ears: 'tiny', earIn: '#f7dfb8', cheek: '#f0a898', mouth: 'dot', tail: 'tuft', cap: '#7a5035'},
+  6: {body: '#e8c690', belly: null, ears: 'tiny', earIn: '#e8c690', cheek: '#f0a898', mouth: 'dot', tail: 'tuft', mane: '#d9aa62', scarf: '#fffaf0'},
 };
+// 실제 캐릭터 스프라이트(land/assets/mong/<번호>-body|arm|foot.png). 몸통은 가만히 두고 팔과 다리만 움직인다.
+// 불러오기 전에는 아래 도형 그림을 대신 쓴다. 불러오면 onMongLoad 로 알려 캐시를 비운다.
+const SPR = {}, listeners = [], SC = 0.32;
+export const onMongLoad = f => listeners.push(f);
+export const mongSpriteReady = id => !!(SPR[id] && SPR[id].ok);
+if (typeof Image === 'function') for (const id of [1, 2, 3, 4, 5, 6]) {
+  const e = SPR[id] = {ok: false}; let left = 3;
+  for (const part of ['body', 'arm', 'foot']) {
+    const im = new Image(); e[part] = im;
+    im.onload = () => { if (!--left) { e.ok = true; listeners.forEach(f => f()); } };
+    im.src = new URL('./assets/mong/' + id + '-' + part + '.png', import.meta.url).href;
+  }
+}
+function drawSprite(g, e, phase, weight, look) {
+  const s = Math.sin(phase) * weight, bob = -Math.abs(Math.cos(phase)) * 2.2 * weight, lx = look * 1.2;
+  const bw = e.body.naturalWidth * SC, bh = e.body.naturalHeight * SC;
+  const aw = e.arm.naturalWidth * SC, ah = e.arm.naturalHeight * SC, fw = e.foot.naturalWidth * SC, fh = e.foot.naturalHeight * SC;
+  g.save(); g.translate(0, bob);
+  // 다리: 번갈아 앞뒤로 내딛고 들어 올린다(몸통 뒤쪽에서 발만 보인다)
+  const foot = (sx, ph) => g.drawImage(e.foot, sx * bw * .2 - fw / 2 + ph * 2.2, -fh - Math.max(0, ph) * 4.5, fw, fh);
+  foot(-1, -s); foot(1, s);
+  g.drawImage(e.body, -bw / 2 + lx, -fh * .55 - bh, bw, bh);
+  // 팔: 어깨를 축으로 앞뒤로 흔든다(반대 팔은 좌우를 뒤집어 그린다)
+  const arm = (sx, ph) => {
+    g.save(); g.translate(sx * bw * .46 + lx, -fh * .55 - bh * .36); g.rotate(sx * .18 + ph * .85 * sx);
+    if (sx < 0) g.scale(-1, 1);
+    g.drawImage(e.arm, -aw / 2, -ah * .12, aw, ah); g.restore();
+  };
+  arm(-1, s); arm(1, -s);
+  g.restore();
+}
 // phase: 걸음 위상, weight: 0(서 있음)~1(걷기), look: -1~1 가는 쪽
 export function drawMong(g, id, phase = 0, weight = 0, look = 0) {
   const L = LOOK[id]; if (!L) return false;
+  if (mongSpriteReady(id)) { drawSprite(g, SPR[id], phase, weight, look); return true; }
   const s = Math.sin(phase) * weight, bob = -Math.abs(Math.cos(phase)) * 2.4 * weight, lx = look * 2.5;
   g.save(); g.lineCap = 'round'; g.lineJoin = 'round'; g.translate(0, bob);
   // 꼬리·갈기·날개 같은 뒤쪽 장식
@@ -51,6 +82,7 @@ export function drawMong(g, id, phase = 0, weight = 0, look = 0) {
   g.fillStyle = L.body; g.fill(); g.strokeStyle = INK; g.lineWidth = 1.7; g.stroke();
   if (L.belly) ell(g, 0, -13, 9.5, 7.5, L.belly, null);
   if (L.cap) { g.save(); g.beginPath(); g.moveTo(0, -48); g.bezierCurveTo(14, -48, 20, -37, 18, -31); g.quadraticCurveTo(6, -36, 0, -34); g.quadraticCurveTo(-8, -38, -18, -31); g.bezierCurveTo(-20, -37, -14, -48, 0, -48); g.fillStyle = L.cap; g.fill(); g.restore(); }
+  if (L.scarf) { ell(g, 0, -14, 17.5, 5.2, L.scarf); curve(g, -12, -11, -17, -4, -9, -2, 1.5); }
   // 팔
   const arm = (sx, ph) => ell(g, sx * 17, -19 - ph * 2.2, 3.8, 5.4, L.body, INK, 1.5, sx * .35);
   arm(-1, s); arm(1, -s);

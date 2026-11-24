@@ -2,7 +2,7 @@
 // 발이 (0,0), 머리 꼭대기가 약 -71. 셔츠는 흰 몸 위에 입힌 옷, 피부 색은 옅은 볼 빛으로만 남겨 고른 값이 보이게 한다.
 // 마을에서는 drawResidentFast(미리 구운 프레임)를 쓴다. 걷기 24프레임 + 서 있기 1프레임을 주민 모양·배율마다 한 번만 굽는다.
 import {SHIRTS,SKINS} from './world.js?v=5';
-import {drawMong} from './mong-art.js?v=1';
+import {drawMong,onMongLoad} from './mong-art.js?v=2';
 
 const INK='#1d1a17',WHITE='#fbfaf6',SHADE='#dcd8cf',TAU=Math.PI*2;
 const HEAD={y:-49,r:21};
@@ -88,7 +88,7 @@ function wardrobe(g,a){
 export const WALK_FRAMES=24;
 // 한 장 약 68×100×k² 픽셀. 주민 모양×배율 64벌까지 두어 광장에 사람이 많아도 매 프레임 다시 굽지 않는다.
 const BOX={x:-34,y:-92,w:68,h:100},MAX_AVATARS=64;
-const sheets=new Map();
+const sheets=new Map();onMongLoad(()=>sheets.clear());
 const avatarKey=a=>a.shirt+'.'+a.skin+'.'+a.hat+'.'+a.accessory+'.'+(a.char||0);
 function canvas(w,h){if(typeof OffscreenCanvas==='function')return new OffscreenCanvas(w,h);const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
 function bake(a,phase,weight,look,k){
