@@ -337,6 +337,9 @@ export function botMove(t, i, rng = random) {
   }
   const odds = toCall / (pot + toCall);
   if (canRaise && strength > 1.85 && r < 0.6) return {type: 'raise', amount: size(0.7 + rng() * 0.3)};
+  // 사람이 올인으로 밀면 팟 오즈만 따지면 봇이 거의 다 접는다. 블러프를 잡아보는 콜을 섞어 판이 이어지게 한다.
+  const shove = t.seats.some((x, k) => k !== i && x && x.allIn && x.bet >= t.currentBet && !x.bot);
+  if (shove && (eq >= odds * 0.8 || (eq >= odds * 0.55 && r < 0.4))) return {type: 'call'};
   if (eq >= odds * 1.08 || (toCall <= POKER.bigBlind && eq >= odds * 0.75)) return {type: 'call'};
   return {type: 'fold'};
 }

@@ -57,6 +57,17 @@ test('봇은 자기 패와 보드만 보고 판단한다(남의 패를 바꿔도
   assert.deepEqual(botMove(t, i, seeded(3)), before);
 });
 
+test('사람이 올인으로 밀어도 봇이 강한 패로는 콜한다(전부 접지 않는다)', () => {
+  const t = table(1), i = t.toAct, h = t.seats.findIndex((x, k) => x && !x.bot && k !== i);
+  assert.ok(h >= 0);
+  const me = t.seats[i], human = t.seats[h];
+  me.cards = hand('As Ah'); t.board = [];
+  human.allIn = true; human.bet = t.currentBet = me.bet + Math.min(me.stack, 400); human.stack = 0;
+  let calls = 0;
+  for (let n = 0; n < 20; n++) if (botMove(t, i, seeded(n + 1)).type !== 'fold') calls++;
+  assert.ok(calls >= 10, '에이스 한 쌍은 올인을 받는다: ' + calls);
+});
+
 test('시간이 지나면 체크할 수 있으면 체크, 아니면 폴드. 두 번 연속이면 다음 판 전에 일어난다', () => {
   const t = newTable();
   sit(t, 0, {id: 'a', key: 'ka', name: 'A'}, 1000, 0);
