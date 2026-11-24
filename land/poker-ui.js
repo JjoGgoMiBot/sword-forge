@@ -36,7 +36,7 @@ export function createPoker({money, h, send, toast, balance, sound}) {
 
   function statusText() {
     if (!st) return '테이블을 불러오는 중…';
-    if (st.phase === 'idle') return st.seats.some(Boolean) ? '다른 사람이 들어올 시간을 드려요. 카운트다운이 끝나면 첫 판을 시작해요.' : '빈 테이블이에요. 앉으면 봇이 함께 앉아 바로 시작해요.';
+    if (st.phase === 'idle') return st.seats.some(Boolean) ? '<span class="pk-wait">다른 사람을 기다리는 중<i class="pk-dots"><u>.</u><u>.</u><u>.</u></i></span> 카운트다운이 끝나면 첫 판을 시작해요.' : '빈 테이블이에요. 앉으면 봇이 함께 앉아 바로 시작해요.';
     if (st.phase === 'showdown') {
       const w = st.result?.winners || [];
       return w.map(x => h(x.name) + ' ' + money(x.amount) + '초코' + (x.hand ? ' · ' + h(x.hand) : '')).join(', ') + (st.result?.showdown ? '' : ' (모두 폴드)');
@@ -90,7 +90,7 @@ export function createPoker({money, h, send, toast, balance, sound}) {
       el.classList.toggle('low', r < 6000);
     });
     const next = box.querySelector('[data-poker-next]');
-    if (next) next.textContent = n != null && st.phase !== 'idle' ? '· 다음 판 ' + Math.ceil(n / 1000) + '초' : n != null && st.seats.some(Boolean) ? '(' + Math.ceil(n / 1000) + '초)' : '';
+    if (next) next.innerHTML = n != null && st.phase !== 'idle' ? '· 다음 판 ' + Math.ceil(n / 1000) + '초' : n != null && st.seats.some(Boolean) ? '<b class="pk-count">' + Math.ceil(n / 1000) + '초 후 시작</b>' : '';
   }
 
   function onClick(event) {
