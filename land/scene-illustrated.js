@@ -1,5 +1,5 @@
 import {WORLD,BUILDINGS,BOUNDARY,OFFSET,POND,FOUNTAIN,SHIRTS,SKINS,avatar,canStand} from './world.js?v=4';
-import {drawResidentFast} from './resident-art.js?v=3';
+import {drawResidentFast} from './resident-art.js?v=5';
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const O=OFFSET;
 const TREES=[[250,590,1],[360,680,.8],[1250,650,1],[1100,760,.82],[1020,350,.9],[580,390,.85],[660,930,.9],[930,950,.85],[350,520,.72],[1190,500,.8],[800,180,.95]];
@@ -28,7 +28,7 @@ export async function createIllustratedTown(container){
  // 실사 아틀라스·바닥 사진을 먼저 쓰고, 하나라도 못 읽으면 기존 그림 아틀라스와 종이 질감 바닥으로 그린다.
  // decode()는 백그라운드 탭·숨은 창에서 화면에 보일 때까지 멈춰 있어, 그동안 그림 마을로 남는다. load 이벤트로 기다린다(drawImage가 필요할 때 디코딩한다).
  const load=src=>new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error('image failed: '+src));i.src=new URL(src,import.meta.url).href;});
- let photo=null;try{const [atlas,grass,path]=await Promise.all(['./assets/photo/town-atlas.webp','./assets/photo/ground-grass.webp','./assets/photo/ground-path.webp'].map(load));photo={atlas,grass,path};}catch(error){console.warn('photo town unavailable, using painted atlas',error);}
+ let photo=null;try{const [atlas,grass,path,pond]=await Promise.all(['./assets/photo/town-atlas.webp','./assets/photo/ground-grass.webp','./assets/photo/ground-path.webp','./assets/photo/pond-photo.png'].map(load));photo={atlas,grass,path,pond};}catch(error){console.warn('photo town unavailable, using painted atlas',error);}
  const atlas=photo?photo.atlas:await load('./assets/town-illustrated-alpha.png');container.dataset.art=photo?'photo':'painted';
  const sprites=Array.from({length:8},(_,i)=>sheetCell(atlas,i));
  // 덤불: 나무 사진의 잎 덩어리만 잘라 납작하게 눌러 쓴다. 깊은 숲일수록 어둡고 차가워지도록 톤 두 벌을 미리 굽는다.
@@ -54,10 +54,8 @@ export async function createIllustratedTown(container){
   t.lineCap='round';t.lineJoin='round';
   function road(points,width){t.beginPath();points.forEach(([x,y],i)=>i?t.lineTo(x,y):t.moveTo(x,y));t.save();t.shadowColor='#2a1d0e66';t.shadowBlur=14;t.strokeStyle='#5d4a2c80';t.lineWidth=width+10;t.stroke();t.restore();t.save();t.filter='blur(1.4px)';t.strokeStyle=pattern(photo.path,.36);t.lineWidth=width+4;t.stroke();t.restore();t.strokeStyle=pattern(photo.path,.36);t.lineWidth=width-6;t.stroke();}
   road([[470,800],[700,845],[940,925],[1200,1090],[1480,925],[1700,845],[1930,800]],48);road([[1200,650],[1200,1250],[1186,1420]],43);
-  // Pond: wet earth bank, deep water with sky reflection and a sun glint.
-  t.save();t.shadowColor='#1d1a0f88';t.shadowBlur=10;t.beginPath();t.ellipse(POND.x,POND.y,POND.rx+13,POND.ry+8,-.04,0,Math.PI*2);t.fillStyle=pattern(photo.path,.3);t.fill();t.restore();
-  t.beginPath();t.ellipse(POND.x,POND.y-3,POND.rx,POND.ry-3,-.04,0,Math.PI*2);const water=t.createRadialGradient(POND.x-30,POND.y-20,8,POND.x,POND.y,100);water.addColorStop(0,'#9ec7cf');water.addColorStop(.55,'#4f7f86');water.addColorStop(1,'#25444a');t.fillStyle=water;t.fill();
-  t.save();t.clip();t.globalCompositeOperation='screen';for(let i=0;i<26;i++){const x=POND.x-70+random()*140,y=POND.y-35+random()*60;t.strokeStyle='#ffe9c055';t.lineWidth=.8+random();t.beginPath();t.moveTo(x,y);t.quadraticCurveTo(x+8,y-2,x+16,y);t.stroke();}t.restore();
+  // 돌 둑과 물결도 실사 소재로 바닥 캐시에 한 번만 굽는다.
+  t.drawImage(photo.pond,POND.x-POND.rx-25,POND.y-POND.ry-18,(POND.rx+25)*2,(POND.ry+18)*2);
   t.restore();forestFloor('#0f1a0cb8');
  }else{
 grassFill='#cad2a6';t.fillStyle=grassFill;t.fillRect(0,0,WORLD.width,WORLD.height);t.save();t.translate(O.x,O.y);

@@ -1,24 +1,24 @@
 // 쪼꼬미랜드 사운드 매니저 — 게임 코드가 쓰는 유일한 입구.
 //   sound.play('card.flip')            효과음 한 번
 //   sound.cue([{at:ms,id,params}])     시간표대로 여러 소리(취소 가능)
-//   sound.setScene('town'|'forge'|'casino'|'fortune'|null)  장면 BGM(컨셉 '자동'일 때 장면별 컨셉)
+//   sound.setScene('casino'|'fortune'|null)  장면 BGM(컨셉 '자동'일 때 장면별 컨셉)
 //   sound.set({muted, master, bgm, sfx, concept})  설정(localStorage 저장)
 // 약속: 첫 사용자 입력 전에는 AudioContext 를 만들지 않는다. 소리 쪽 오류는 게임을 막지 않는다.
 import { compileRecipe, renderToChannels, sampleUrls } from './engine.js';
 import { humanize, dbToGain, clamp } from './dsp.js';
-import { recipeFor, CONCEPTS, DEFAULT_CONCEPT } from './recipes.js';
+import { recipeFor, CONCEPTS, DEFAULT_CONCEPT } from './recipes.js?v=7';
 
 export const STORAGE_KEY = 'land.sound.v1';
-export const DEFAULTS = Object.freeze({ muted: false, music: true, master: 0.9, bgm: 0.55, sfx: 0.9, concept: 'auto' });
-export const SCENE_CONCEPT = { town: 'sunny', forge: 'grand', casino: 'urgent', fortune: 'mist' };
-const CACHE_LIMIT = 8e6; // 캐시 표본 수 상한(≈32MB float). BGM 은 고정, 나머지는 오래 안 쓴 것부터 버린다.
+export const DEFAULTS = Object.freeze({ muted: false, master: 0.9, bgm: 0.55, sfx: 0.9, concept: 'auto' });
+export const SCENE_CONCEPT = { town:'town',forge:'forge',casino:'lounge',fortune:'mist' };
+const CACHE_LIMIT = 8e6; // 캐시 표본 수 상한(≈32MB float). 오래 안 쓴 것부터 버린다.
+export const BGM_FILES = Object.freeze({town:'town',lounge:'casino',forge:'forge',mist:'fortune',oriental:'oriental',japanese:'japanese',korean:'korean',fantasy:'fantasy'});
 const NOOP = Object.freeze({ stop() {}, cancel() {}, done: Promise.resolve() });
 
 export function normalizeSettings(raw) {
   const s = { ...DEFAULTS };
   if (raw && typeof raw === 'object') {
     if (typeof raw.muted === 'boolean') s.muted = raw.muted;
-    if (typeof raw.music === 'boolean') s.music = raw.music;
     for (const k of ['master', 'bgm', 'sfx']) if (Number.isFinite(raw[k])) s[k] = clamp(raw[k], 0, 1);
     if (raw.concept === 'auto' || CONCEPTS[raw.concept]) s.concept = raw.concept;
   }
@@ -43,11 +43,11 @@ export function safetyCurve(n = 2048) {
   return c;
 }
 
-export function createSound({ win = globalThis.window, storage = defaultStorage(), AudioCtx, OfflineCtx, log = console } = {}) {
+export function createSound({ win = globalThis.window, storage = defaultStorage(), AudioCtx, OfflineCtx, fetchAudio = globalThis.fetch, log = console } = {}) {
   AudioCtx ||= win?.AudioContext || win?.webkitAudioContext;
   OfflineCtx ||= win?.OfflineAudioContext || win?.webkitOfflineAudioContext;
   let settings = loadSettings(storage);
-  let ctx = null, bus = null, gestured = false, scene = null, bgm = null, wantBgm = null;
+  let ctx = null, bus = null, gestured = false, scene = 'town', bgm = null, wantBgm = null;
   const cache = new Map(), pending = new Map(), samples = new Map(), irCache = new Map(), listeners = new Set();
   const stats = { dropped: 0, plays: 0, renders: 0, renderMs: 0, errors: 0, cachedSamples: 0, created: 0 };
   const warned = new Set();
@@ -115,7 +115,7 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
     samples.set(url, { sampleRate: decoded.sampleRate, channels: Array.from({ length: decoded.numberOfChannels }, (_, i) => decoded.getChannelData(i).slice()) });
   }
   // 레시피 → 오디오 채널(목표 음량으로 정규화됨). 컨텍스트 없이도 된다(시험 화면).
-  async function renderOffline(id, { concept = conceptId(), params = {}, seed = 1, sampleRate = ctx?.sampleRate || 48000 } = {}) {
+  async function renderOffline(id, { concept = conceptId(), params = {}, seed = 1, sampleRate = id.startsWith('bgm') ? 32000 : ctx?.sampleRate || 48000 } = {}) {
     const recipe = recipeFor(id, concept);
     if (!recipe) throw new Error('레시피 없음: ' + id);
     if (!OfflineCtx) throw new Error('OfflineAudioContext 없음');
@@ -127,6 +127,24 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
     stats.renders++; stats.renderMs += (globalThis.performance || Date).now() - t0;
     return { ...out, compiled };
   }
+  async function prepareBuffer(id, concept, params, seed) {
+    if (id === 'bgm' && BGM_FILES[concept] && ctx?.decodeAudioData && fetchAudio && OfflineCtx) {
+        // If a place recording fails, startBgm keeps the previous track instead
+        // of substituting the rejected oscillator arrangement.
+        const url = new URL('../assets/music/' + BGM_FILES[concept] + '.ogg?v=4', import.meta.url);
+        const response = await fetchAudio(url, { signal: AbortSignal.timeout(8000) });
+        if (!response.ok) throw new Error('music HTTP ' + response.status);
+        const decoder = new OfflineCtx(2, 1, 32000);
+        const buffer = await decoder.decodeAudioData(await response.arrayBuffer());
+        const meta = compileRecipe(recipeFor(id, concept), { ...params, concept, seed });
+        if (Math.abs(buffer.duration - meta.dur) > .15) throw new Error('music duration');
+        return { buffer, meta };
+    }
+    const r = await renderOffline(id, { concept, params, seed });
+    const buffer = ctx.createBuffer(2, r.channels[0].length, r.sampleRate);
+    r.channels.forEach((ch, c) => buffer.copyToChannel(ch, c));
+    return { buffer, meta: r.compiled };
+  }
   // 변형(라운드로빈) 하나를 꺼낸다. 없으면 그린다.
   async function variant(id, concept, params) {
     const key = keyOf(id, concept, params);
@@ -135,16 +153,14 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
       const recipe = recipeFor(id, concept);
       if (!recipe) throw new Error('레시피 없음: ' + id);
       const count = compileRecipe(recipe, { ...params, concept, seed: 1 }).variants;
-      entry = { buffers: new Array(count).fill(null), rr: 0, samples: 0, meta: null, pinned: id.startsWith('bgm') };
+      entry = { buffers: new Array(count).fill(null), rr: 0, samples: 0, meta: null, pinned: false };
       cache.set(key, entry);
     } else { cache.delete(key); cache.set(key, entry); } // LRU: 최근 사용을 뒤로
     const i = entry.rr++ % entry.buffers.length;
     if (!entry.buffers[i]) {
       const pkey = key + '#' + i;
-      if (!pending.has(pkey)) pending.set(pkey, renderOffline(id, { concept, params, seed: i + 1 }).then(r => {
-        const b = ctx.createBuffer(2, r.channels[0].length, r.sampleRate);
-        r.channels.forEach((ch, c) => b.copyToChannel(ch, c));
-        entry.buffers[i] = b; entry.meta = r.compiled; entry.samples += r.channels[0].length * 2;
+      if (!pending.has(pkey)) pending.set(pkey, prepareBuffer(id, concept, params, i + 1).then(({buffer:b,meta}) => {
+        entry.buffers[i] = b; entry.meta = meta; entry.samples += b.length * b.numberOfChannels;
         evict();
         return b;
       }).finally(() => pending.delete(pkey)));
@@ -175,7 +191,7 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
       let offset = 0;
       if (opts.when != null && late > 0.03) {
         if (buffer.duration > 1.2) offset = Math.min(late, buffer.duration - 0.1);
-        else if (late > 0.12) { stats.dropped++; return; }
+        else if (late > (id==='card.deal'?.4:.12)) { stats.dropped++; return; }
       }
       const when = Math.max(now, want);
       const hz = humanize(meta.random);
@@ -201,19 +217,20 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
 
   // ── BGM ──
   async function startBgm() {
-    if (!ctx || settings.muted || !settings.music || !wantBgm) return;
+    if (!ctx || settings.muted || !wantBgm) return;
     const concept = wantBgm, token = {};
-    bgm?.fade?.();
-    bgm = { concept, token };
+    const previous=bgm;
+    bgm = { concept, token,fade:previous?.fade };
     try {
       const { buffer } = await variant('bgm', concept, {});
       if (bgm?.token !== token) return; // 그 사이 장면이 바뀌었다
       const src = ctx.createBufferSource(), g = ctx.createGain(), t = ctx.currentTime;
+      previous?.fade?.();
       src.buffer = buffer; src.loop = true;
-      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + 1.5);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + 2);
       src.connect(g).connect(bus.music); src.start(t);
       bgm.fade = () => { const n = ctx.currentTime; g.gain.cancelScheduledValues(n); g.gain.setValueAtTime(g.gain.value, n); g.gain.linearRampToValueAtTime(0, n + 1.2); try { src.stop(n + 1.3); } catch {} };
-    } catch (e) { warn('bgm.' + concept, e); }
+    } catch (e) { if(bgm?.token===token)bgm=previous;warn('bgm.' + concept, e); }
   }
   function stopBgm() { bgm?.fade?.(); bgm = null; }
   function refreshBgm() {
@@ -232,12 +249,10 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
     saveSettings(storage, settings);
     if (!settings.muted && before.muted) { if (gestured || patch.muted === false) unlock(); }
     applyVolumes();
-    if (!settings.music) stopBgm();
     if (settings.muted) {
       stopBgm();
       if (ctx) setTimeout(() => { if (settings.muted) ctx.suspend?.().catch(() => {}); }, 250); // 음소거 중엔 오디오 스레드를 쉰다
     } else {
-      if (bgm && bgm.concept !== conceptId()) stopBgm();
       refreshBgm(); rewarm();
     }
     emit();
@@ -245,7 +260,7 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
   let warmIds = [], warmed = '';
   // 컨셉이 바뀌면(장면 이동·설정) 그 컨셉의 자주 쓰는 소리를 한가할 때 미리 그린다. 첫 소리 지연·시간표 어긋남 방지.
   function rewarm() { const c = conceptId(); if (ctx && warmIds.length && warmed !== c) { warmed = c; prewarm(warmIds); } }
-  function setScene(name) { scene = name || null; refreshBgm(); rewarm(); emit(); }
+  function setScene(name) { scene = name || 'town'; refreshBgm(); rewarm(); emit(); }
 
   // 자주 쓰는 소리를 한가할 때 미리 그려 첫 재생 지연을 없앤다.
   function prewarm(ids) {

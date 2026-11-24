@@ -15,7 +15,7 @@ export const POKER = Object.freeze({
   awayActionMs: 6000,   // 연결이 끊긴 사람 차례는 짧게만 기다린다
   maxTimeouts: 2,       // 연속 시간 초과가 이만큼이면 판이 끝날 때 자리에서 일어난다
   botDelayMs: [900, 2000],
-  startDelayMs: 2500,   // 첫 사람이 앉은 뒤 첫 판까지
+  startDelayMs: 20000,  // 첫 사람이 앉은 뒤 첫 판까지(다른 사람이 들어올 시간)
   showdownMs: 5500,     // 결과를 보여 주고 다음 판까지
   botTarget: 4,         // 사람이 한 명이라도 앉아 있으면 자리 수를 이만큼까지 봇으로 채운다
   botStack: 1000,
@@ -337,6 +337,9 @@ export function botMove(t, i, rng = random) {
   }
   const odds = toCall / (pot + toCall);
   if (canRaise && strength > 1.85 && r < 0.6) return {type: 'raise', amount: size(0.7 + rng() * 0.3)};
+  // 사람이 올인으로 밀면 팟 오즈만 따지면 봇이 거의 다 접는다. 블러프를 잡아보는 콜을 섞어 판이 이어지게 한다.
+  const shove = t.seats.some((x, k) => k !== i && x && x.allIn && x.bet >= t.currentBet && !x.bot);
+  if (shove && (eq >= odds * 0.8 || (eq >= odds * 0.55 && r < 0.4))) return {type: 'call'};
   if (eq >= odds * 1.08 || (toCall <= POKER.bigBlind && eq >= odds * 0.75)) return {type: 'call'};
   return {type: 'fold'};
 }

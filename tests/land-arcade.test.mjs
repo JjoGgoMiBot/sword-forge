@@ -512,3 +512,18 @@ test('가위바위보 대결: 손은 끝날 때까지 숨겨지고, 이기면 �
   assert.throws(() => rpsdPick(o, 'a', 'lizard', 2), /가위·바위·보/);
   assert.throws(() => rpsdJoin(newRpsd(), A, 5, 0), /판돈/);
 });
+
+test('하이로우 같다: 같은 숫자가 나오면 이기고 13배 근처 배율, 다르면 끝. 입구(land-player)도 equal을 통과시킨다', async () => {
+  const g = hiloStart(100, () => 0.5);   // 7
+  assert.equal(hiloView(g).equal, Math.floor(96 * 13) / 100);
+  hiloGuess(g, 'equal', () => 0.5);      // 또 7
+  assert.equal(g.steps, 1); assert.equal(g.done, false);
+  hiloGuess(g, 'equal', () => 0.9);      // 12 → 틀림
+  assert.equal(g.outcome, 'miss');
+  // 같다는 A·K에서도 가능하다(높다/낮다와 달리 막히지 않는다)
+  assert.doesNotThrow(() => hiloGuess(hiloStart(10, () => 0.99), 'equal', () => 0.99));
+  // 서버 입구가 hiloGuess가 받는 모든 선택을 통과시키는지(과거에 equal만 '잘못된 선택'으로 막혔다)
+  const {readFileSync} = await import('node:fs');
+  const src = readFileSync(new URL('../server/src/land-player.js', import.meta.url), 'utf8');
+  for (const m of ['high', 'low', 'equal']) assert.ok(src.includes("'" + m + "'") && /\['high','low','equal'\]\.includes\(p\.move\)/.test(src), m);
+});

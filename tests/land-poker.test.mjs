@@ -57,6 +57,17 @@ test('봇은 자기 패와 보드만 보고 판단한다(남의 패를 바꿔도
   assert.deepEqual(botMove(t, i, seeded(3)), before);
 });
 
+test('사람이 올인으로 밀어도 봇이 강한 패로는 콜한다(전부 접지 않는다)', () => {
+  const t = table(1), i = t.toAct, h = t.seats.findIndex((x, k) => x && !x.bot && k !== i);
+  assert.ok(h >= 0);
+  const me = t.seats[i], human = t.seats[h];
+  me.cards = hand('As Ah'); t.board = [];
+  human.allIn = true; human.bet = t.currentBet = me.bet + Math.min(me.stack, 400); human.stack = 0;
+  let calls = 0;
+  for (let n = 0; n < 20; n++) if (botMove(t, i, seeded(n + 1)).type !== 'fold') calls++;
+  assert.ok(calls >= 10, '에이스 한 쌍은 올인을 받는다: ' + calls);
+});
+
 test('시간이 지나면 체크할 수 있으면 체크, 아니면 폴드. 두 번 연속이면 다음 판 전에 일어난다', () => {
   const t = newTable();
   sit(t, 0, {id: 'a', key: 'ka', name: 'A'}, 1000, 0);
@@ -211,4 +222,18 @@ test('다른 사람 소켓에는 내 패가 가지 않는다', async () => {
   assert.equal(mine.length, 2, '내 소켓에는 내 패');
   assert.equal(seen.seats[0].cards, null, '구경꾼 소켓에는 패 없음');
   assert.equal(seen.seats[0].hidden, 2);
+});
+
+test('첫 사람이 앉아도 바로 시작하지 않고 다른 사람이 들어올 시간(15초 이상)을 준다. 대기 중 일어나면 칩 전액 환불', () => {
+  const t = newTable(), now = 1_000_000;
+  sit(t, 0, {id: 'u0', key: 'k0', name: '하나'}, 1000, now);
+  assert.equal(t.phase, 'idle');
+  assert.ok(t.nextAt - now >= 15000, '대기 ' + (t.nextAt - now) + 'ms');
+  tick(t, now + 3000, seeded(1));
+  assert.equal(t.phase, 'idle', '3초 뒤에도 아직 시작 전');
+  sit(t, 1, {id: 'u1', key: 'k1', name: '둘'}, 1000, now + 4000);
+  assert.equal(t.nextAt - now, POKER.startDelayMs, '두 번째 사람이 앉아도 카운트다운이 늘거나 줄지 않는다');
+  const ev = standUp(t, 'u0', now + 5000, seeded(2));
+  assert.deepEqual(ev.cashOuts.map(c => [c.id, c.amount]), [['u0', 1000]]);
+  assert.equal(t.seats[0], null);
 });

@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>쪼꼬미랜드 음악 미리듣기</title><link rel="stylesheet" href="style.css">
+<style>body{overflow:auto}main{max-width:800px;margin:auto;padding:24px}article{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:14px 0}audio{width:100%;margin-top:12px}h2{font-size:18px}</style>
+<main><h1>랜드 음악 미리듣기</h1><p>장소별 음악 4곡 · 동양풍·일본풍·한국풍·판타지 4곡</p><p>따뜻한 피아노와 기타, 선율 사이의 여백을 담은 여덟 테마예요.</p><div id="tracks"></div><p>피아노·기타 녹음: <a href="https://freepats.zenvoid.org/">FreePats</a> · 배경 악기: <a href="https://www.schristiancollins.com/generaluser">GeneralUser GS</a></p><a href="./">쪼꼬미랜드로 돌아가기</a></main>
+<script type="module">
+import {MUSIC_PLAN} from './sound/score.js?v=5';
+for(const [place,plan] of Object.entries(MUSIC_PLAN)){
+ const article=document.createElement('article');
+ article.innerHTML='<h2>'+plan.title+'</h2><p>'+plan.feel+' · '+plan.bpm+' BPM</p>';
+ const audio=document.createElement('audio');audio.controls=true;audio.loop=true;audio.preload='metadata';audio.setAttribute('aria-label',plan.title);audio.src='./assets/music/'+place+'.ogg?v=4';
+ audio.addEventListener('play',()=>document.querySelectorAll('audio').forEach(other=>{if(other!==audio)other.pause();}));
+ article.append(audio);document.querySelector('#tracks').append(article);
+}
+</script></html>

@@ -21,7 +21,7 @@ export function marginName(gap) { return gap < 0.008 ? '코 차이' : gap < 0.01
 export function raceScript(result) {
   const horses = result?.horses || [], n = horses.length, winner = result?.winner;
   if (!n || !Number.isInteger(winner) || winner < 0 || winner >= n) return null;
-  const R = rng(seedOf(horses.map(h => h.name + ':' + h.rate).join('|') + '#' + winner + '#' + (result.choice ?? '') + '#' + (result.bet ?? '')));
+  const R = rng(seedOf(horses.map(h => h.name + ':' + h.rate).join('|') + '#' + winner + '#' + (result.choice ?? '') + '#' + (result.bet ?? '') + '#' + (result.visualSeed ?? '')));
   const chance = horses.map(h => Number(h.chance) || 1 / n);
   // 결승 순서: 우승 다음은 승률을 반영해 뽑고, 나머지는 승률+흔들림 순.
   const rest = horses.map((_, i) => i).filter(i => i !== winner);

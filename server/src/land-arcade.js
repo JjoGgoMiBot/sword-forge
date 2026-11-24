@@ -62,7 +62,7 @@ export function rouletteView(r) {
 
 // ── 🔼 하이로우: 다음 카드가 높을까 낮을까. 같은 숫자는 진다 ──
 // 무한 덱(매번 52장 중 하나). 공정 배율은 분자/분모 정수로 누적해 오차 없이 계산한다
-export const hiloProb = (rank, guess) => (guess === 'high' ? 13 - rank : rank - 1) / 13;
+export const hiloProb = (rank, guess) => (guess === 'equal' ? 1 : guess === 'high' ? 13 - rank : rank - 1) / 13;
 const gcd = (a, b) => b ? gcd(b, a % b) : a;
 const hiloMult = (num, den) => Math.min(ARCADE.hilo.maxMult, Math.floor(ARCADE.returnPercent * num / den) / 100);
 const drawCard = rng => ({rank: integer(13, rng) + 1, suit: integer(4, rng)});
@@ -71,12 +71,12 @@ export function hiloStart(bet, rng = random) {
 }
 export function hiloGuess(g, guess, rng = random) {
   if (g.done) fail('이미 끝난 판이에요.');
-  if (!['high', 'low'].includes(guess)) fail('높음 또는 낮음을 골라주세요.');
-  const rank = g.cards.at(-1).rank, ways = guess === 'high' ? 13 - rank : rank - 1;
+  if (!['high', 'low', 'equal'].includes(guess)) fail('높음, 낮음 또는 같음을 골라주세요.');
+  const rank = g.cards.at(-1).rank, ways = guess === 'equal' ? 1 : guess === 'high' ? 13 - rank : rank - 1;
   if (!ways) fail(guess === 'high' ? 'K보다 높은 카드는 없어요.' : 'A보다 낮은 카드는 없어요.');
   const next = drawCard(rng);
   g.cards.push(next);
-  if (!(guess === 'high' ? next.rank > rank : next.rank < rank)) return finish(g, 'miss', 0);
+  if (!(guess === 'equal' ? next.rank === rank : guess === 'high' ? next.rank > rank : next.rank < rank)) return finish(g, 'miss', 0);
   g.num *= 13; g.den *= ways;
   const d = gcd(g.num, g.den); g.num /= d; g.den /= d;
   g.steps++;
@@ -86,11 +86,11 @@ export function hiloGuess(g, guess, rng = random) {
 export function hiloView(g) {
   if (!g) return null;
   const rank = g.cards.at(-1).rank, next = guess => {
-    const ways = guess === 'high' ? 13 - rank : rank - 1;
+    const ways = guess === 'equal' ? 1 : guess === 'high' ? 13 - rank : rank - 1;
     return ways ? hiloMult(g.num * 13, g.den * ways) : null;
   };
   return {game: 'hilo', id: g.id, bet: g.bet, cards: g.cards.slice(-8), steps: g.steps, done: g.done, outcome: g.outcome, payout: g.payout,
-    mult: g.steps ? hiloMult(g.num, g.den) : 1, high: next('high'), low: next('low'), pHigh: hiloProb(rank, 'high'), pLow: hiloProb(rank, 'low')};
+    mult: g.steps ? hiloMult(g.num, g.den) : 1, high: next('high'), low: next('low'), equal: next('equal'), pHigh: hiloProb(rank, 'high'), pLow: hiloProb(rank, 'low'), pEqual: 1/13};
 }
 
 // ── 💎 마인즈: 25칸에 지뢰 m개, 안전한 칸을 열수록 배율 상승 ──

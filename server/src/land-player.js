@@ -8,7 +8,7 @@ const fail=(msg,status=400)=>{const e=Error(msg);e.status=status;throw e;};
 import {QUIZ,initials} from './land-quiz.js';
 import {ARCADE,rouletteStart,roulettePull,hiloStart,hiloGuess,minesStart,minesPick,cashOut,expire,roundView,arcadeOneShot,begAlms,begLine} from './land-arcade.js';
 // 방(LandRoom)이 돌리는 같이 하는 게임의 지갑 기록 이름
-const ROOM_GAMES={poker:'포커',crash:'크래시',party:'총쏘기 서바이벌',duel:'총잡이 결투',rpsduel:'가위바위보 대결',gift:'초코 선물'};
+const ROOM_GAMES={poker:'포커',crash:'크래시',party:'총쏘기 서바이벌',duel:'총잡이 결투',rpsduel:'가위바위보 대결',gift:'초코 선물',horse:'공동 경마'};
 const ROUND_NAMES={roulette:'러시안 룰렛',hilo:'하이로우',mines:'마인즈'};
 export const GIFT=Object.freeze({min:10,max:1000,dailyLimit:3000,feePercent:5});
 function cardView(c){return {...cards[c.id],reversed:c.reversed,day:c.day};}
@@ -38,10 +38,8 @@ export class LandPlayer{
         if(p.game==='luckybox'){if(!ARCADE.boxes[p.choice])fail('상자를 골라주세요.');p.bet=ARCADE.boxes[p.choice];}
         this.bet(s,p.bet,now);s.nextPlay=now+1200;
         if(p.game==='blackjack'){s.bj=deal(p.bet,now);this.entry(s,-p.bet,'블랙잭 베팅',now);if(s.bj.done&&s.bj.payout)this.entry(s,s.bj.payout,'블랙잭 '+s.bj.outcome,now);result={game:'blackjack',round:bjView(s.bj)};if(s.bj.done)settled={game:'blackjack',bet:s.bj.bet,payout:s.bj.payout||0};}
-        else if(p.game==='horse'){
-          if(!s.race||s.race.id!==p.raceId||s.race.expires<now)fail('경주표를 새로 받아주세요.');if(!Number.isInteger(p.choice)||p.choice<0||p.choice>4)fail('응원할 말을 골라주세요.');
-          const race=s.race,winner=weighted(race.horses.map(h=>h.chance)),payout=winner===p.choice?Math.floor(p.bet*race.horses[p.choice].rate/10):0;this.entry(s,-p.bet,'개인 경마 베팅',now);if(payout)this.entry(s,payout,'개인 경마 당첨',now);result={game:'horse',winner,choice:p.choice,horses:race.horses,payout,bet:p.bet};settled={game:'horse',bet:p.bet,payout};s.race=null;
-        }else{try{result=arcadeOneShot(p.game,p.bet,p.choice)||oneShot(p.game,p.bet,p.choice);}catch(e){fail(e.message);}this.entry(s,-p.bet,'베팅 · '+p.game,now);if(result.payout)this.entry(s,result.payout,'당첨 · '+p.game,now);result.bet=p.bet;settled={game:p.game,bet:p.bet,payout:result.payout||0};}
+        else if(p.game==='horse'){fail('경마는 함께 하기로 옮겼어요. 새로고침 후 공동 경마에 참가해주세요.',409);
+        }else{try{result=arcadeOneShot(p.game,p.bet,p.choice)||oneShot(p.game,p.bet,p.choice);}catch(e){fail(e.message);}this.entry(s,-p.bet,'베팅 · '+p.game,now);if(result.payout)this.entry(s,result.payout,'당첨 · '+p.game,now);result.bet=p.bet;if(p.game==='baccarat'){s.baccaratSeq=(s.baccaratSeq||0)+1;s.baccaratRoad=[...(s.baccaratRoad||[]),{id:b.id,n:s.baccaratSeq,winner:result.winner,playerTotal:result.playerTotal,bankerTotal:result.bankerTotal,at:now}].slice(-120);}settled={game:p.game,bet:p.bet,payout:result.payout||0};}
       }
       else if(b.op==='blackjack'){
         const bj=s.bj;if(!bj||bj.done||p.roundId!==bj.id)fail('이미 끝났거나 다른 블랙잭이에요.',409);
@@ -60,7 +58,7 @@ export class LandPlayer{
       }
       else if(b.op==='arcadeMove'){
         const g=s.arcade;if(!g||g.done||p.roundId!==g.id)fail('이미 끝났거나 다른 판이에요.',409);
-        try{if(p.move==='cash')cashOut(g);else if(g.game==='roulette'&&p.move==='pull')roulettePull(g);else if(g.game==='hilo'&&['high','low'].includes(p.move))hiloGuess(g,p.move);else if(g.game==='mines'&&p.move==='pick')minesPick(g,p.cell);else fail('잘못된 선택이에요.');}catch(e){if(e.arcade)fail(e.message);throw e;}
+        try{if(p.move==='cash')cashOut(g);else if(g.game==='roulette'&&p.move==='pull')roulettePull(g);else if(g.game==='hilo'&&['high','low','equal'].includes(p.move))hiloGuess(g,p.move);else if(g.game==='mines'&&p.move==='pick')minesPick(g,p.cell);else fail('잘못된 선택이에요.');}catch(e){if(e.arcade)fail(e.message);throw e;}
         if(g.done&&g.payout)this.entry(s,g.payout,ROUND_NAMES[g.game]+' '+({cash:'멈춤',max:'최대 배율'})[g.outcome]+' 정산',now);
         result={game:g.game,round:roundView(g)};if(g.done)settled={game:g.game,bet:g.bet,payout:g.payout};
       }
@@ -68,7 +66,7 @@ export class LandPlayer{
         if(s.balance>=ARCADE.beg.maxBalance)fail('초코가 '+ARCADE.beg.maxBalance+' 미만일 때만 구걸할 수 있어요.');if(now<(s.begNext||0))fail('쪼꼬미들이 아직 지나가는 중이에요. '+Math.ceil((s.begNext-now)/60000)+'분 뒤에 다시 해보세요.',429);
         const amount=begAlms();s.begNext=now+ARCADE.beg.cooldownMs;if(amount)this.entry(s,amount,'구걸',now);result={game:'beg',amount,message:begLine(amount)+(amount?' +'+amount+'초코':'')};
       }
-      else if(b.op==='race'){if(!s.race||s.race.expires<now)s.race={id:crypto.randomUUID(),horses:horses(),expires:now+900000};result={message:'이번 개인 경주표예요.'};}
+      else if(b.op==='race'){fail('경마는 함께 하기로 옮겼어요. 새로고침 후 공동 경마에 참가해주세요.',409);}
       else if(b.op==='quiz'){
         if(s.quizWins>=25)fail('오늘의 퀴즈 보상을 모두 받았어요.');if(now<s.quizNext)fail('잠시 쉬었다가 다음 문제를 받아주세요.');
         if(!s.quiz||s.quiz.expires<now){const [answer,clue,field]=QUIZ[integer(QUIZ.length)],hint=`${field} · ${clue}`;s.quiz={id:crypto.randomUUID(),answer,hint,initials:initials(answer),created:now,expires:now+30000,tries:0};}result={message:'초성을 보고 단어를 맞혀보세요.'};
@@ -114,5 +112,5 @@ export class LandPlayer{
   }
   bet(s,amount,now){if(!Number.isSafeInteger(amount)||amount<10||amount>Math.floor(Number.MAX_SAFE_INTEGER/1000))fail('베팅은 10초코 이상의 정수로 입력해주세요.');if(s.balance<amount)fail('초코가 부족해요. 출석이나 퀴즈를 이용해보세요.');if(now<s.nextPlay)fail('잠깐만요. 앞선 결과를 먼저 확인해주세요.',429);}
   entry(s,delta,reason,now){if(!Number.isSafeInteger(s.balance+delta)||s.balance+delta<0)fail('초코가 부족해요.');if(reason!=='첫 주민 선물')s.balance+=delta;this.sql.exec('INSERT INTO ledger(delta,balance,reason,created) VALUES(?,?,?,?)',delta,s.balance,reason,now);}
-  view(s,today){return {rev:s.rev,resident:{id:s.id,name:s.name,avatar:s.avatar},wallet:{balance:s.balance,daily:s.dailyClaim===today,rescue:s.rescueClaim===today,quizWins:s.quizWins,begNext:s.begNext||0,giftLeft:GIFT.dailyLimit-(s.giftDay===today?s.giftSent:0)},blackjack:bjView(s.bj),arcade:roundView(s.arcade),race:s.race,quiz:s.quiz?{id:s.quiz.id,initials:s.quiz.initials,hint:s.quiz.hint,expires:s.quiz.expires,tries:s.quiz.tries}:null,spread:s.spread?{id:s.spread.id,picked:s.spread.picked,results:s.spread.picked.map(i=>({...cardView(s.spread.cards[i]),index:i}))}:null,dailyCard:s.dailyCard?cardView(s.dailyCard):null,history:s.history.map(cardView),ledger:this.sql.exec('SELECT delta,balance,reason,created FROM ledger ORDER BY id DESC LIMIT 15').toArray(),now:Date.now()};}
+  view(s,today){return {rev:s.rev,resident:{id:s.id,name:s.name,avatar:s.avatar},wallet:{balance:s.balance,daily:s.dailyClaim===today,rescue:s.rescueClaim===today,quizWins:s.quizWins,begNext:s.begNext||0,giftLeft:GIFT.dailyLimit-(s.giftDay===today?s.giftSent:0)},baccaratHistory:s.baccaratRoad||[],blackjack:bjView(s.bj),arcade:roundView(s.arcade),race:s.race,quiz:s.quiz?{id:s.quiz.id,initials:s.quiz.initials,hint:s.quiz.hint,expires:s.quiz.expires,tries:s.quiz.tries}:null,spread:s.spread?{id:s.spread.id,picked:s.spread.picked,results:s.spread.picked.map(i=>({...cardView(s.spread.cards[i]),index:i}))}:null,dailyCard:s.dailyCard?cardView(s.dailyCard):null,history:s.history.map(cardView),ledger:this.sql.exec('SELECT delta,balance,reason,created FROM ledger ORDER BY id DESC LIMIT 15').toArray(),now:Date.now()};}
 }

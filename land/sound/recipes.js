@@ -1,3 +1,4 @@
+import {PLACE_MUSIC,MUSIC_PLAN} from './score.js?v=5';
 // 쪼꼬미랜드 사운드 레시피 — 선언형 데이터. 새 소리가 필요하면 여기에 항목 하나를 더한다.
 // 문법은 engine.js 머리말 참고. 타격음은 트랙을 transient · body · tail 3층으로 쌓는다(hit:true).
 // lufs 는 그 소리 하나의 목표 음량(정규화). 큰 사건일수록 높게, 반복되는 작은 소리일수록 낮게.
@@ -112,68 +113,13 @@ const LOUNGE_BGM = {
   ],
 };
 
-// 운세 안개(미스테리): 낮은 드론 위에 반음이 부딪히는 어두운 패드, 불규칙하게 떨어지는 유리 종, 숨소리. 24초.
+// 운세 안개: 박자 없이 낮은 드론 위에 울림 긴 그릇 소리가 두 번. 24초.
 const MIST_BGM = {
   id: 'bgm.mist', kind: 'bgm', loop: true, dur: 24, lufs: -21,
-  build(p = {}) {
-    const r = rng(p.seed ?? 13);
-    const pool = ['D5', 'Eb5', 'F#5', 'G#5', 'A5', 'Bb5', 'D6'];
-    const drops = [];
-    for (let t = 1.2; t < 22.5; t += 1.6 + r() * 2.6) drops.push({ ...INST.bell, at: t, dur: 1.4, freq: noteToHz(pool[Math.floor(r() * pool.length)]), gain: -17 - r() * 6, pan: r() * 1.6 - 0.8 });
-    return { tracks: [...this.base, tr('유리 종', drops, { fx: { reverb: 0.8, delay: { time: 0.9, feedback: 0.42, mix: 0.28, tone: 3200 } } })] };
-  },
-  base: [
-    tr('드론', [{ seq: 'D2 D2', step: 12, gate: 1, tpl: { ...INST.drone, gain: -3 } }, { seq: 'A2 Ab2', step: 12, gate: 1, tpl: { ...INST.drone, gain: -9 } }], { fx: { reverb: 0.5 }, auto: { filter: [[0, 380], [12, 700], [24, 380]] } }),
-    tr('어두운 패드', [{ seq: 'F3 Eb3', step: 12, gate: 1, tpl: { ...INST.softpad, gain: -10 } }, { seq: 'Ab3 A3', step: 12, gate: 1, tpl: { ...INST.softpad, gain: -13 } }], { pan: -0.1, fx: { reverb: 0.7 } }),
-    tr('속삭임', [{ at: 3, dur: 7, ...INST.breath, gain: -27 }, { at: 14, dur: 8, ...INST.breath, gain: -27 }], { pan: 0.3, fx: { reverb: 0.85 } }),
-  ],
-};
-
-// 마을(산뜻): C 장조 120BPM. 하프 아르페지오·유리 선율·가벼운 베이스와 셰이커. 8분음표 0.25초, 12마디(24초).
-const SN_STEP = 0.25;
-const SN_BARS = [['C', 'E', 'G'], ['G', 'B', 'D'], ['A', 'C', 'E'], ['F', 'A', 'C']];
-const snBar = i => SN_BARS[i % 4];
-const SN_ROOT = ['C', 'G', 'A', 'F'];
-const SUNNY_BGM = {
-  id: 'bgm.sunny', kind: 'bgm', loop: true, dur: SN_STEP * 96, lufs: -17,
   tracks: [
-    tr('하프', [{ seq: Array.from({ length: 12 }, (_, b) => { const [r, t, f] = snBar(b); return [r + '4', t + '4', f + '4', r + '5', f + '4', t + '4', f + '4', t + '4'].join(' '); }).join(' '), step: SN_STEP, gate: 2.5, tpl: { ...INST.harp, gain: -9 } }], { pan: -0.2, fx: { reverb: 0.3 } }),
-    tr('유리 선율', [{ seq: Array.from({ length: 12 }, (_, b) => { const [r, t, f] = snBar(b); const o = [t + '5', f + '5', r + '6']; return (b % 2 ? [o[1], '.', o[0], '.', o[2], '.', o[1], '.'] : [o[0], '.', o[1], '.', o[0], '.', o[2], '.']).join(' '); }).join(' '), step: SN_STEP, gate: 1.5, tpl: { ...INST.glass, gain: -11 } }], { pan: 0.2, fx: { reverb: 0.4, delay: { time: SN_STEP * 3, feedback: 0.25, mix: 0.18, tone: 4500 } } }),
-    tr('가벼운 베이스', [{ seq: Array.from({ length: 12 }, (_, b) => { const r = SN_ROOT[b % 4]; return [r + '2', '.', '.', '.', r + '3', '.', r + '2', '.'].join(' '); }).join(' '), step: SN_STEP, gate: 1.2, tpl: { ...INST.bass, gain: -6 } }], { fx: { reverb: 0.1 } }),
-    tr('셰이커', [{ seq: Array(12).fill('. x? . x . x? . x').join(' '), step: SN_STEP, tpl: { ...INST.deok, gain: -19 } }], { pan: 0.3, fx: { reverb: 0.15 } }),
-    tr('북', [{ seq: Array(12).fill('x . . . x? . . .').join(' '), step: SN_STEP, tpl: { ...INST.buk, gain: -11 } }], { fx: { reverb: 0.15, filter: { type: 'lowpass', freq: 700 } } }),
-  ],
-};
-
-// 대장간(웅장): D 단조 90BPM. 낮은 패드 위에 금관 선율, 묵직한 태고, 모루 쇳소리와 징. 8마디(21.3초).
-const GD_STEP = 1 / 3;
-const GD_ROOT = ['D', 'Bb', 'F', 'C', 'D', 'Bb', 'A', 'D'];
-const GD_FIFTH = ['A', 'F', 'C', 'G', 'A', 'F', 'E', 'A'];
-const GD_DRUM = bars(Array(7).fill('x! . . . x . . x?').join(' | ') + ' | x! . x . x! x x! x!');
-const GRAND_BGM = {
-  id: 'bgm.grand', kind: 'bgm', loop: true, dur: GD_STEP * 64, lufs: -15,
-  tracks: [
-    tr('낮은 패드', [{ seq: GD_ROOT.map(n => n + '2').join(' '), step: GD_STEP * 8, gate: 1, tpl: { ...INST.pad, gain: -7 } }, { seq: GD_FIFTH.map(n => n + '3').join(' '), step: GD_STEP * 8, gate: 1, tpl: { ...INST.pad, gain: -11 } }], { fx: { reverb: 0.5, filter: { type: 'lowpass', freq: 1100 } } }),
-    tr('금관', [{ seq: bars('D4 - - - A4 - - - | Bb4 - - - A4 - F4 - | F4 - - - A4 - C5 - | C5 - - - G4 - E4 - | D5 - - - A4 - - - | Bb4 - - - D5 - F5 - | E5 - - - C#5 - A4 - | D5 - - - - - - -'), step: GD_STEP, tpl: { src: { type: 'osc', wave: 'sawtooth', unison: 3, spread: 8 }, env: { a: 0.09, d: 0.3, s: 0.8, r: 0.5, curve: 'lin' }, filter: { type: 'lowpass', freq: 2000, q: 0.6 }, vib: { rate: 5, depth: 14, delay: 0.4 }, gain: -10 } }], { pan: 0.1, fx: { reverb: 0.5, delay: { time: GD_STEP * 3, feedback: 0.2, mix: 0.12, tone: 2800 } } }),
-    tr('태고', [{ seq: GD_DRUM, step: GD_STEP, tpl: { ...INST.taiko, gain: -3 } }], { fx: { reverb: 0.3 } }),
-    tr('태고 가죽', [{ seq: GD_DRUM, step: GD_STEP, tpl: { ...INST.taikoSkin, gain: -12 } }], { fx: { reverb: 0.3 } }),
-    tr('모루', [{ seq: bars(Array(8).fill('. . . . x . . .').join(' | ')), step: GD_STEP, tpl: { ...INST.bell, freq: 1480, gain: -17 } }], { pan: -0.3, fx: { reverb: 0.4 } }),
-    tr('징', [{ seq: 'D2 ' + '. '.repeat(31) + 'D2 ' + '. '.repeat(31), step: GD_STEP, gate: 1, tpl: { ...INST.gong, gain: -13 } }], { fx: { reverb: 0.55 } }),
-  ],
-};
-
-// 카지노(긴박): A 단조 150BPM. 쉬지 않는 8분 베이스 펄스, 킥, 하이햇, 치고 올라가는 건반 스탭, 점점 열리는 패드와 마지막 라이저. 8분음표 0.2초, 10마디(16초).
-const UR_STEP = 0.2;
-const UR_CH = [['A', 'C', 'E'], ['A', 'C', 'E'], ['F', 'A', 'C'], ['G', 'B', 'D'], ['A', 'C', 'E'], ['A', 'C', 'E'], ['F', 'A', 'C'], ['E', 'G#', 'B'], ['A', 'C', 'E'], ['E', 'G#', 'B']];
-const URGENT_BGM = {
-  id: 'bgm.urgent', kind: 'bgm', loop: true, dur: UR_STEP * 80, lufs: -17,
-  tracks: [
-    tr('펄스 베이스', [{ seq: UR_CH.map(([r]) => Array(8).fill(r + '2').join(' ')).join(' '), step: UR_STEP, gate: 0.7, tpl: { ...INST.bass, gain: -5 } }], { fx: { reverb: 0.08, filter: { type: 'lowpass', freq: 650 } } }),
-    tr('킥', [{ seq: Array(10).fill('x! . x . x! . x .').join(' '), step: UR_STEP, tpl: { ...INST.buk, gain: -6 } }], { fx: { reverb: 0.05 } }),
-    tr('하이햇', [{ seq: Array(10).fill('x? x x? x x? x x? x').join(' '), step: UR_STEP, tpl: { ...INST.deok, gain: -18 } }], { pan: 0.25, fx: { reverb: 0.1, filter: { type: 'lowpass', freq: 5200 } } }),
-    tr('스탭', [{ seq: UR_CH.map(([r, t, f], b) => [r + '3', t + '4', f + '4', t + '4', r + '4', t + '4', f + '4', (b > 6 ? f + '5' : r + '5')].join(' ')).join(' '), step: UR_STEP, gate: 0.8, tpl: { ...INST.epiano, gain: -9 } }], { pan: -0.2, fx: { reverb: 0.25, delay: { time: UR_STEP * 3, feedback: 0.3, mix: 0.16, tone: 2400 } } }),
-    tr('긴장 패드', [{ seq: 'A3', step: 16, gate: 1, tpl: { ...INST.softpad, gain: -11 } }, { seq: 'E4', step: 16, gate: 1, tpl: { ...INST.softpad, gain: -14 } }], { fx: { reverb: 0.4 }, auto: { filter: [[0, 400], [14, 1500], [16, 400]] } }),
-    tr('라이저', [{ at: 13.2, dur: 2.8, ...INST.breath, gain: -22 }], { fx: { reverb: 0.3 } }),
+    tr('드론', [{ seq: 'D3 A2', step: 12, gate: 1, tpl: { ...INST.drone, gain: -5 } }], { fx: { reverb: 0.45 } }),
+    tr('패드', [{ seq: 'A3 F#3', step: 12, gate: 1, tpl: { ...INST.softpad, gain: -10 } }, { seq: 'F#4 D4', step: 12, gate: 1, tpl: { ...INST.softpad, gain: -14 } }], { pan: 0.1, fx: { reverb: 0.65 } }),
+    tr('그릇', [{ seq: 'A4 . . . . . . . D5 . . . . . . .', step: 1.5, gate: 1, tpl: { ...INST.bowl, gain: -14 } }], { pan: 0.2, fx: { reverb: 0.7, delay: { time: 1.1, feedback: 0.3, mix: 0.15, tone: 2200 } } }),
   ],
 };
 
@@ -185,12 +131,16 @@ export const CONCEPTS = {
   korean: { id: 'korean', name: '한국풍', desc: '장구·꽹과리·해금', space: SPACES.madang, scale: ['E4', 'G4', 'A4', 'B4', 'D5', 'E5', 'G5', 'A5', 'B5'], lead: { ...INST.gayageum, src: { type: 'pluck', bright: 0.6, decay: 0.997 } }, bell: INST.kkwaenggwari, drum: INST.kung, bgm: KOREAN_BGM },
   lounge: { id: 'lounge', name: '라운지', desc: '패드·건반(은은하게)', space: SPACES.cathedral, scale: ['C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'D5', 'E5', 'G5'], lead: INST.epiano, bell: INST.bowl, drum: INST.buk, bgm: LOUNGE_BGM },
   mist: { id: 'mist', name: '안개', desc: '드론·그릇(박자 없음)', space: SPACES.hall, scale: ['D4', 'E4', 'F#4', 'A4', 'B4', 'D5', 'E5', 'F#5', 'A5'], lead: INST.epiano, bell: INST.bowl, drum: INST.buk, bgm: MIST_BGM },
-  sunny: { id: 'sunny', name: '산뜻', desc: '하프·유리 선율(마을)', space: SPACES.wood, scale: ['C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'D5', 'E5', 'G5'], lead: INST.harp, bell: INST.glass, drum: INST.buk, bgm: SUNNY_BGM },
-  grand: { id: 'grand', name: '웅장', desc: '금관·태고·모루(대장간)', space: SPACES.cathedral, scale: ['D4', 'F4', 'G4', 'A4', 'C5', 'D5', 'F5', 'G5', 'A5'], lead: INST.bell, bell: INST.gong, drum: INST.taiko, bgm: GRAND_BGM },
-  urgent: { id: 'urgent', name: '긴박', desc: '펄스 베이스·스탭(카지노)', space: SPACES.room, scale: ['A3', 'C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'D5', 'E5'], lead: INST.epiano, bell: INST.glass, drum: INST.buk, bgm: URGENT_BGM },
   fantasy: { id: 'fantasy', name: '판타지', desc: '벨·패드·스파클', space: SPACES.cathedral, scale: ['C4', 'E4', 'G4', 'B4', 'D5', 'E5', 'F#5', 'G5', 'B5'], lead: INST.harp, bell: INST.bell, drum: INST.buk, bgm: FANTASY_BGM },
 };
-export const DEFAULT_CONCEPT = 'fantasy';
+CONCEPTS.town={...CONCEPTS.fantasy,id:'town',name:'광장',desc:MUSIC_PLAN.town.menu,bgm:PLACE_MUSIC.town};
+CONCEPTS.forge={...CONCEPTS.oriental,id:'forge',name:'대장간',desc:MUSIC_PLAN.forge.menu,bgm:PLACE_MUSIC.forge};
+CONCEPTS.lounge={...CONCEPTS.lounge,name:'오락관',desc:MUSIC_PLAN.casino.menu,bgm:PLACE_MUSIC.casino,space:SPACES.room};
+CONCEPTS.mist={...CONCEPTS.mist,name:'타로관',desc:MUSIC_PLAN.fortune.menu,bgm:PLACE_MUSIC.fortune,space:SPACES.wood};
+for(const id of ['oriental','japanese','korean','fantasy']){
+  CONCEPTS[id]={...CONCEPTS[id],desc:MUSIC_PLAN[id].menu,bgm:PLACE_MUSIC[id]};
+}
+export const DEFAULT_CONCEPT = 'town';
 const conceptOf = p => CONCEPTS[p?.concept] || CONCEPTS[DEFAULT_CONCEPT];
 const sc = (c, i) => noteToHz(c.scale[Math.max(0, Math.min(c.scale.length - 1, i))]);
 
@@ -210,8 +160,12 @@ export const SFX = {
   'chip.place': hit('chip.place', { lufs: -20, transient: [click(0, 3500, 0, 0.005)], body: [{ at: 0.002, dur: 0.12, src: { type: 'fm', ratio: 2.3, index: [[0, 1.5], [0.1, 0.2]] }, freq: 2100, env: { a: 0.001, d: 0.1, s: 0, r: 0.05 }, gain: -6 }], tail: [rattle(0.03, -10, 2600), rattle(0.055, -16, 2400)] }),
 
   // 카드
+  'cylinder.step': hit('cylinder.step', {lufs:-21, transient:[click(0,3100,0,.008),click(.072,4800,-4,.005)],body:[thud(.012,420,-5,.065,3)],tail:[rattle(.042,-12,2200)]}),
+  'cylinder.lock': hit('cylinder.lock', {lufs:-20,transient:[click(0,2400,0,.015)],body:[thud(.012,220,-2,.11,3)],tail:[rattle(.045,-10,1900)]}),
+  'gun.empty': hit('gun.empty', {lufs:-22,transient:[click(0,2800,0,.01),click(.05,3600,-4,.008)],body:[thud(.01,360,-5,.07,3)],tail:[]}),
+  'gun.bang': hit('gun.bang', {lufs:-17,transient:[click(0,1800,0,.015)],body:[{at:0,dur:.14,src:{type:'noise',color:'pink'},env:{a:.001,d:.12,s:0,r:.07},filter:{type:'lowpass',freq:4200},gain:-2},thud(.005,92,-2,.2,4)],tail:[{at:.08,dur:.32,src:{type:'noise',color:'brown'},env:{a:.002,d:.26,s:0,r:.12},filter:{type:'lowpass',freq:700},gain:-13}]}),
   'card.flip': hit('card.flip', { lufs: -26, transient: [click(0, 3000, 0, 0.008)], body: [swish(0, 0.07, 2200, 900, -2, 1.5)], tail: [{ at: 0.03, dur: 0.12, src: { type: 'noise', color: 'pink' }, env: { a: 0.002, d: 0.1, s: 0, r: 0.05 }, filter: { type: 'lowpass', freq: 1400 }, gain: -12 }] }),
-  'card.deal': hit('card.deal', { lufs: -23, transient: [{ ...click(0, 3800, -2, 0.006), pan: -0.3 }, { ...click(0.085, 3200, -5, 0.006), pan: 0.25 }], body: [{ ...swish(0, 0.075, 3600, 1500, 0, 0.9), pan: -0.3 }, { ...swish(0.085, 0.085, 3000, 1300, -2, 0.9), pan: 0.25 }], tail: [{ at: 0.17, dur: 0.05, src: { type: 'noise', color: 'pink' }, env: { a: 0.001, d: 0.045, s: 0, r: 0.03 }, filter: { type: 'lowpass', freq: 1600 }, gain: -16 }] }),
+  'card.deal': hit('card.deal', { lufs: -20.5, transient: [{ ...click(0.17, 1500, -6, 0.015), pan: 0.25 }], body: [{ ...swish(0, 0.18, 600, 2600, 0, 1), pan: [[0, -0.35], [0.18, 0.25]] }, thud(0.17, 180, -10, 0.05, 4)], tail: [{ at: 0.18, dur: 0.08, src: { type: 'noise', color: 'pink' }, env: { a: 0.001, d: 0.07, s: 0, r: 0.04 }, filter: { type: 'lowpass', freq: 1800 }, gain: -14 }] }),
 
   // 룰렛: 감속에 따라 틱 간격이 벌어진다. params.dur(초)
   'roulette.spin': { id: 'roulette.spin', lufs: -19, variants: 1, build(p = {}) {

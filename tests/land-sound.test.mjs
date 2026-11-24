@@ -1,14 +1,52 @@
 // land/sound: 합성 엔진·레시피·시간표·설정 시험. 실제 오디오 장치 없이 모형 AudioContext 로 그래프를 그려 본다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import { loudness, noteToHz, tickTimes, expandSeq, compileRecipe, humanize, rng, foldTail, envelopePoints, impulseSamples, pluckSamples, noiseSamples, dbToGain } from '../land/sound/dsp.js';
 import { renderRecipe } from '../land/sound/engine.js';
 import { recipeFor, SFX_IDS, CONCEPTS } from '../land/sound/recipes.js';
 import { casinoCues, fortuneCues, PREWARM } from '../land/sound/cues.js';
-import { createSound, normalizeSettings, loadSettings, saveSettings, DEFAULTS, STORAGE_KEY, safetyCurve } from '../land/sound/sound.js';
+import { createSound, normalizeSettings, loadSettings, saveSettings, DEFAULTS, STORAGE_KEY, safetyCurve, BGM_FILES } from '../land/sound/sound.js';
 import { settleMs, reelStopMs } from '../land/casino-fx.js';
+import { MUSIC_PLAN, PLACE_MUSIC } from '../land/sound/score.js';
 
 const sine = (sr, hz, sec, amp = 1) => Float32Array.from({ length: Math.round(sr * sec) }, (_, i) => amp * Math.sin(2 * Math.PI * hz * i / sr));
+
+test('shipped sampled recordings have complete Ogg pages and match the 32-bar catalog', () => {
+  for (const [id, plan] of Object.entries(MUSIC_PLAN)) {
+    const file = readFileSync(new URL('../land/assets/music/' + id + '.ogg', import.meta.url));
+    let offset=0, rate=0, granule=0, ended=false;
+    while(offset<file.length){
+      assert.equal(file.toString('ascii',offset,offset+4),'OggS',id+' page header');
+      const count=file[offset+26],start=offset+27+count;
+      const size=file.subarray(offset+27,start).reduce((a,b)=>a+b,0);
+      if(!rate){assert.equal(file.toString('ascii',start+1,start+7),'vorbis');rate=file.readUInt32LE(start+12);}
+      const g=file.readBigUInt64LE(offset+6);if(g!==0xffffffffffffffffn)granule=Number(g);
+      ended=!!(file[offset+5]&4);offset=start+size;
+    }
+    assert.equal(offset,file.length,id+' no truncation');
+    assert.ok(ended,id+' end-of-stream present');
+    assert.equal(rate,44100);
+    assert.ok(Math.abs(granule/rate-plan.duration)<.002,id+' exact cycle length');
+  }
+});
+
+test('all eight themes have recordings and metadata; scores have phrase breaths and variation', () => {
+  assert.equal(Object.keys(BGM_FILES).length,8);
+  assert.deepEqual(new Set(Object.keys(CONCEPTS)),new Set(Object.keys(BGM_FILES)));
+  for (const [id, score] of Object.entries(PLACE_MUSIC)) {
+    const plan = MUSIC_PLAN[id], bar = 240 / plan.bpm;
+    assert.ok(Math.abs(score.dur - plan.bars * bar) < 1e-8);
+    assert.equal(plan.sections.length, 4);
+    assert.ok(score.tracks.slice(0, 4).every(t => t.clips.length > 0), id + ' melodic arrangement');
+    assert.equal(score.tracks[4].clips.length > 0, ['town','casino','forge'].includes(id), 'quiet themes leave percussion out');
+    assert.ok(score.tracks.flatMap(t => t.clips).every(n => n.at >= 0 && n.at < score.dur && n.dur > 0), id + ' event bounds');
+    const lead = score.tracks[0].clips, answer = score.tracks[1].clips;
+    assert.ok(!lead.some(n => n.at >= 7 * bar && n.at < 8 * bar), id + ' phrase breath');
+    assert.ok(answer.every(n => n.at >= 8 * bar), id + ' answer enters in variation');
+    assert.notEqual(lead.find(n => n.at >= 16 * bar).freq, lead[0].freq, id + ' contrasting register');
+  }
+});
 
 test('BS.1770 meter matches reference: 997Hz 0dBFS sine = -3.01 LUFS mono, 0 LUFS stereo', () => {
   for (const sr of [48000, 44100]) {
@@ -44,7 +82,7 @@ test('every recipe compiles in every concept; hits are 3-layer; repeats humanize
   for (const concept of Object.keys(CONCEPTS)) {
     const bgm = compileRecipe(recipeFor('bgm', concept));
     assert.equal(bgm.loop, true, concept);
-    assert.ok(bgm.dur >= 15 && bgm.dur <= 40, concept + ' loop length ' + bgm.dur);
+    assert.ok(bgm.dur >= 15 && bgm.dur <= 120, concept + ' loop length ' + bgm.dur);
     assert.equal(bgm.variants, 1);
     for (const id of SFX_IDS) {
       const c = compileRecipe(recipeFor(id, concept), { dur: 1.2, seed: 3, concept });
@@ -87,7 +125,7 @@ test('loop tail folds back so the seam is continuous', () => {
 
 // ── 모형 Web Audio ──
 function mockAudio(sampleRate = 48000) {
-  const stats = { nodes: 0, started: 0, connections: 0 };
+  const stats = { nodes: 0, started: 0, stopped: 0, connections: 0 };
   const param = v => ({ value: v, setValueAtTime() { return this; }, linearRampToValueAtTime() { return this; }, exponentialRampToValueAtTime(x) { assert.ok(x > 0, 'exp ramp to non-positive'); return this; }, setTargetAtTime() { return this; }, setValueCurveAtTime() { return this; }, cancelScheduledValues() { return this; }, cancelAndHoldAtTime() { return this; } });
   const node = () => {
     stats.nodes++;
@@ -98,7 +136,7 @@ function mockAudio(sampleRate = 48000) {
         if (k === 'connect') return t => { stats.connections++; return t; };
         if (k === 'disconnect') return () => {};
         if (k === 'start') return () => { stats.started++; };
-        if (k === 'stop') return () => {};
+        if (k === 'stop') return () => { stats.stopped++; };
         if (k === 'setPeriodicWave') return () => {};
         if (k === 'then') return undefined;
         return (params[k] ||= param(0));
@@ -112,6 +150,31 @@ function mockAudio(sampleRate = 48000) {
   });
   return { ctx, stats };
 }
+
+test('prepared music loads without synthesis and a stale scene cannot start late', async () => {
+  const {ctx, stats} = mockAudio(), requests = new Map();
+  ctx.decodeAudioData = async () => {};
+  const OfflineCtx = function () { return {decodeAudioData: async bytes => ctx.createBuffer(2, Math.round(new Float64Array(bytes)[0] * 32000), 32000)}; };
+  const fetchAudio = url => new Promise(resolve => requests.set(String(url).split('/').at(-1), resolve));
+  const sound = createSound({win: {}, storage: null, AudioCtx: function(){return ctx;}, OfflineCtx, fetchAudio,log:{warn(){}}});
+  sound.setScene('town'); sound.unlock(); sound.setScene('forge');
+  const response = id => ({ok:true,arrayBuffer:async()=>new Float64Array([PLACE_MUSIC[id].dur]).buffer});
+  requests.get('forge.ogg?v=4')(response('forge'));
+  await new Promise(r => setImmediate(r));
+  assert.equal(stats.started, 1, 'current scene starts');
+  requests.get('town.ogg?v=4')(response('town'));
+  await new Promise(r => setImmediate(r));
+  assert.equal(stats.started, 1, 'outdated scene does not overlap');
+  assert.equal(sound.stats.renders, 0, 'file path avoids runtime synthesis');
+  assert.equal(sound.get().activeConcept, 'forge');
+  sound.setScene('fortune');
+  requests.get('fortune.ogg?v=4')({ok:false,status:503});
+  await new Promise(r => setImmediate(r));
+  assert.equal(sound.stats.errors,1,'failed recording is reported');
+  assert.equal(sound.stats.renders,0,'failed recording does not bring the rejected synth score back');
+  assert.equal(stats.started,1);
+  assert.equal(stats.stopped,0,'previous music remains until a replacement is ready');
+});
 
 test('every recipe builds a valid Web Audio graph (mock context, all concepts)', () => {
   for (const concept of Object.keys(CONCEPTS)) {
@@ -177,13 +240,13 @@ test('no AudioContext before the first user gesture; mute stops everything', asy
   assert.equal(made, 1, 'unmuting after a gesture opens the context once');
   handlers.keydown();
   assert.equal(made, 1, 'single shared context');
-  assert.equal(sound.get().activeConcept, 'urgent');
+  assert.equal(sound.get().activeConcept, 'lounge');
+  sound.setScene('forge');
+  assert.equal(sound.get().activeConcept, 'forge');
+  sound.setScene(null);
+  assert.equal(sound.get().activeConcept, 'town', 'closing a venue returns to the town score');
   sound.setScene('fortune');
   assert.equal(sound.get().activeConcept, 'mist');
-  sound.setScene('town');
-  assert.equal(sound.get().activeConcept, 'sunny');
-  sound.setScene('forge');
-  assert.equal(sound.get().activeConcept, 'grand');
   sound.set({ concept: 'japanese' });
   assert.equal(sound.get().activeConcept, 'japanese', 'manual concept overrides scene');
 });
