@@ -473,3 +473,42 @@ test('결투: 상대를 지정하면 그 사람만 받을 수 있고, 지정하�
   assert.equal(open.phase, 'ready');
   throwsArcade(() => duelJoin(newDuel(), who('a'), 100, 0, () => 0.5, 'x'.repeat(13)), /12자/);
 });
+
+test('가위바위보 대결: 손은 끝날 때까지 숨겨지고, 이기면 수수료 뺀 상금, 비기면 환불', async () => {
+  const {newRpsd, rpsdJoin, rpsdPick, rpsdTick, rpsdView, rpsdDue, rpsdLeave, rpsdPrize, RPSD} = await import('../server/src/land-crash.js');
+  const A = {id: 'a', key: 'ka', name: '가'}, B = {id: 'b', key: 'kb', name: '나'}, C = {id: 'c', key: 'kc', name: '다'};
+  const d = newRpsd();
+  rpsdJoin(d, A, 100, 0, '');
+  assert.equal(d.phase, 'lobby');
+  assert.throws(() => rpsdJoin(d, A, 100, 1), /이미/);
+  rpsdJoin(d, B, 100, 1);
+  assert.equal(d.phase, 'pick');
+  rpsdPick(d, 'a', 'rock', 10);
+  const vb = rpsdView(d, 'b', 11), va = rpsdView(d, 'a', 11);
+  assert.equal(va.myPick, 'rock'); assert.equal(vb.myPick, null);
+  assert.ok(!JSON.stringify(vb).includes('rock'), '상대 손이 비밀이어야 해요');
+  assert.throws(() => rpsdPick(d, 'a', 'paper', 12), /이미/);
+  assert.throws(() => rpsdPick(d, 'c', 'paper', 12), /두 사람만/);
+  const ev = rpsdPick(d, 'b', 'paper', 13);
+  assert.equal(d.last.winner, '나');
+  assert.equal(ev.cashOuts[0].amount, rpsdPrize(100)); assert.equal(rpsdPrize(100), 194);
+  assert.deepEqual(d.last.picks, ['rock', 'paper']);
+  // 비김 → 둘 다 환불
+  const t = newRpsd(); rpsdJoin(t, A, 50, 0); rpsdJoin(t, B, 50, 0);
+  rpsdPick(t, 'a', 'scissors', 1); const te = rpsdPick(t, 'b', 'scissors', 2);
+  assert.equal(t.last.how, 'tie'); assert.deepEqual(te.cashOuts.map(c => [c.amount, c.reason]), [[50, 'refund'], [50, 'refund']]);
+  // 한 명만 고르고 시간 초과 → 고른 사람 승, 둘 다 안 고르면 환불
+  const f = newRpsd(); rpsdJoin(f, A, 50, 0); rpsdJoin(f, B, 50, 0); rpsdPick(f, 'b', 'rock', 1);
+  assert.equal(rpsdDue(f), RPSD.pickMs);
+  const fe = rpsdTick(f, RPSD.pickMs); assert.equal(f.last.winner, '나'); assert.equal(f.last.how, 'forfeit'); assert.equal(fe.cashOuts.length, 1);
+  const n = newRpsd(); rpsdJoin(n, A, 50, 0); rpsdJoin(n, B, 50, 0);
+  assert.equal(rpsdTick(n, RPSD.pickMs).cashOuts.length, 2);
+  // 상대 지정 + 공개 대기 + 취소
+  const g = newRpsd(); assert.throws(() => rpsdJoin(g, A, 50, 0, '가'), /나에게는/);
+  rpsdJoin(g, A, 50, 0, '나'); assert.equal(rpsdView(g, 'c', 1).target, '나');
+  assert.throws(() => rpsdJoin(g, C, 50, 1), /님에게 신청한/);
+  assert.equal(rpsdLeave(g, 'a').cashOuts[0].amount, 50); assert.equal(g.phase, 'idle');
+  const o = newRpsd(); rpsdJoin(o, A, 50, 0); rpsdJoin(o, C, 50, 1); assert.equal(o.phase, 'pick');
+  assert.throws(() => rpsdPick(o, 'a', 'lizard', 2), /가위·바위·보/);
+  assert.throws(() => rpsdJoin(newRpsd(), A, 5, 0), /판돈/);
+});

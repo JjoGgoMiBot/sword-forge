@@ -299,3 +299,100 @@ export function duelView(d, id, now) {
     last: d.last,
   };
 }
+
+// ── ✊ 가위바위보 대결(사람 대 사람) ─────────────────
+// 결투와 같은 모양: 판돈을 걸고(상대 지정 또는 공개 대기) 두 사람이 모이면 '고르기' 시간이 열린다.
+// 고른 손은 서버 상태에만 있고, view()는 두 사람이 다 고르거나 시간이 끝난 뒤에야 밝힌다.
+// 비기면 판돈을 돌려주고, 한 사람만 골랐으면 고른 사람이 이긴다(안 고른 사람은 기권).
+export const RPSD = Object.freeze({
+  fee: 0.03, minStake: 10, maxStake: 5000,
+  aloneMs: 120000, pickMs: 10000, doneMs: 6000,
+});
+export const RPS_HANDS = Object.freeze(['rock', 'paper', 'scissors']);
+const RPS_BEATS = Object.freeze({rock: 'scissors', paper: 'rock', scissors: 'paper'});
+export const rpsdPrize = stake => Math.floor(stake * 2 * (1 - RPSD.fee));
+export const newRpsd = () => ({phase: 'idle', game: 0, players: [], last: null});
+export function checkRpsdJoin(d, who, stake, target = '') {
+  if (!['idle', 'lobby'].includes(d.phase)) fail('지금 가위바위보 대결이 진행 중이에요. 끝나면 도전해주세요.');
+  if (d.players.some(x => x.id === who.id)) fail('이미 대결을 신청했어요.');
+  const me = String(who.name).toLowerCase(), t = duelTarget(target);
+  if (d.phase === 'idle' && t && t.toLowerCase() === me) fail('나에게는 대결을 신청할 수 없어요.');
+  if (d.phase === 'lobby' && d.target && d.target !== me) fail(d.targetName + '님에게 신청한 대결이에요.');
+  const amount = d.phase === 'lobby' ? d.stake : stake;
+  if (!Number.isSafeInteger(amount) || amount < RPSD.minStake || amount > RPSD.maxStake) fail('판돈은 ' + RPSD.minStake + '~' + RPSD.maxStake.toLocaleString('ko-KR') + '초코의 정수로 정해주세요.');
+  return amount;
+}
+// 지갑에서 판돈을 뺀 뒤에 부른다
+export function rpsdJoin(d, who, stake, now, target = '') {
+  const amount = checkRpsdJoin(d, who, stake, target);
+  if (d.phase === 'idle') { const t = duelTarget(target); Object.assign(d, {phase: 'lobby', game: d.game + 1, stake: amount, players: [], last: null, lobbyExpires: now + RPSD.aloneMs, target: t.toLowerCase(), targetName: t}); }
+  d.players.push({id: who.id, key: who.key, name: who.name, pick: null});
+  if (d.players.length === 2) Object.assign(d, {phase: 'pick', pickUntil: now + RPSD.pickMs});
+  return amount;
+}
+export function rpsdLeave(d, id) {
+  const ev = empty();
+  if (d.phase !== 'lobby') fail('시작한 대결에서는 물러날 수 없어요.');
+  const me = d.players.find(x => x.id === id);
+  if (!me) fail('대결을 신청하지 않았어요.');
+  ev.cashOuts.push({key: me.key, id: me.id, name: me.name, amount: d.stake, game: 'rpsduel', reason: 'refund'});
+  d.players = []; d.phase = 'idle';
+  return ev;
+}
+function rpsdFinish(d, winnerIndex, how, now, ev) {
+  const [a, b] = d.players;
+  if (winnerIndex < 0) {
+    for (const x of d.players) ev.cashOuts.push({key: x.key, id: x.id, name: x.name, amount: d.stake, game: 'rpsduel', reason: 'refund'});
+    d.last = {game: d.game, winner: null, how, prize: 0, picks: [a.pick, b.pick], names: [a.name, b.name]};
+  } else {
+    const w = d.players[winnerIndex], prize = rpsdPrize(d.stake);
+    ev.cashOuts.push({key: w.key, id: w.id, name: w.name, amount: prize, game: 'rpsduel'});
+    ev.wins.push({name: w.name, game: 'rpsduel', bet: d.stake, payout: prize, noticeId: 'rpsduel:' + d.game});
+    d.last = {game: d.game, winner: w.name, loser: d.players[1 - winnerIndex].name, how, prize, picks: [a.pick, b.pick], names: [a.name, b.name]};
+  }
+  d.phase = 'done'; d.doneUntil = now + RPSD.doneMs;
+}
+function rpsdResolve(d, now, ev) {
+  const [a, b] = d.players;
+  if (a.pick && b.pick) {
+    if (a.pick === b.pick) rpsdFinish(d, -1, 'tie', now, ev);
+    else rpsdFinish(d, RPS_BEATS[a.pick] === b.pick ? 0 : 1, 'hands', now, ev);
+  } else if (a.pick || b.pick) rpsdFinish(d, a.pick ? 0 : 1, 'forfeit', now, ev);
+  else rpsdFinish(d, -1, 'timeout', now, ev);
+}
+export function rpsdPick(d, id, hand, now) {
+  const ev = empty();
+  if (d.phase !== 'pick') fail('지금은 고를 때가 아니에요.');
+  const me = d.players.find(x => x.id === id);
+  if (!me) fail('대결하는 두 사람만 고를 수 있어요.');
+  if (!RPS_HANDS.includes(hand)) fail('가위·바위·보 중에서 골라주세요.');
+  if (me.pick) fail('이미 골랐어요.');
+  me.pick = hand;
+  if (d.players.every(x => x.pick)) rpsdResolve(d, now, ev);
+  return ev;
+}
+export function rpsdTick(d, now) {
+  const ev = empty();
+  if (d.phase === 'lobby' && now >= d.lobbyExpires) {
+    for (const x of d.players) ev.cashOuts.push({key: x.key, id: x.id, name: x.name, amount: d.stake, game: 'rpsduel', reason: 'refund'});
+    d.players = []; d.phase = 'idle';
+  } else if (d.phase === 'pick' && now >= d.pickUntil) rpsdResolve(d, now, ev);
+  if (d.phase === 'done' && now >= d.doneUntil) { d.phase = 'idle'; d.players = []; }
+  return ev;
+}
+export function rpsdDue(d) {
+  if (d.phase === 'lobby') return d.lobbyExpires;
+  if (d.phase === 'pick') return d.pickUntil;
+  if (d.phase === 'done') return d.doneUntil;
+  return null;
+}
+export function rpsdView(d, id, now) {
+  return {
+    phase: d.phase, game: d.game, stake: d.stake || null, fee: RPSD.fee, prize: rpsdPrize(d.stake || 0),
+    target: d.phase === 'lobby' && d.target ? d.targetName : null,
+    players: d.players.map(x => ({name: x.name, me: x.id === id, picked: !!x.pick})), joined: d.players.some(x => x.id === id),
+    myPick: d.players.find(x => x.id === id)?.pick || null,   // 내 손만 보인다. 상대 손은 결과가 나온 뒤 last에만 있다
+    closesIn: d.phase === 'lobby' ? Math.max(0, d.lobbyExpires - now) : d.phase === 'pick' ? Math.max(0, d.pickUntil - now) : null,
+    last: d.last,
+  };
+}

@@ -8,7 +8,7 @@ const fail=(msg,status=400)=>{const e=Error(msg);e.status=status;throw e;};
 import {QUIZ,initials} from './land-quiz.js';
 import {ARCADE,rouletteStart,roulettePull,hiloStart,hiloGuess,minesStart,minesPick,cashOut,expire,roundView,arcadeOneShot,begAlms,begLine} from './land-arcade.js';
 // 방(LandRoom)이 돌리는 같이 하는 게임의 지갑 기록 이름
-const ROOM_GAMES={poker:'포커',crash:'크래시',party:'총쏘기 서바이벌',duel:'총잡이 결투',gift:'초코 선물'};
+const ROOM_GAMES={poker:'포커',crash:'크래시',party:'총쏘기 서바이벌',duel:'총잡이 결투',rpsduel:'가위바위보 대결',gift:'초코 선물'};
 const ROUND_NAMES={roulette:'러시안 룰렛',hilo:'하이로우',mines:'마인즈'};
 export const GIFT=Object.freeze({min:10,max:1000,dailyLimit:3000,feePercent:5});
 function cardView(c){return {...cards[c.id],reversed:c.reversed,day:c.day};}

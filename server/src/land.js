@@ -2,7 +2,7 @@ import {WORLD,move,avatar,canStand} from '../../land/world.js';
 export {LandPlayer} from './land-player.js';
 import {NOTICE,winNotice,joinNotice,leaveNotice} from './land-notice.js';
 import {newTable,checkSit,sit as pokerSit,standUp,setAway,act as pokerAct,tick as pokerTick,nextDue,view as pokerView} from './land-poker.js';
-import {newCrash,checkCrashBet,placeCrashBet,crashCash,crashTick,crashDue,crashView,newParty,checkPartyJoin,partyJoin,partyLeave,partyTick,partyDue,partyView,newDuel,checkDuelJoin,duelJoin,duelLeave,duelShoot,duelTick,duelDue,duelView} from './land-crash.js';
+import {newCrash,checkCrashBet,placeCrashBet,crashCash,crashTick,crashDue,crashView,newParty,checkPartyJoin,partyJoin,partyLeave,partyTick,partyDue,partyView,newDuel,checkDuelJoin,duelJoin,duelLeave,duelShoot,duelTick,duelDue,duelView,newRpsd,checkRpsdJoin,rpsdJoin,rpsdLeave,rpsdPick,rpsdTick,rpsdDue,rpsdView} from './land-crash.js';
 import {GIFT} from './land-player.js';
 import {handleAdmin} from './land-admin.js';
 const enc=new TextEncoder(),hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
@@ -193,7 +193,7 @@ export class LandRoom{
   // 퇴장: 마지막 창이 닫히면 leaveDelayMs 뒤에 아직 없을 때만 알린다
   depart(a){if(!a||a.bridge||a.chatOnly||this.users().some(u=>u.id===a.id))return;const due=Date.now()+NOTICE.leaveDelayMs;this.sql.exec('UPDATE presence SET leave_due=? WHERE id=?',due,a.id);this.schedule().catch(e=>console.error("land alarm",e.message));}
   // 알람 하나로 퇴장 공지·포커 차례·포커 정산 재시도를 모두 깨운다
-  async schedule(){const leave=this.sql.exec('SELECT MIN(leave_due) AS due FROM presence WHERE leave_due IS NOT NULL').toArray()[0]?.due,pay=this.sql.exec('SELECT MIN(due) AS due FROM poker_payouts').toArray()[0]?.due;const next=Math.min(...[leave,nextDue(this.pokerState()),pay,crashDue(this.arcadeState('crash')),partyDue(this.arcadeState('party'),Date.now()),duelDue(this.arcadeState('duel'))].filter(x=>x!=null));if(Number.isFinite(next)&&this.ctx.storage.setAlarm)await this.ctx.storage.setAlarm(next);}
+  async schedule(){const leave=this.sql.exec('SELECT MIN(leave_due) AS due FROM presence WHERE leave_due IS NOT NULL').toArray()[0]?.due,pay=this.sql.exec('SELECT MIN(due) AS due FROM poker_payouts').toArray()[0]?.due;const next=Math.min(...[leave,nextDue(this.pokerState()),pay,crashDue(this.arcadeState('crash')),partyDue(this.arcadeState('party'),Date.now()),duelDue(this.arcadeState('duel')),rpsdDue(this.arcadeState('rpsduel'))].filter(x=>x!=null));if(Number.isFinite(next)&&this.ctx.storage.setAlarm)await this.ctx.storage.setAlarm(next);}
   async alarm(){const now=Date.now(),online=new Set(this.users().map(u=>u.id));
     for(const row of this.sql.exec('SELECT * FROM presence WHERE leave_due IS NOT NULL AND leave_due<=?',now).toArray()){this.sql.exec('UPDATE presence SET leave_due=NULL WHERE id=?',row.id);if(!online.has(row.id))this.notice(leaveNotice(row.name));}
     this.sql.exec('DELETE FROM presence WHERE leave_due IS NULL AND joined<?',now-86400000);await this.pokerAlarm();await this.arcadeAlarm();await this.schedule();}
@@ -234,14 +234,14 @@ export class LandRoom{
   }
   async pokerAlarm(){const run=async()=>{const now=Date.now(),t=this.pokerState(),due=nextDue(t);if(due!=null&&due<=now)await this.pokerCommit(pokerTick(t,now),now);else await this.pokerPay();};return this.ctx.blockConcurrencyWhile?this.ctx.blockConcurrencyWhile(run):run();}
   // ── 🚀 크래시 · 🔫 총쏘기 서바이벌 · 🎁 초코 선물: 포커와 같은 길(상태 표 → 정산 표 → 지갑 → 화면 → 알람) ──
-  arcadeState(game){if(!this.arcadeS[game]){const row=this.sql.exec('SELECT data FROM arcade WHERE game=?',game).toArray()[0];this.arcadeS[game]=row?JSON.parse(row.data):game==='crash'?newCrash():game==='duel'?newDuel():newParty();}return this.arcadeS[game];}
+  arcadeState(game){if(!this.arcadeS[game]){const row=this.sql.exec('SELECT data FROM arcade WHERE game=?',game).toArray()[0];this.arcadeS[game]=row?JSON.parse(row.data):game==='crash'?newCrash():game==='duel'?newDuel():game==='rpsduel'?newRpsd():newParty();}return this.arcadeS[game];}
   arcadeSave(game){this.sql.exec('INSERT INTO arcade(game,data) VALUES(?,?) ON CONFLICT(game) DO UPDATE SET data=excluded.data',game,JSON.stringify(this.arcadeS[game]));}
-  arcadeView(game,id,now){const s=this.arcadeState(game);return game==='crash'?crashView(s,id,now):game==='duel'?duelView(s,id,now):partyView(s,id,now);}
+  arcadeView(game,id,now){const s=this.arcadeState(game);return game==='crash'?crashView(s,id,now):game==='duel'?duelView(s,id,now):game==='rpsduel'?rpsdView(s,id,now):partyView(s,id,now);}
   arcadePush(game,now=Date.now()){for(const ws of this.sockets()){const a=ws.deserializeAttachment();if(a.arcade===game&&!a.bridge)this.send(ws,{type:'arcade',game,view:this.arcadeView(game,a.id,now)});}}
   payout(c,now,op='roomCashOut',extra=null){this.sql.exec('INSERT INTO poker_payouts(id,key,name,amount,created,due,op,extra) VALUES(?,?,?,?,?,?,?,?)',crypto.randomUUID(),c.key,c.name,c.amount,now,now,op,JSON.stringify(extra||{game:c.game,reason:c.reason}));}
   winBroadcast(n,id){this.notice(n,id);const here=this.roomKey,others=NOTICE.winRooms.filter(k=>k!==here);if(this.env.LAND_ROOMS&&others.length)Promise.all(others.map(k=>room(this.env,k).fetch(new Request('https://room/notice',{method:'POST',body:JSON.stringify({notice:n,id})})))).catch(e=>console.error('arcade notice',e.message));}
   async arcadeMessage(ws,a,m,now){
-    if(a.chatOnly||typeof m.op!=='string'||!['crash','party','duel','gift'].includes(m.game))return;
+    if(a.chatOnly||typeof m.op!=='string'||!['crash','party','duel','rpsduel','gift'].includes(m.game))return;
     if(a.room)this.roomKey=a.room;
     const err=msg=>this.send(ws,{type:'arcadeError',game:m.game,msg});
     if(m.game==='gift'){if(m.op==='send')await this.giftMessage(ws,a,m,now,err);return;}
@@ -265,6 +265,12 @@ export class LandRoom{
       }else if(game==='duel'&&m.op==='leave')ev=duelLeave(s,a.id);
       // 사격 시각은 이 DO가 메시지를 받은 시각(now). 지갑을 기다리지 않으므로 먼저 도착한 사격이 먼저 처리된다
       else if(game==='duel'&&m.op==='shoot')ev=duelShoot(s,a.id,now);
+      else if(game==='rpsduel'&&m.op==='join'){
+        const amount=checkRpsdJoin(s,who,Number(m.stake),m.target);
+        const paid=await this.pokerWallet(a.key,a.name,'roomBuyIn',crypto.randomUUID(),amount,{game});if(!paid.ok){err(paid.msg);return;}
+        try{rpsdJoin(s,who,amount,Date.now(),m.target);}catch(e){ev.cashOuts.push({...who,amount,game,reason:'refund'});err(e.message);}
+      }else if(game==='rpsduel'&&m.op==='leave')ev=rpsdLeave(s,a.id);
+      else if(game==='rpsduel'&&m.op==='pick')ev=rpsdPick(s,a.id,m.hand,now);
       else return;
       if(a.arcade!==game){a.arcade=game;ws.serializeAttachment(a);}
     }catch(e){if(!e.arcade)throw e;err(e.message);return;}
@@ -273,7 +279,7 @@ export class LandRoom{
   async arcadeCommit(game,ev,now=Date.now()){this.arcadeSave(game);for(const c of ev.cashOuts)this.payout(c,now);
     for(const w of ev.wins){const n=winNotice(w.name,{game:w.game,bet:w.bet,payout:w.payout});if(n)this.winBroadcast(n,(this.roomKey||'')+':'+w.noticeId);}
     this.arcadePush(game,now);await this.pokerPay();await this.schedule();}
-  async arcadeAlarm(){const run=async()=>{for(const game of ['crash','party','duel']){const now=Date.now(),s=this.arcadeState(game),due=game==='crash'?crashDue(s):game==='duel'?duelDue(s):partyDue(s,now);if(due==null||due>now)continue;const ev=game==='crash'?crashTick(s,now):game==='duel'?duelTick(s,now):partyTick(s,now);await this.arcadeCommit(game,ev,now);}};return this.ctx.blockConcurrencyWhile?this.ctx.blockConcurrencyWhile(run):run();}
+  async arcadeAlarm(){const run=async()=>{for(const game of ['crash','party','duel','rpsduel']){const now=Date.now(),s=this.arcadeState(game),due=game==='crash'?crashDue(s):game==='duel'?duelDue(s):game==='rpsduel'?rpsdDue(s):partyDue(s,now);if(due==null||due>now)continue;const ev=game==='crash'?crashTick(s,now):game==='duel'?duelTick(s,now):game==='rpsduel'?rpsdTick(s,now):partyTick(s,now);await this.arcadeCommit(game,ev,now);}};return this.ctx.blockConcurrencyWhile?this.ctx.blockConcurrencyWhile(run):run();}
   // 선물: 같은 광장에 지금 있는 주민에게만. 보내는 사람 지갑에서 먼저 빼고, 받는 사람 몫(수수료 뺀 값)은 정산 표로 넘겨 재시도한다
   async giftMessage(ws,a,m,now,err){
     const amount=Number(m.amount);if(!Number.isSafeInteger(amount)||amount<GIFT.min||amount>GIFT.max){err('선물은 '+GIFT.min+'~'+GIFT.max.toLocaleString('ko-KR')+'초코로 보낼 수 있어요.');return;}
