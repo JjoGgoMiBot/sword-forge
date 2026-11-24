@@ -5,7 +5,7 @@ import {drawResident,drawResidentFast} from './resident-art.js?v=5';
 import {isActivity,connectDiscordVoice} from './discord-voice.js';
 import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=13';
 import {raceMarkup,playRace,RACE} from './race-script.js?v=2';
-import {createPoker} from './poker-ui.js?v=6';
+import {createPoker} from './poker-ui.js?v=7';
 import {createArcade,ARCADE_TABS,ARCADE_RULES} from './arcade-ui.js?v=11';
 import {getSound} from './sound/sound.js?v=8';
 import {casinoCues,fortuneCues,PREWARM} from './sound/cues.js?v=5';

@@ -332,7 +332,7 @@
 .shared-race .status-note{color:#49372f;background:#fff9e9e8;padding:5px;border-radius:6px}
 .shared-race-people{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}.shared-race-people span{font-size:11px;background:var(--soft);border-radius:8px;padding:3px 7px}
 @keyframes shared-gallop{from{translate:0 -2px;rotate:-2deg}to{translate:0 1px;rotate:2deg}}
-@media(max-width:600px){.pk-felt{padding:8px;inset:8%}.pk-table{aspect-ratio:1/1.2}}
+@media(max-width:600px){.pk-felt{padding:8px;inset:8%}.pk-table{aspect-ratio:1/1.45}}
 @media(prefers-reduced-motion:reduce){.shared-race .horse-pos{transition:none}.shared-race.is-running .horse-runner{animation:none}}
 
 /* 닫힌 캡 대신 깊은 약실을 보이며, 총알은 판 종료 때만 공개한다. */
@@ -371,7 +371,7 @@
 .pk-exit{margin-top:8px;min-height:44px;padding:8px 18px;border-radius:11px;border:1px solid var(--line);background:var(--card)}
 
 .pk-tocall{display:block;margin-top:4px;font-size:1.15rem;color:var(--accent,#c0392b)}
-.pk-fly{position:absolute;z-index:6;width:18px;height:18px;border-radius:50%;pointer-events:none;background:radial-gradient(circle at 35% 30%,#ffe9a6,#e0a82e 60%,#a8741a);border:2px dashed #fff8;box-shadow:0 2px 4px #0006}
+.pk-fly{position:absolute;z-index:6;width:22px;height:22px;pointer-events:none}
 .pk-fly.big{width:24px;height:24px;box-shadow:0 0 10px #ffd34d,0 2px 4px #0006}
 @media(prefers-reduced-motion:reduce){.pk-fly{display:none}}
 .pk-wait{font-weight:700}
@@ -382,3 +382,17 @@
 .pk-count{display:inline-block;margin-left:4px;font-size:1.1em;font-variant-numeric:tabular-nums}
 @keyframes pkDot{0%,80%,100%{opacity:.2}40%{opacity:1}}
 @media(prefers-reduced-motion:reduce){.pk-dots u{animation:none}}
+/* 포커 칩 더미: 자리별 베팅 + 가운데 팟 */
+.cstacks{display:inline-flex;align-items:flex-end;gap:4px;--cs:26px}
+.cs-col{position:relative;display:block;width:var(--cs);height:calc(var(--cs) + (var(--n) - 1) * 4px + 12px)}
+.cs-col .cs-chip{position:absolute;left:0;bottom:calc(12px + var(--j) * 4px);width:var(--cs);height:var(--cs);transition:transform .2s ease-out}
+.cs-col .cs-chip b{font-size:7px}
+.cs-col small{position:absolute;left:50%;bottom:0;transform:translateX(-50%);font:600 9px/1 sans-serif;color:#fff;text-shadow:0 1px 2px #000;white-space:nowrap}
+.pk-bets,.pk-pot{display:grid;justify-items:center;gap:2px;z-index:2;pointer-events:none}
+.pk-bets{position:absolute;transform:translate(-50%,-50%)}
+.pk-bets>b,.pk-pot>b{background:#1e1812cc;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;font-variant-numeric:tabular-nums}
+.pk-pot{margin:0 auto}.pk-pot .cstacks{--cs:30px}.pk-pot>b{font-size:13px;background:var(--pk-gold);color:#2b2420}
+.pkb0{left:34%;top:80%}.pkb1{left:24%;top:66%}.pkb2{left:24%;top:34%}.pkb3{left:68%;top:18%}.pkb4{left:76%;top:38%}.pkb5{left:76%;top:62%}
+@media(max-width:600px){.cstacks{--cs:16px}.pk-pot .cstacks{--cs:20px}.pkb1,.pkb2{left:28%}.pkb4,.pkb5{left:72%}}
+@media(prefers-reduced-motion:reduce){.cs-col .cs-chip{transition:none}}
+.pk-exit{display:none}

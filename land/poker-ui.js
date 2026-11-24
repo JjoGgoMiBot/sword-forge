@@ -1,4 +1,4 @@
-import {chips} from './chips.js?v=1';
+import {chips,chipStacks} from './chips.js?v=2';
 import {dealCards,playLandVfx} from './vfx.js?v=1';
 // 포커 테이블 화면. 서버가 보낸 view(내 패·공개된 패만 담김)를 그리고, 누른 행동을 send()로 돌려보낸다.
 // 상태는 서버만 정한다. 여기서는 그리기와 입력값(레이즈·바이인) 기억만 한다.
@@ -31,7 +31,7 @@ export function createPoker({money, h, send, toast, balance, sound}) {
     const badge = st.button === i ? '<em class="pk-dealer" title="딜러 버튼">D</em>' : '';
     const last = s.last ? '<span class="pk-last ' + s.last.type + '">' + (LAST[s.last.type] || '') + (s.last.timeout ? ' (시간)' : '') + '</span>' : '';
     const handName = st.result?.hands?.[i] ? '<span class="pk-hand-name">' + h(st.result.hands[i]) + '</span>' : '';
-    return '<div class="' + cls + '">' + badge + '<div class="pk-cards">' + cards + '</div><strong>' + h(s.name) + (s.away ? ' <small>(연결 끊김)</small>' : '') + '</strong><span class="pk-stack">' + money(s.stack) + '</span>' + (won ? '<span class="pk-won">+' + money(won.amount) + '</span>' : handName || last) + (s.bet ? '<span class="pk-bet">' + money(s.bet) + chips(s.bet) + '</span>' : '') + (turn ? '<span class="pk-timer" data-poker-timer></span>' : '') + '</div>';
+    return '<div class="' + cls + '">' + badge + '<div class="pk-cards">' + cards + '</div><strong>' + h(s.name) + (s.away ? ' <small>(연결 끊김)</small>' : '') + '</strong><span class="pk-stack">' + money(s.stack) + '</span>' + (won ? '<span class="pk-won">+' + money(won.amount) + '</span>' : handName || last) + (turn ? '<span class="pk-timer" data-poker-timer></span>' : '') + '</div>';
   }
 
   function statusText() {
@@ -75,7 +75,7 @@ export function createPoker({money, h, send, toast, balance, sound}) {
     const me = st.you != null ? st.seats[st.you] : null;
     const board = Array.from({length: 5}, (_, k) => st.board[k] ? card(st.board[k]) : '<span class="pk-card slot"></span>').join('');
     box.innerHTML = '<div class="pk-summary"><span>팟 <b>' + money(st.pot || (st.result?.winners || []).reduce((a, w) => a + w.amount, 0)) + '</b></span><span>블라인드 ' + money(st.limits.smallBlind) + '/' + money(st.limits.bigBlind) + '</span><span>' + (st.hand ? '#' + st.hand : '대기') + '</span></div>'
-      + '<details class="pk-quick-rules"><summary>포커 간단 규칙</summary><div><p><b>내 패 2장 + 공용 카드 5장</b> 중 가장 좋은 5장으로 승부해요.</p><p>프리플랍(내 패) → 플랍(공용 3장) → 턴(+1장) → 리버(+1장) 순서로 베팅해요.</p><ul><li><b>폴드</b>: 이번 판 포기</li><li><b>체크</b>: 맞출 돈이 없을 때 넘기기</li><li><b>콜</b>: 상대 베팅액에 맞추기</li><li><b>레이즈 / 올인</b>: 베팅 올리기 / 남은 칩 모두 걸기</li></ul><p>높은 족보 순: 스트레이트 플러시(로열 포함) → 포카드 → 풀하우스 → 플러시 → 스트레이트 → 트리플 → 투페어 → 원페어 → 하이카드.</p><p>끝까지 남은 사람들이 패를 공개해 승자가 팟을 가져가요. 모두 폴드하면 마지막 한 명이 이겨요.</p></div></details><div class="pk-table"><div class="pk-felt">'+chips(st.pot||0)+'<div class="pk-board">' + board + '</div><p class="pk-status" aria-live="polite">' + statusText() + ' <span data-poker-next></span></p>' + (st.you != null ? '<button class="pk-exit" data-poker="leave">나가기</button>' : '') + '</div>' + st.seats.map(seatHtml).join('') + '</div>'
+      + '<details class="pk-quick-rules"><summary>포커 간단 규칙</summary><div><p><b>내 패 2장 + 공용 카드 5장</b> 중 가장 좋은 5장으로 승부해요.</p><p>프리플랍(내 패) → 플랍(공용 3장) → 턴(+1장) → 리버(+1장) 순서로 베팅해요.</p><ul><li><b>폴드</b>: 이번 판 포기</li><li><b>체크</b>: 맞출 돈이 없을 때 넘기기</li><li><b>콜</b>: 상대 베팅액에 맞추기</li><li><b>레이즈 / 올인</b>: 베팅 올리기 / 남은 칩 모두 걸기</li></ul><p>높은 족보 순: 스트레이트 플러시(로열 포함) → 포카드 → 풀하우스 → 플러시 → 스트레이트 → 트리플 → 투페어 → 원페어 → 하이카드.</p><p>끝까지 남은 사람들이 패를 공개해 승자가 팟을 가져가요. 모두 폴드하면 마지막 한 명이 이겨요.</p></div></details><div class="pk-table"><div class="pk-felt">'+(st.pot?'<div class="pk-pot">'+chipStacks(st.pot,8)+'<b>팟 '+money(st.pot)+'</b></div>':'')+'<div class="pk-board">' + board + '</div><p class="pk-status" aria-live="polite">' + statusText() + ' <span data-poker-next></span></p>' + (st.you != null ? '<button class="pk-exit" data-poker="leave">나가기</button>' : '') + '</div>' + st.seats.map(seatHtml).join('') + st.seats.map((s, i) => s && s.bet ? '<div class="pk-bets pkb' + place(i, st.you) + '">' + chipStacks(s.bet) + '<b>' + money(s.bet) + '</b></div>' : '').join('') + '</div>'
       + (me && me.cards ? '<div class="pk-mine">' + me.cards.map(c => card(c, 'lg')).join('') + '<div><small class="muted">내 패</small><strong>' + h(st.myHand || (me.folded ? '폴드' : '프리플랍')) + '</strong>' + (st.options ? '<span class="pk-clock" data-poker-timer></span>' : '') + (st.options && st.options.toCall > 0 ? '<b class="pk-tocall">콜 ' + money(st.options.toCall) + '</b>' : '') + '</div></div>' : '')
       + actionsHtml() + seatControls();
     tickTimers();
@@ -131,7 +131,7 @@ export function createPoker({money, h, send, toast, balance, sound}) {
     const dx = b.left + b.width / 2 - t.left - ax, dy = b.top + b.height / 2 - t.top - ay;
     for (let i = 0; i < count; i++) {
       const chip = document.createElement('span');
-      chip.className = 'pk-fly' + (big ? ' big' : '');
+      chip.className = 'pk-fly chip-photo' + (big ? ' big' : '');chip.style.backgroundPosition = ['0% 0%','50% 0%','100% 0%','0% 100%','50% 100%','100% 100%'][i % 6];
       chip.style.left = ax + 'px'; chip.style.top = ay + 'px';
       table.appendChild(chip);
       const jx = (Math.random() - 0.5) * 18, jy = (Math.random() - 0.5) * 18;
@@ -149,11 +149,12 @@ export function createPoker({money, h, send, toast, balance, sound}) {
       const felt = box.querySelector('.pk-felt'), seatEl = i => box.querySelector('.pk-seat.pos' + place(i, now.you));
       if (now.hand === prev.hand) now.seats.forEach((s, i) => {
         const before = prev.seats[i]?.bet || 0;
-        if (s && s.bet > before) flyChips(seatEl(i), felt, Math.min(5, 1 + Math.floor((s.bet - before) / 100)), s.me);
+        if (s && s.bet > before) sound?.cue?.(Array.from({length: Math.min(4, 1 + Math.floor((s.bet - before) / 100))}, (_, k) => ({at: k * 70, id: 'chip.place'}))), flyChips(seatEl(i), felt, Math.min(5, 1 + Math.floor((s.bet - before) / 100)), s.me);
       });
       if (now.phase === 'showdown' && prev.phase !== 'showdown') (now.result?.winners || []).forEach(w => {
         const mine = now.you === w.seat;
         flyChips(felt, seatEl(w.seat), mine ? 9 : 5, mine);
+        sound?.cue?.(Array.from({length: mine ? 6 : 3}, (_, k) => ({at: 400 + k * 80, id: 'chip.place'})));
       });
     } catch { /* 효과 실패는 게임을 막지 않는다 */ }
   }
