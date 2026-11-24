@@ -1,4 +1,4 @@
-// Catalog plus lightweight synthesized fallback; primary recordings use sampled instruments.
+// Catalog and renderable score metadata; primary place playback uses recordings.
 const hz=n=>440*2**((n-69)/12);
 const voice=(partials,a,d,r,cut)=>({src:{type:'osc',partials},env:{a,d,s:0,r},filter:{type:'lowpass',freq:cut,q:.4}});
 const piano=voice([1,.42,.2,.1,.055,.025],.009,.85,.18,4200);
@@ -10,12 +10,12 @@ const string=voice([1,.36,.15,.06],.17,.65,.35,1700);
 const note=(inst,midi,at,dur,gain,pan=0)=>({...inst,freq:hz(midi),at,dur,gain,pan});
 const track=(name,clips,pan=0,reverb=.12)=>({name,clips,pan,fx:{reverb}});
 const KEYS={
- town:{bpm:86,title:'햇살이 머무는 광장',feel:'플루트·나일론 기타·오보에·피치카토',chords:[[50,54,57,61],[47,50,54,57],[43,47,50,54],[45,49,52,57]],lead:guitar,comp:felt,mel:[74,76,78,81,78,76,74,69],swing:0,gain:-22},
- casino:{bpm:104,title:'초록 펠트의 밤',feel:'피아노·비브라폰·우드 베이스·브러시',chords:[[50,53,57,60],[43,47,53,57],[48,52,55,59],[45,49,55,59]],lead:piano,comp:felt,mel:[74,77,81,79,77,76,74,72],swing:.13,gain:-23},
- forge:{bpm:92,title:'불씨와 손길',feel:'첼로·현악·호른·마림바의 작업 테마',chords:[[50,53,57,62],[46,50,53,57],[43,46,50,57],[45,49,52,57]],lead:guitar,comp:string,mel:[62,65,69,74,72,69,65,64],swing:0,gain:-23},
- fortune:{bpm:68,title:'별빛 아래 펼친 카드',feel:'하프·첼레스타·플루트·잔잔한 현악',chords:[[50,53,57,64],[46,50,53,60],[43,46,50,57],[45,50,52,59]],lead:celesta,comp:felt,mel:[74,76,77,81,84,81,77,76],swing:0,gain:-25},
+ town:{bpm:78,title:'햇살이 머무는 광장',feel:'피아노·클래식 기타 · 따뜻한 마을',chords:[[43,50,54,59],[40,47,50,55],[48,52,55,62],[50,54,57,64]],lead:guitar,comp:felt,mel:[67,71,74,76,74,71,69,67],swing:0,gain:-22},
+ casino:{bpm:86,title:'초록 펠트의 밤',feel:'작은 피아노·기타·아주 약한 브러시',chords:[[45,52,55,59],[41,48,52,57],[48,52,55,59],[43,50,55,59]],lead:piano,comp:felt,mel:[69,72,76,74,72,69,67,69],swing:.13,gain:-23},
+ forge:{bpm:82,title:'불씨와 손길',feel:'기타 핑거피킹·낮은 피아노 · 편안한 작업',chords:[[50,54,57,64],[47,50,54,57],[43,50,54,59],[45,52,57,61]],lead:guitar,comp:felt,mel:[62,66,69,71,69,66,64,62],swing:0,gain:-23},
+ fortune:{bpm:64,title:'별빛 아래 펼친 카드',feel:'드문 피아노 음·긴 여운·옅은 공간감',chords:[[45,52,55,59],[41,48,52,57],[48,52,55,59],[43,50,55,59]],lead:felt,comp:felt,mel:[69,76,72,71,67,69,64,69],swing:0,gain:-25},
 };
-export const MUSIC_PLAN=Object.fromEntries(Object.entries(KEYS).map(([id,c])=>[id,{title:c.title,bpm:c.bpm,bars:32,sections:['A: 주제','B: 대조와 응답','A′: 악기와 음역 변주','C: 귀환과 종지'],feel:c.feel,duration:128*60/c.bpm}]));
+export const MUSIC_PLAN=Object.fromEntries(Object.entries(KEYS).map(([id,c])=>[id,{title:c.title,bpm:c.bpm,bars:32,sections:['조용한 도입','주제','선율의 변화','귀환과 긴 호흡'],feel:c.feel,duration:128*60/c.bpm}]));
 export function placeScore(id){
  const c=KEYS[id]||KEYS.town,b=60/c.bpm,dur=b*128,melody=[],answer=[],chords=[],low=[],drums=[];
  const noise=(at,length,gain,freq)=>({at,dur:length,src:{type:'noise',color:'pink'},env:{a:.003,d:length*.8,s:0,r:.015},filter:{type:'bandpass',freq,q:.6},gain});

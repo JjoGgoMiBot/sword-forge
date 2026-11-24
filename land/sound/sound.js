@@ -6,7 +6,7 @@
 // 약속: 첫 사용자 입력 전에는 AudioContext 를 만들지 않는다. 소리 쪽 오류는 게임을 막지 않는다.
 import { compileRecipe, renderToChannels, sampleUrls } from './engine.js';
 import { humanize, dbToGain, clamp } from './dsp.js';
-import { recipeFor, CONCEPTS, DEFAULT_CONCEPT } from './recipes.js?v=4';
+import { recipeFor, CONCEPTS, DEFAULT_CONCEPT } from './recipes.js?v=5';
 
 export const STORAGE_KEY = 'land.sound.v1';
 export const DEFAULTS = Object.freeze({ muted: false, master: 0.9, bgm: 0.55, sfx: 0.9, concept: 'auto' });
@@ -129,8 +129,9 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
   }
   async function prepareBuffer(id, concept, params, seed) {
     if (id === 'bgm' && BGM_FILES[concept] && ctx?.decodeAudioData && fetchAudio && OfflineCtx) {
-      try {
-        const url = new URL('../assets/music/' + BGM_FILES[concept] + '.ogg?v=2', import.meta.url);
+        // If a place recording fails, startBgm keeps the previous track instead
+        // of substituting the rejected oscillator arrangement.
+        const url = new URL('../assets/music/' + BGM_FILES[concept] + '.ogg?v=3', import.meta.url);
         const response = await fetchAudio(url, { signal: AbortSignal.timeout(8000) });
         if (!response.ok) throw new Error('music HTTP ' + response.status);
         const decoder = new OfflineCtx(2, 1, 32000);
@@ -138,7 +139,6 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
         const meta = compileRecipe(recipeFor(id, concept), { ...params, concept, seed });
         if (Math.abs(buffer.duration - meta.dur) > .15) throw new Error('music duration');
         return { buffer, meta };
-      } catch (error) { warn('music.file.' + concept, error); }
     }
     const r = await renderOffline(id, { concept, params, seed });
     const buffer = ctx.createBuffer(2, r.channels[0].length, r.sampleRate);
@@ -253,7 +253,6 @@ export function createSound({ win = globalThis.window, storage = defaultStorage(
       stopBgm();
       if (ctx) setTimeout(() => { if (settings.muted) ctx.suspend?.().catch(() => {}); }, 250); // 음소거 중엔 오디오 스레드를 쉰다
     } else {
-      if (bgm && bgm.concept !== conceptId()) stopBgm();
       refreshBgm(); rewarm();
     }
     emit();

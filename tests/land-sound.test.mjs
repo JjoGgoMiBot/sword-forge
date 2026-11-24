@@ -123,7 +123,7 @@ test('loop tail folds back so the seam is continuous', () => {
 
 // ── 모형 Web Audio ──
 function mockAudio(sampleRate = 48000) {
-  const stats = { nodes: 0, started: 0, connections: 0 };
+  const stats = { nodes: 0, started: 0, stopped: 0, connections: 0 };
   const param = v => ({ value: v, setValueAtTime() { return this; }, linearRampToValueAtTime() { return this; }, exponentialRampToValueAtTime(x) { assert.ok(x > 0, 'exp ramp to non-positive'); return this; }, setTargetAtTime() { return this; }, setValueCurveAtTime() { return this; }, cancelScheduledValues() { return this; }, cancelAndHoldAtTime() { return this; } });
   const node = () => {
     stats.nodes++;
@@ -134,7 +134,7 @@ function mockAudio(sampleRate = 48000) {
         if (k === 'connect') return t => { stats.connections++; return t; };
         if (k === 'disconnect') return () => {};
         if (k === 'start') return () => { stats.started++; };
-        if (k === 'stop') return () => {};
+        if (k === 'stop') return () => { stats.stopped++; };
         if (k === 'setPeriodicWave') return () => {};
         if (k === 'then') return undefined;
         return (params[k] ||= param(0));
@@ -154,17 +154,24 @@ test('prepared music loads without synthesis and a stale scene cannot start late
   ctx.decodeAudioData = async () => {};
   const OfflineCtx = function () { return {decodeAudioData: async bytes => ctx.createBuffer(2, Math.round(new Float64Array(bytes)[0] * 32000), 32000)}; };
   const fetchAudio = url => new Promise(resolve => requests.set(String(url).split('/').at(-1), resolve));
-  const sound = createSound({win: {}, storage: null, AudioCtx: function(){return ctx;}, OfflineCtx, fetchAudio});
+  const sound = createSound({win: {}, storage: null, AudioCtx: function(){return ctx;}, OfflineCtx, fetchAudio,log:{warn(){}}});
   sound.setScene('town'); sound.unlock(); sound.setScene('forge');
   const response = id => ({ok:true,arrayBuffer:async()=>new Float64Array([PLACE_MUSIC[id].dur]).buffer});
-  requests.get('forge.ogg?v=2')(response('forge'));
+  requests.get('forge.ogg?v=3')(response('forge'));
   await new Promise(r => setImmediate(r));
   assert.equal(stats.started, 1, 'current scene starts');
-  requests.get('town.ogg?v=2')(response('town'));
+  requests.get('town.ogg?v=3')(response('town'));
   await new Promise(r => setImmediate(r));
   assert.equal(stats.started, 1, 'outdated scene does not overlap');
   assert.equal(sound.stats.renders, 0, 'file path avoids runtime synthesis');
   assert.equal(sound.get().activeConcept, 'forge');
+  sound.setScene('fortune');
+  requests.get('fortune.ogg?v=3')({ok:false,status:503});
+  await new Promise(r => setImmediate(r));
+  assert.equal(sound.stats.errors,1,'failed recording is reported');
+  assert.equal(sound.stats.renders,0,'failed recording does not bring the rejected synth score back');
+  assert.equal(stats.started,1);
+  assert.equal(stats.stopped,0,'previous music remains until a replacement is ready');
 });
 
 test('every recipe builds a valid Web Audio graph (mock context, all concepts)', () => {

@@ -1,4 +1,4 @@
-import {PLACE_MUSIC} from './score.js?v=2';
+import {PLACE_MUSIC} from './score.js?v=3';
 // 쪼꼬미랜드 사운드 레시피 — 선언형 데이터. 새 소리가 필요하면 여기에 항목 하나를 더한다.
 // 문법은 engine.js 머리말 참고. 타격음은 트랙을 transient · body · tail 3층으로 쌓는다(hit:true).
 // lufs 는 그 소리 하나의 목표 음량(정규화). 큰 사건일수록 높게, 반복되는 작은 소리일수록 낮게.
