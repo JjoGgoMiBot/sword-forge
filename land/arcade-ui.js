@@ -41,7 +41,7 @@ const secs = ms => Math.max(0, Math.ceil(ms / 1000));
 export function createArcade({money, h, toast, act, send, balance, wallet, round, peers, refresh, history = () => [], sound, sfx = () => {}, reduced = () => false, fx = () => {}}) {
   let fxSeq = 0, fxKey = null; // 마지막으로 연출한 결과 문구. 탭을 막 연 때의 지난 결과는 다시 터뜨리지 않는다
 
-  let box = null, game = null, watching = null, last = {}, at = 0, raf = 0, pending=false, resetT=0, cylAt={id:0,shots:0,done:false}, wheelSeen=-1, wheelBusy=0, dealPending=null,impactPending=false,bigRoadOpen=false;
+  let box = null, game = null, watching = null, last = {}, at = 0, raf = 0, pending=false, resetT=0, cylAt={id:0,shots:0,done:false,from:0,t:0}, wheelSeen=-1, wheelBusy=0, dealPending=null,impactPending=false,bigRoadOpen=false;
   const views = {}, input = {bet: 100, auto: '', stake: 100, mines: 3, choice: {}, gift: 100, to: ''};
 
   // ── 소켓 구독: 한 번에 한 게임만 본다 ──
@@ -83,7 +83,8 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
   const stepEnd = g => ({bang: '탕! 총알이 나왔어요.', miss: '아쉽게 틀렸어요.', boom: '지뢰를 밟았어요.', cash: '멈추고 ' + money(g.payout) + '초코를 받았어요.', max: '끝까지 버텨 ' + money(g.payout) + '초코를 받았어요!'})[g.outcome] || '';
   function rouletteScene(g) {
     const shots = g?.shots || 0, boom = g?.done && g.outcome === 'bang', n = g?.chambers || 6;
-    const prev = g && cylAt.id === String(g.id) ? cylAt.shots : null; // 직전에 그린 칸에서 한 칸 옆으로 넘어간다
+    const prev = g && cylAt.id === String(g.id) ? (performance.now() - cylAt.t < 700 ? cylAt.from : cylAt.shots) : null; // 이동 중에 다시 그려져도 같은 칸에서 다시 출발한다
+    // 직전에 그린 칸에서 한 칸 옆으로 넘어간다
     return '<div class="ac-cylinder' + (boom ? ' boom' : '') + '" role="img" aria-label="' + n + '칸 중 ' + shots + '칸 버팀">' + rouletteSvg(g, n, prev) + '<b>' + (g ? shots + ' / ' + (n - 1) : n + '칸') + '</b></div>';
   }
   function hiloScene(g) {
@@ -252,7 +253,8 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
         if (step) sfx(pullCues(step, {reduced: reduced()}));
         const cur = box.querySelector('.ac-cur');
         if (cur) { void cur.getBoundingClientRect(); cur.style.transform = 'translate(' + cur.dataset.x + 'px,' + cur.dataset.y + 'px)'; }
-        cylAt = {id: String(g.id), shots: g.shots, done: !!g.done};
+        const same = cylAt.id === String(g.id);
+        if (!same || cylAt.shots !== g.shots) cylAt = {id: String(g.id), shots: g.shots, done: !!g.done, from: same ? cylAt.shots : g.shots, t: performance.now()}; else cylAt.done = !!g.done;
       }
     }
     clearTimeout(resetT);

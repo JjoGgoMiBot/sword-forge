@@ -6,7 +6,7 @@ import {isActivity,connectDiscordVoice} from './discord-voice.js';
 import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=13';
 import {raceMarkup,playRace,RACE} from './race-script.js?v=2';
 import {createPoker} from './poker-ui.js?v=3';
-import {createArcade,ARCADE_TABS,ARCADE_RULES} from './arcade-ui.js?v=9';
+import {createArcade,ARCADE_TABS,ARCADE_RULES} from './arcade-ui.js?v=10';
 import {getSound} from './sound/sound.js?v=5';
 import {casinoCues,fortuneCues,PREWARM} from './sound/cues.js?v=4';
 import {mountSoundControl} from './sound/ui.js?v=1';
