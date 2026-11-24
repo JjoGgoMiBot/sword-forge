@@ -1,8 +1,8 @@
 import {chips} from './chips.js?v=1';
 import {baccaratRoad} from './baccarat-road.js?v=1';
-import {rouletteSvg, pullStep} from './revolver.js?v=1';
+import {rouletteSvg, pullStep} from './revolver.js?v=2';
 import {wheelSvg, orbitFrames, SPIN_MS} from './wheel-view.js?v=1';
-import {pullCues} from './sound/cues.js?v=4';
+import {pullCues} from './sound/cues.js?v=5';
 import {dealCards,playLandVfx} from './vfx.js?v=1';
 import {raceMarkup,laneX,RACE} from './race-script.js?v=2';
 // 새 오락관 게임 화면. 혼자 하는 게임은 act()로 지갑 서버에, 함께 하는 게임(크래시·총쏘기·결투·선물)은 마을 소켓으로 보낸다.
@@ -251,8 +251,8 @@ export function createArcade({money, h, toast, act, send, balance, wallet, round
       if (g) {
         const step = pullStep(cylAt.id === String(g.id) ? cylAt : null, g);
         if (step) sfx(pullCues(step, {reduced: reduced()}));
-        const cur = box.querySelector('.ac-cur');
-        if (cur) { void cur.getBoundingClientRect(); cur.style.transform = 'translate(' + cur.dataset.x + 'px,' + cur.dataset.y + 'px)'; }
+        const rot = box.querySelector('.ac-rot');
+        if (rot) { void rot.getBoundingClientRect(); rot.style.transform = 'rotate(' + rot.dataset.deg + 'deg)'; }
         const same = cylAt.id === String(g.id);
         if (!same || cylAt.shots !== g.shots) cylAt = {id: String(g.id), shots: g.shots, done: !!g.done, from: same ? cylAt.shots : g.shots, t: performance.now()}; else cylAt.done = !!g.done;
       }
