@@ -2,6 +2,7 @@
 // 포커(land-poker.js)와 같은 모양: 상태(c)·시각(now)·난수(rng)를 받아 상태를 바꾸고 정산할 일(ev)을 돌려준다.
 // 지갑·소켓·저장·알람은 LandRoom이 맡는다. 터지는 배율·총알 위치는 서버 상태에만 있고, view()는 이미 일어난 일만 담는다.
 import {random, integer} from './land-games.js';
+export const SAFE_STAKE = Math.floor(Number.MAX_SAFE_INTEGER / 1000);
 
 // 조정할 수치는 이 표만 고친다.
 export const CRASH = Object.freeze({
@@ -11,7 +12,7 @@ export const CRASH = Object.freeze({
   minCash: 1.01,       // 이 배율부터 멈출 수 있다
   bettingMs: 8000,     // 첫 베팅 뒤 출발까지
   nextBettingMs: 10000,// 터진 뒤 결과를 보여 주며 다음 판 베팅을 받는 시간
-  minBet: 10, maxBet: 5000,
+  minBet: 10, maxBet: SAFE_STAKE,  // 상한 없음: 가진 초코까지(지갑이 막는다). 배당 계산이 안전 정수를 넘지 않게만 둔다
   maxPlayers: 30,
   history: 12,
 });
@@ -19,7 +20,7 @@ export const PARTY = Object.freeze({
   fee: 0.04,           // 판돈에서 떼는 몫. 최후의 1인이 나머지를 모두 가진다 → 기대 환수율 96%
   chambers: 6,
   minPlayers: 2, maxPlayers: 6,
-  minStake: 10, maxStake: 5000,
+  minStake: 10, maxStake: SAFE_STAKE,
   lobbyMs: 20000,      // 두 번째 사람이 들어온 뒤 출발까지(가득 차면 fullStartMs)
   fullStartMs: 3000,
   aloneMs: 120000,     // 혼자 기다리다 이만큼 지나면 판을 닫고 돌려준다
@@ -47,7 +48,7 @@ export const newCrash = () => ({phase: 'idle', round: 0, bets: [], history: [], 
 
 export function checkCrashBet(c, who, bet, auto) {
   if (!['idle', 'betting'].includes(c.phase)) fail('이번 판은 이미 출발했어요. 다음 판에 걸어주세요.');
-  if (!Number.isSafeInteger(bet) || bet < CRASH.minBet || bet > CRASH.maxBet) fail('베팅은 ' + CRASH.minBet + '~' + CRASH.maxBet.toLocaleString('ko-KR') + '초코의 정수로 입력해주세요.');
+  if (!Number.isSafeInteger(bet) || bet < CRASH.minBet || bet > CRASH.maxBet) fail('베팅은 ' + CRASH.minBet + '초코 이상의 정수로 입력해주세요.');
   if (auto != null && (!Number.isFinite(auto) || auto < CRASH.minCash || auto > CRASH.maxMult)) fail('자동 멈춤은 ×' + CRASH.minCash + '~×' + CRASH.maxMult + ' 사이로 정해주세요.');
   if (c.bets.some(b => b.id === who.id)) fail('이번 판에는 이미 걸었어요.');
   if (c.bets.length >= CRASH.maxPlayers) fail('이번 판은 자리가 가득 찼어요.');
@@ -124,7 +125,7 @@ export function checkPartyJoin(p, who, stake) {
   if (p.players.some(x => x.id === who.id)) fail('이미 참가했어요.');
   if (p.players.length >= PARTY.maxPlayers) fail('자리가 가득 찼어요.');
   const amount = p.phase === 'lobby' ? p.stake : stake;
-  if (!Number.isSafeInteger(amount) || amount < PARTY.minStake || amount > PARTY.maxStake) fail('참가비는 ' + PARTY.minStake + '~' + PARTY.maxStake.toLocaleString('ko-KR') + '초코의 정수로 정해주세요.');
+  if (!Number.isSafeInteger(amount) || amount < PARTY.minStake || amount > PARTY.maxStake) fail('참가비는 ' + PARTY.minStake + '초코 이상의 정수로 정해주세요.');
   return amount;
 }
 // 지갑에서 참가비를 뺀 뒤에 부른다
@@ -213,7 +214,7 @@ export function partyView(p, id, now) {
 // 신호 전에 쏘면 반칙패. 신호 시각은 서버 상태에만 있고 view()에는 신호가 난 뒤에야 fire가 켜진다.
 export const DUEL = Object.freeze({
   fee: 0.03, waitMs: Object.freeze([2500, 7000]), introMs: 1500,
-  minStake: 10, maxStake: 5000,
+  minStake: 10, maxStake: SAFE_STAKE,
   aloneMs: 120000,     // 상대를 기다리다 이만큼 지나면 돌려준다
   shootMs: 5000,       // 신호 뒤 둘 다 안 쏘면 환불
   doneMs: 6000,
@@ -229,7 +230,7 @@ export function checkDuelJoin(d, who, stake, target = '') {
   if (d.phase === 'idle' && duelTarget(target).toLowerCase() === me && duelTarget(target)) fail('나에게는 결투를 신청할 수 없어요.');
   if (d.phase === 'lobby' && d.target && d.target !== me) fail(d.targetName + '님에게 신청한 결투예요.');
   const amount = d.phase === 'lobby' ? d.stake : stake;
-  if (!Number.isSafeInteger(amount) || amount < DUEL.minStake || amount > DUEL.maxStake) fail('판돈은 ' + DUEL.minStake + '~' + DUEL.maxStake.toLocaleString('ko-KR') + '초코의 정수로 정해주세요.');
+  if (!Number.isSafeInteger(amount) || amount < DUEL.minStake || amount > DUEL.maxStake) fail('판돈은 ' + DUEL.minStake + '초코 이상의 정수로 정해주세요.');
   return amount;
 }
 // 지갑에서 판돈을 뺀 뒤에 부른다
@@ -305,7 +306,7 @@ export function duelView(d, id, now) {
 // 고른 손은 서버 상태에만 있고, view()는 두 사람이 다 고르거나 시간이 끝난 뒤에야 밝힌다.
 // 비기면 판돈을 돌려주고, 한 사람만 골랐으면 고른 사람이 이긴다(안 고른 사람은 기권).
 export const RPSD = Object.freeze({
-  fee: 0.03, minStake: 10, maxStake: 5000,
+  fee: 0.03, minStake: 10, maxStake: SAFE_STAKE,
   aloneMs: 120000, pickMs: 10000, doneMs: 6000,
 });
 export const RPS_HANDS = Object.freeze(['rock', 'paper', 'scissors']);
@@ -319,7 +320,7 @@ export function checkRpsdJoin(d, who, stake, target = '') {
   if (d.phase === 'idle' && t && t.toLowerCase() === me) fail('나에게는 대결을 신청할 수 없어요.');
   if (d.phase === 'lobby' && d.target && d.target !== me) fail(d.targetName + '님에게 신청한 대결이에요.');
   const amount = d.phase === 'lobby' ? d.stake : stake;
-  if (!Number.isSafeInteger(amount) || amount < RPSD.minStake || amount > RPSD.maxStake) fail('판돈은 ' + RPSD.minStake + '~' + RPSD.maxStake.toLocaleString('ko-KR') + '초코의 정수로 정해주세요.');
+  if (!Number.isSafeInteger(amount) || amount < RPSD.minStake || amount > RPSD.maxStake) fail('판돈은 ' + RPSD.minStake + '초코 이상의 정수로 정해주세요.');
   return amount;
 }
 // 지갑에서 판돈을 뺀 뒤에 부른다

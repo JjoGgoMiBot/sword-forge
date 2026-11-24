@@ -112,7 +112,7 @@ export class LandPlayer{
       return Response.json(output);
     });}catch(e){return Response.json({error:'land_action',msg:e.message},{status:e.status||400});}
   }
-  bet(s,amount,now){if(!Number.isSafeInteger(amount)||amount<10||amount>5000)fail('베팅은 10~5,000초코의 정수로 입력해주세요.');if(s.balance<amount)fail('초코가 부족해요. 출석이나 퀴즈를 이용해보세요.');if(now<s.nextPlay)fail('잠깐만요. 앞선 결과를 먼저 확인해주세요.',429);}
+  bet(s,amount,now){if(!Number.isSafeInteger(amount)||amount<10||amount>Math.floor(Number.MAX_SAFE_INTEGER/1000))fail('베팅은 10초코 이상의 정수로 입력해주세요.');if(s.balance<amount)fail('초코가 부족해요. 출석이나 퀴즈를 이용해보세요.');if(now<s.nextPlay)fail('잠깐만요. 앞선 결과를 먼저 확인해주세요.',429);}
   entry(s,delta,reason,now){if(!Number.isSafeInteger(s.balance+delta)||s.balance+delta<0)fail('초코가 부족해요.');if(reason!=='첫 주민 선물')s.balance+=delta;this.sql.exec('INSERT INTO ledger(delta,balance,reason,created) VALUES(?,?,?,?)',delta,s.balance,reason,now);}
   view(s,today){return {rev:s.rev,resident:{id:s.id,name:s.name,avatar:s.avatar},wallet:{balance:s.balance,daily:s.dailyClaim===today,rescue:s.rescueClaim===today,quizWins:s.quizWins,begNext:s.begNext||0,giftLeft:GIFT.dailyLimit-(s.giftDay===today?s.giftSent:0)},blackjack:bjView(s.bj),arcade:roundView(s.arcade),race:s.race,quiz:s.quiz?{id:s.quiz.id,initials:s.quiz.initials,hint:s.quiz.hint,expires:s.quiz.expires,tries:s.quiz.tries}:null,spread:s.spread?{id:s.spread.id,picked:s.spread.picked,results:s.spread.picked.map(i=>({...cardView(s.spread.cards[i]),index:i}))}:null,dailyCard:s.dailyCard?cardView(s.dailyCard):null,history:s.history.map(cardView),ledger:this.sql.exec('SELECT delta,balance,reason,created FROM ledger ORDER BY id DESC LIMIT 15').toArray(),now:Date.now()};}
 }

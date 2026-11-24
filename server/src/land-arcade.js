@@ -10,7 +10,7 @@ export const ARCADE = Object.freeze({
   hilo: Object.freeze({maxSteps: 10, maxMult: 100}),
   mines: Object.freeze({cells: 25, counts: Object.freeze([1, 3, 5, 10]), maxMult: 100}),
   baccarat: Object.freeze({player: 1.9, banker: 1.88, tie: 10}),
-  // 럭키박스: 가격은 베팅 상한(5,000) 안에서 세 가지. 상품 배율 기대값 ≈ 0.952
+  // 럭키박스: 가격은 세 가지(100·1,000·5,000). 상품 배율 기대값 ≈ 0.952
   boxes: Object.freeze({small: 100, big: 1000, gold: 5000}),
   boxPrizes: Object.freeze([
     ['먼지만 폴폴', 3620, 0.2], ['달콤한 사탕', 3000, 0.5], ['초코 한 줌', 1800, 1], ['선물 꾸러미', 1000, 2],
