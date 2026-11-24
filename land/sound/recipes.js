@@ -293,26 +293,29 @@ const leadNote = (c, at, i, dur, gain = 0, extra = {}) => ({ ...c.lead, at, dur,
 const bellNote = (c, at, i, dur, gain = 0) => ({ ...c.bell, at, dur, freq: c.bell.freq ?? semis(sc(c, i), 12), gain: (c.bell.gain ?? 0) + gain });
 
 Object.assign(SFX, {
-  win: { id: 'win', lufs: -14, duck: 4, build(p) {
-    const c = conceptOf(p), r = rng(p.seed ?? 5), coins = [];
-    for (let k = 0; k < 9; k++) coins.push({ at: 0.16 + k * 0.05 + r() * 0.02, dur: 0.22, src: { type: 'fm', ratio: 2.3, index: [[0, 1.4], [0.2, 0.2]] }, freq: 2300 + r() * 1500, env: { a: 0.001, d: 0.18, s: 0, r: 0.08 }, gain: -10 - k * 0.7, pan: r() * 1.2 - 0.6 });
+  // 성공: 마림바풍 말렛이 C-E-G-C로 튀어 오르고, 맨 위 음이 길게 울린다. 컨셉과 무관한 고유 음색(동전 '챙' + 아래 '둥' + 반짝 꼬리).
+  win: { id: 'win', lufs: -15, duck: 4, build(p) {
+    const c = conceptOf(p), r = rng(p.seed ?? 5), det = 1 + (r() - 0.5) * 0.06;
+    const mallet = (at, f, dur, gain) => ({ at, dur, src: { type: 'fm', ratio: 2, index: [[0, 1.3], [0.18, 0.12]] }, freq: f * det, env: { a: 0.002, d: dur * 0.8, s: 0, r: 0.12 }, filter: { type: 'lowpass', freq: 4200, q: 0.5 }, gain });
+    const notes = [[0, 523.25, 0.42, -3], [0.075, 659.26, 0.42, -3.5], [0.15, 783.99, 0.45, -4], [0.225, 1046.5, 1.0, -2]];
     return { space: c.space, tracks: [
-      tr('transient', [click(0, 4500, -4, 0.006), { at: 0, dur: 0.18, src: { type: 'noise', color: 'pink' }, env: { points: [[0, 0], [0.14, 1], [0.18, 0]] }, filter: { type: 'bandpass', freq: [[0, 700], [0.16, 5200]], q: 1.2 }, gain: -12 }]),
-      tr('body', [0, 2, 4, 7].map((d, i) => leadNote(c, 0.1 + i * 0.07, d, 0.55, -i * 0.4)).concat([bellNote(c, 0.1, 5, 0.5, -6)]), { fx: { reverb: 0.3 } }),
-      tr('동전', coins, { fx: { reverb: 0.25 } }),
-      tr('tail', [bellNote(c, 0.42, 7, 1.4, -4), bellNote(c, 0.5, 9, 1.4, -9), leadNote(c, 0.42, 4, 1.2, -8)], { fx: { reverb: 0.6 } }),
+      tr('transient', [click(0, 5000, -7, 0.005), { at: 0, dur: 0.3, src: { type: 'fm', ratio: 3.01, index: [[0, 1.1], [0.1, 0.1]] }, freq: 1568 * det, env: { a: 0.001, d: 0.22, s: 0, r: 0.08 }, filter: { type: 'lowpass', freq: 6000 }, gain: -12 }]),
+      tr('body', [...notes.map(([at, f, dur, g]) => mallet(at, f, dur, g)), mallet(0.3, 1318.5, 0.8, -9), thud(0, 150, -8, 0.16, 5)], { fx: { reverb: 0.3 } }),
+      tr('tail', [{ at: 0.2, dur: 1.0, src: { type: 'osc', wave: 'sine' }, freq: 1046.5 * det, env: { a: 0.06, d: 0.9, s: 0, r: 0.3 }, gain: -16 }, { at: 0.2, dur: 1.0, src: { type: 'osc', wave: 'sine' }, freq: 1568 * det, env: { a: 0.06, d: 0.9, s: 0, r: 0.3 }, gain: -19 }, { at: 0.18, dur: 0.9, src: { type: 'noise' }, env: { points: [[0, 0], [0.08, 1], [0.9, 0]] }, filter: { type: 'highpass', freq: 6500 }, gain: -24 }], { fx: { reverb: 0.55 } }),
     ] };
   } },
   draw: { id: 'draw', lufs: -19, build(p) {
     const c = conceptOf(p);
     return { space: c.space, tracks: [tr('body', [leadNote(c, 0, 3, 0.5, 0), leadNote(c, 0.16, 3, 0.8, -3)], { fx: { reverb: 0.3 } })] };
   } },
-  lose: { id: 'lose', lufs: -18, build(p) {
-    const c = conceptOf(p);
+  // 실패: 낮은 금관풍 두 음이 G→E♭으로 내려앉고 마지막 음이 처지며 사라진다. 아래에 '쿵' 한 번. 날카로운 소리 없음.
+  lose: { id: 'lose', lufs: -19, build(p) {
+    const c = conceptOf(p), r = rng(p.seed ?? 9), det = 1 + (r() - 0.5) * 0.04;
+    const horn = (at, f, dur, gain, bend) => ({ at, dur, src: { type: 'osc', wave: 'sawtooth', unison: 2, spread: 9 }, freq: f * det, env: { a: 0.03, d: dur * 0.5, s: 0.55, r: 0.25 }, filter: { type: 'lowpass', freq: 780, q: 0.6 }, gain, ...(bend ? { bend } : {}) });
     return { space: c.space, tracks: [
-      tr('transient', [thud(0, 95, -2, 0.3, 14), click(0, 900, -14, 0.02)]),
-      tr('body', [{ ...c.lead, at: 0.04, dur: 0.9, freq: sc(c, 4), gain: (c.lead.gain ?? 0) - 2, bend: [[0, 0], [0.18, -0.2], [0.9, -3.2]] }, { ...c.lead, at: 0.04, dur: 0.9, freq: sc(c, 4) * 1.012, gain: (c.lead.gain ?? 0) - 7, bend: [[0, 0], [0.9, -3.4]] }], { fx: { reverb: 0.3, filter: { type: 'lowpass', freq: 1400 } } }),
-      tr('tail', [{ at: 0.1, dur: 0.7, src: { type: 'noise', color: 'brown' }, env: { points: [[0, 0], [0.1, 1], [0.7, 0]] }, filter: { type: 'lowpass', freq: [[0, 900], [0.7, 200]], q: 0.7 }, gain: -12 }], { fx: { reverb: 0.4 } }),
+      tr('transient', [thud(0, 85, -2, 0.28, 10), click(0, 1100, -17, 0.015)]),
+      tr('body', [horn(0.02, 196, 0.3, -5), horn(0.3, 155.56, 0.85, -4, [[0, 0], [0.25, 0], [0.85, -1.8]])], { fx: { reverb: 0.25 } }),
+      tr('tail', [{ at: 0.2, dur: 0.8, src: { type: 'noise', color: 'brown' }, env: { points: [[0, 0], [0.1, 1], [0.8, 0]] }, filter: { type: 'lowpass', freq: [[0, 800], [0.8, 180]], q: 0.7 }, gain: -15 }], { fx: { reverb: 0.4 } }),
     ] };
   } },
   jackpot: { id: 'jackpot', lufs: -12, duck: 9, variants: 1, build(p) {
