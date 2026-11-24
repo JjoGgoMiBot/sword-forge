@@ -5,7 +5,7 @@ import {drawResident,drawResidentFast} from './resident-art.js?v=5';
 import {isActivity,connectDiscordVoice} from './discord-voice.js';
 import {casinoOutcome as classifyOutcome,playCasinoFx,playSceneFx,settleMs,reelStopMs} from './casino-fx.js?v=13';
 import {raceMarkup,playRace,RACE} from './race-script.js?v=2';
-import {createPoker} from './poker-ui.js?v=3';
+import {createPoker} from './poker-ui.js?v=4';
 import {createArcade,ARCADE_TABS,ARCADE_RULES} from './arcade-ui.js?v=11';
 import {getSound} from './sound/sound.js?v=7';
 import {casinoCues,fortuneCues,PREWARM} from './sound/cues.js?v=5';
@@ -59,7 +59,7 @@ async function recover(){if(busy)return;const request=store.get(pendingKey(),tru
 function stop(){held.clear();if(socket?.readyState===1)sendMovement(true);}
 function open(dialog){stop();if(!dialog.open)dialog.showModal();}
 document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>button.closest('dialog').close()));
-document.querySelectorAll('dialog').forEach(dialog=>{dialog.addEventListener('close',async()=>{if(dialog===$('venueDialog')){venue=null;pokerWatch(false);arcade.unmount();soundRun.cancel();sound.setScene(null);$('venueContent').replaceChildren();$('venueDialog').classList.remove('forge-mode');if(account){try{const data=await api('/load');forge=JSON.parse(data.save);renderHeader();}catch{}}}if(dialog===$('profileDialog'))clearInterval(linkTimer);$('world').focus({preventScroll:true});});dialog.addEventListener('cancel',stop);});
+document.querySelectorAll('dialog').forEach(dialog=>{dialog.addEventListener('close',async()=>{if(dialog===$('venueDialog')){venue=null;if(poker.state&&poker.state.you!=null&&socket?.readyState===1)socket.send(JSON.stringify({type:'poker',op:'leave'}));pokerWatch(false);arcade.unmount();soundRun.cancel();sound.setScene(null);$('venueContent').replaceChildren();$('venueDialog').classList.remove('forge-mode');if(account){try{const data=await api('/load');forge=JSON.parse(data.save);renderHeader();}catch{}}}if(dialog===$('profileDialog'))clearInterval(linkTimer);$('world').focus({preventScroll:true});});dialog.addEventListener('cancel',stop);});
 function renderHeader(){$('profileButton').textContent=account?account.name+' 주민':'주민 등록 / 로그인';$('gold').textContent=forge?money(forge.gold)+' G':'—';$('choco').textContent=profile?money(profile.wallet.balance)+' C':'—';}
 function setAccount(value){closeSidebar();sidebarRoom='';$('chatChannel').value='';epoch++;account=value;store.set('swordforge-acc',value);profile=null;forge=null;self=null;chatPending.clear();messages=[];peers.clear();Object.assign(position,WORLD.spawn);closeSocket();renderChat(true);renderHeader();}
 function showAuth(){open($('authDialog'));$('authError').textContent='';$('nameInput').focus();}

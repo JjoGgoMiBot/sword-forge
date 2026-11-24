@@ -36,7 +36,7 @@ export function createPoker({money, h, send, toast, balance, sound}) {
 
   function statusText() {
     if (!st) return '테이블을 불러오는 중…';
-    if (st.phase === 'idle') return st.seats.some(Boolean) ? '곧 첫 판을 시작해요.' : '빈 테이블이에요. 앉으면 봇이 함께 앉아 바로 시작해요.';
+    if (st.phase === 'idle') return st.seats.some(Boolean) ? '다른 사람이 들어올 시간을 드려요. 카운트다운이 끝나면 첫 판을 시작해요.' : '빈 테이블이에요. 앉으면 봇이 함께 앉아 바로 시작해요.';
     if (st.phase === 'showdown') {
       const w = st.result?.winners || [];
       return w.map(x => h(x.name) + ' ' + money(x.amount) + '초코' + (x.hand ? ' · ' + h(x.hand) : '')).join(', ') + (st.result?.showdown ? '' : ' (모두 폴드)');
@@ -75,7 +75,7 @@ export function createPoker({money, h, send, toast, balance, sound}) {
     const me = st.you != null ? st.seats[st.you] : null;
     const board = Array.from({length: 5}, (_, k) => st.board[k] ? card(st.board[k]) : '<span class="pk-card slot"></span>').join('');
     box.innerHTML = '<div class="pk-summary"><span>팟 <b>' + money(st.pot || (st.result?.winners || []).reduce((a, w) => a + w.amount, 0)) + '</b></span><span>블라인드 ' + money(st.limits.smallBlind) + '/' + money(st.limits.bigBlind) + '</span><span>' + (st.hand ? '#' + st.hand : '대기') + '</span></div>'
-      + '<details class="pk-quick-rules"><summary>포커 간단 규칙</summary><div><p><b>내 패 2장 + 공용 카드 5장</b> 중 가장 좋은 5장으로 승부해요.</p><p>프리플랍(내 패) → 플랍(공용 3장) → 턴(+1장) → 리버(+1장) 순서로 베팅해요.</p><ul><li><b>폴드</b>: 이번 판 포기</li><li><b>체크</b>: 맞출 돈이 없을 때 넘기기</li><li><b>콜</b>: 상대 베팅액에 맞추기</li><li><b>레이즈 / 올인</b>: 베팅 올리기 / 남은 칩 모두 걸기</li></ul><p>높은 족보 순: 스트레이트 플러시(로열 포함) → 포카드 → 풀하우스 → 플러시 → 스트레이트 → 트리플 → 투페어 → 원페어 → 하이카드.</p><p>끝까지 남은 사람들이 패를 공개해 승자가 팟을 가져가요. 모두 폴드하면 마지막 한 명이 이겨요.</p></div></details><div class="pk-table"><div class="pk-felt">'+chips(st.pot||0)+'<div class="pk-board">' + board + '</div><p class="pk-status" aria-live="polite">' + statusText() + ' <span data-poker-next></span></p></div>' + st.seats.map(seatHtml).join('') + '</div>'
+      + '<details class="pk-quick-rules"><summary>포커 간단 규칙</summary><div><p><b>내 패 2장 + 공용 카드 5장</b> 중 가장 좋은 5장으로 승부해요.</p><p>프리플랍(내 패) → 플랍(공용 3장) → 턴(+1장) → 리버(+1장) 순서로 베팅해요.</p><ul><li><b>폴드</b>: 이번 판 포기</li><li><b>체크</b>: 맞출 돈이 없을 때 넘기기</li><li><b>콜</b>: 상대 베팅액에 맞추기</li><li><b>레이즈 / 올인</b>: 베팅 올리기 / 남은 칩 모두 걸기</li></ul><p>높은 족보 순: 스트레이트 플러시(로열 포함) → 포카드 → 풀하우스 → 플러시 → 스트레이트 → 트리플 → 투페어 → 원페어 → 하이카드.</p><p>끝까지 남은 사람들이 패를 공개해 승자가 팟을 가져가요. 모두 폴드하면 마지막 한 명이 이겨요.</p></div></details><div class="pk-table"><div class="pk-felt">'+chips(st.pot||0)+'<div class="pk-board">' + board + '</div><p class="pk-status" aria-live="polite">' + statusText() + ' <span data-poker-next></span></p>' + (st.you != null ? '<button class="pk-exit" data-poker="leave">나가기</button>' : '') + '</div>' + st.seats.map(seatHtml).join('') + '</div>'
       + (me && me.cards ? '<div class="pk-mine">' + me.cards.map(c => card(c, 'lg')).join('') + '<div><small class="muted">내 패</small><strong>' + h(st.myHand || (me.folded ? '폴드' : '프리플랍')) + '</strong>' + (st.options ? '<span class="pk-clock" data-poker-timer></span>' : '') + '</div></div>' : '')
       + actionsHtml() + seatControls();
     tickTimers();

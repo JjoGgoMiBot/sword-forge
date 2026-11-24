@@ -15,7 +15,7 @@ export const POKER = Object.freeze({
   awayActionMs: 6000,   // 연결이 끊긴 사람 차례는 짧게만 기다린다
   maxTimeouts: 2,       // 연속 시간 초과가 이만큼이면 판이 끝날 때 자리에서 일어난다
   botDelayMs: [900, 2000],
-  startDelayMs: 2500,   // 첫 사람이 앉은 뒤 첫 판까지
+  startDelayMs: 20000,  // 첫 사람이 앉은 뒤 첫 판까지(다른 사람이 들어올 시간)
   showdownMs: 5500,     // 결과를 보여 주고 다음 판까지
   botTarget: 4,         // 사람이 한 명이라도 앉아 있으면 자리 수를 이만큼까지 봇으로 채운다
   botStack: 1000,

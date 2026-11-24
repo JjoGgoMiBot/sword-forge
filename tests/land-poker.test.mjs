@@ -212,3 +212,17 @@ test('다른 사람 소켓에는 내 패가 가지 않는다', async () => {
   assert.equal(seen.seats[0].cards, null, '구경꾼 소켓에는 패 없음');
   assert.equal(seen.seats[0].hidden, 2);
 });
+
+test('첫 사람이 앉아도 바로 시작하지 않고 다른 사람이 들어올 시간(15초 이상)을 준다. 대기 중 일어나면 칩 전액 환불', () => {
+  const t = newTable(), now = 1_000_000;
+  sit(t, 0, {id: 'u0', key: 'k0', name: '하나'}, 1000, now);
+  assert.equal(t.phase, 'idle');
+  assert.ok(t.nextAt - now >= 15000, '대기 ' + (t.nextAt - now) + 'ms');
+  tick(t, now + 3000, seeded(1));
+  assert.equal(t.phase, 'idle', '3초 뒤에도 아직 시작 전');
+  sit(t, 1, {id: 'u1', key: 'k1', name: '둘'}, 1000, now + 4000);
+  assert.equal(t.nextAt - now, POKER.startDelayMs, '두 번째 사람이 앉아도 카운트다운이 늘거나 줄지 않는다');
+  const ev = standUp(t, 'u0', now + 5000, seeded(2));
+  assert.deepEqual(ev.cashOuts.map(c => [c.id, c.amount]), [['u0', 1000]]);
+  assert.equal(t.seats[0], null);
+});
