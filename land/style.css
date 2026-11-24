@@ -193,7 +193,7 @@
 .pk-cards{display:flex;gap:2px;min-height:34px}
 .pk-stack{font-weight:700}.pk-won{color:var(--green);font-weight:700}.pk-last{color:var(--muted)}.pk-last.fold{color:var(--muted)}.pk-last.raise,.pk-last.allin{color:var(--clay);font-weight:700}.pk-hand-name{color:var(--ink);font-weight:700}
 .pk-bet{position:absolute;top:-12px;right:-8px;background:var(--pk-gold);color:#2b2420;border-radius:10px;padding:0 8px;font-weight:700;font-size:11px}
-.pk-dealer{position:absolute;top:-10px;left:-8px;width:22px;height:22px;border-radius:50%;background:#fff;border:1px solid #2b2420;color:#2b2420;font-style:normal;font-weight:700;font-size:11px;display:grid;place-items:center}
+.pk-dealer{position:absolute;top:-12px;left:-10px;width:26px;height:26px;background:url(assets/poker/dealer-button.svg) center/contain no-repeat;font-size:0;filter:drop-shadow(0 1px 2px #0006)}
 .pk-timer,.pk-clock{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink)}.pk-timer.low,.pk-clock.low{color:var(--red)}
 .pos0{left:50%;top:100%}.pos1{left:2%;top:76%}.pos2{left:2%;top:24%}.pos3{left:50%;top:0}.pos4{left:98%;top:24%}.pos5{left:98%;top:76%}
 .pk-mine{display:flex;gap:8px;align-items:center}.pk-mine>div{display:grid;gap:0;margin-left:8px}.pk-mine strong{font-size:16px}.pk-clock{font-size:20px}
@@ -419,3 +419,5 @@
 .pk-seat.won .pk-card{animation:pkWin 1s ease-in-out 2}
 @keyframes pkWin{50%{transform:translateY(-4px);box-shadow:0 0 12px #ffd34d}}
 @media(prefers-reduced-motion:reduce){.pk-seat.won .pk-card{animation:none}}
+
+/* 아바타 금속 테두리(이미지) */.pk-avatar::after{content:'';position:absolute;inset:3px;background:url(assets/poker/avatar-frame.svg) center/contain no-repeat;pointer-events:none}
